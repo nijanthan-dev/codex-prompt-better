@@ -31,7 +31,7 @@ Planned tools: `improve_prompt`, `create_goal_prompt`,
 and `render_governance_report`.
 
 See [architecture](docs/architecture.md), [data model](docs/data-model.md), and
-the [implementation roadmap](https://github.com/nijanthan-dev/prompt-better/issues).
+the [implementation roadmap](https://github.com/nijanthan-dev/prompt-better/issues/1).
 
 ## Privacy
 
