@@ -18,4 +18,5 @@
 - Scan the full bug class before re-requesting one current-head review.
 - Squash merge only after clean review, checks, threads, merge state, and scans.
 - Version persisted changes. Tables precede indexes, FKs, and views in migrations.
+- Keep README and GitHub About/topics aligned with `docs/discovery.md`.
 - No release without documented closeout, provenance, changelog, and rollback plan.

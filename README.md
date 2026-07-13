@@ -1,8 +1,9 @@
-# Prompt Better
+# Prompt Better for Codex
 
-Prompt Better is a planned local-first prompt compiler and governance toolkit for
-Codex. It aims to turn rough intent into bounded, reviewable instructions while
-measuring whether execution stayed inside the requested scope.
+Prompt Better is a planned local-first prompt compiler, prompt linter, and
+governance toolkit for OpenAI Codex. Its cross-platform Go CLI/core, thin Codex
+skill, and local MCP server will turn rough intent into bounded, reviewable
+instructions while measuring whether execution stayed inside the requested scope.
 
 > **Status:** pre-alpha. The engine, CLI, MCP server, collector, database,
 > packages, and installers do not exist yet.
@@ -31,7 +32,7 @@ Planned tools: `improve_prompt`, `create_goal_prompt`,
 and `render_governance_report`.
 
 See [architecture](docs/architecture.md), [data model](docs/data-model.md), and
-the [implementation roadmap](https://github.com/nijanthan-dev/prompt-better/issues/1).
+the [implementation roadmap](https://github.com/nijanthan-dev/codex-prompt-better/issues/1).
 
 ## Privacy
 
@@ -56,7 +57,8 @@ remain design contracts until implemented. See [installation](docs/installation.
 ## Community
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md),
-[SUPPORT.md](SUPPORT.md), and [GOVERNANCE.md](GOVERNANCE.md).
+[SUPPORT.md](SUPPORT.md), and [GOVERNANCE.md](GOVERNANCE.md). Repository
+positioning and metadata are maintained in [docs/discovery.md](docs/discovery.md).
 
 ## License
 
