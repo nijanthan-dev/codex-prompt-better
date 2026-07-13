@@ -1,0 +1,42 @@
+name: Bug report
+description: Report reproducible incorrect behavior with synthetic data.
+title: "bug: "
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: Never include prompts, sessions, credentials, databases, personal data, or host paths.
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Behavior
+      description: Expected and actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Synthetic reproduction
+      description: Minimal steps and synthetic inputs.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Sanitized environment
+      description: OS/runtime only; omit usernames and paths.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed secrets and private/local data.
+          required: true
+        - label: This is not a vulnerability report.
+          required: true

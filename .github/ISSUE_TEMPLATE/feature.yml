@@ -1,0 +1,31 @@
+name: Feature proposal
+description: Propose a scoped capability or architecture change.
+title: "feat: "
+labels: [enhancement, triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: User problem and evidence; use synthetic examples.
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: User-visible contract
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Architecture and privacy boundaries
+      description: Include execution policy, retention, permissions, and platform impact.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Acceptance and validation
+    validations:
+      required: true
