@@ -13,6 +13,10 @@ Prompt Better is pre-alpha. Start with an issue before substantial work.
 6. Secret-scan the tree, history, and PR diff before requesting merge.
 7. Open a focused PR with validation and privacy/security notes.
 
+Use Conventional Commit types for squash titles: `feat:` for features, `fix:`
+for fixes, and `docs:`, `chore:`, or `ci:` for non-release changes. See
+[docs/releasing.md](docs/releasing.md).
+
 Architecture changes require an ADR. Schema changes require versioned migrations;
 create tables before indexes, foreign keys, and views. Do not dual-own shared
 resources across packaging or infrastructure systems.

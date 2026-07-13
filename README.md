@@ -59,6 +59,7 @@ remain design contracts until implemented. See [installation](docs/installation.
 Read [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md),
 [SUPPORT.md](SUPPORT.md), and [GOVERNANCE.md](GOVERNANCE.md). Repository
 positioning and metadata are maintained in [docs/discovery.md](docs/discovery.md).
+Release versioning is documented in [docs/releasing.md](docs/releasing.md).
 
 ## License
 

@@ -19,4 +19,5 @@
 - Squash merge only after clean review, checks, threads, merge state, and scans.
 - Version persisted changes. Tables precede indexes, FKs, and views in migrations.
 - Keep README and GitHub About/topics aligned with `docs/discovery.md`.
+- Use Conventional Commit squash titles; verify the Release Please PR, tag, and release.
 - No release without documented closeout, provenance, changelog, and rollback plan.
