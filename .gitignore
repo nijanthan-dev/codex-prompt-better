@@ -1,0 +1,23 @@
+# Build and test output
+/bin/
+/dist/
+/coverage/
+*.coverprofile
+*.test
+
+# Local configuration and data
+.env
+.env.*
+!.env.example
+*.local.*
+*.sqlite
+*.sqlite3
+*.db
+/data/
+/backups/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+*.swp
