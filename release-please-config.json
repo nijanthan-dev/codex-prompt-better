@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "414f9df86c7d1eac4b0784fb4f6db81395eb3f89",
+  "release-type": "go",
+  "bump-minor-pre-major": true,
+  "include-v-in-tag": true,
+  "include-component-in-tag": false,
+  "packages": {
+    ".": {
+      "package-name": "codex-prompt-better",
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}
