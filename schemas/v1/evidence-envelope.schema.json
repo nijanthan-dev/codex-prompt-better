@@ -39,8 +39,7 @@
         },
         "identity": {
           "type": "string",
-          "minLength": 1,
-          "maxLength": 128
+          "pattern": "^sha256:[a-f0-9]{64}$"
         },
         "version": {
           "type": [
@@ -56,8 +55,7 @@
     },
     "external_id": {
       "type": "string",
-      "minLength": 1,
-      "maxLength": 128
+      "pattern": "^sha256:[a-f0-9]{64}$"
     },
     "cursor": {
       "type": "object",

@@ -2,11 +2,11 @@
   "schema_version": "1.0.0",
   "source": {
     "kind": "synthetic_jsonl",
-    "identity": "source-alpha",
+    "identity": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
     "version": "1",
     "read_only": true
   },
-  "external_id": "artifact-alpha",
+  "external_id": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
   "cursor": {
     "kind": "sequence",
     "value": "42"

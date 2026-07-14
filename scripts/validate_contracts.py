@@ -176,6 +176,19 @@ if evidence_positive:
     naive_observed_at["observed_at"] = "2026-07-14T00:00:00"
     if schema_valid(naive_observed_at, evidence_schema, evidence_schema_path):
         failures.append("evidence accepted non-RFC3339 observed_at")
+    for field, unsafe_value in (
+        ("source.identity", "/home/synthetic/.codex/session.json"),
+        ("source.identity", "sk-proj-" + "a" * 20),
+        ("external_id", "C:\\Users\\synthetic\\session.json"),
+        ("external_id", "ghp_" + "a" * 20),
+    ):
+        unsafe_identity = deepcopy(evidence_positive)
+        if field == "source.identity":
+            unsafe_identity["source"]["identity"] = unsafe_value
+        else:
+            unsafe_identity[field] = unsafe_value
+        if schema_valid(unsafe_identity, evidence_schema, evidence_schema_path):
+            failures.append(f"evidence accepted unsafe {field}")
 
 runtime_schema_path = SCHEMAS / "runtime-observation.schema.json"
 runtime_schema = schemas[runtime_schema_path]
@@ -350,22 +363,45 @@ for base in (ROOT / "docs", SCHEMAS, ROOT / "testdata"):
             failures.append(f"{path.relative_to(ROOT)}: sensitive-pattern match")
 
 ledger = (ROOT / "docs/contracts/source-ledger.md").read_text(encoding="utf-8")
+expected_source_ids = {
+    "OAI-56", "OAI-PE", "OAI-RB", "OAI-PC", "OAI-CO", "OAI-FC",
+    "OAI-CS", "OAI-MG", "STAFF-1", "PRACT-1",
+}
 ledger_rows = {}
 for line in ledger.splitlines():
     cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
     if cells and re.fullmatch(r"(?:OAI-[A-Z0-9]+|STAFF-1|PRACT-1)", cells[0]):
         ledger_rows[cells[0]] = cells
-for source_id in ("OAI-56","OAI-PE","OAI-RB","OAI-PC","OAI-CO","OAI-FC","OAI-CS","OAI-MG","STAFF-1","PRACT-1"):
+for source_id in sorted(expected_source_ids):
     if ledger.count(f"| {source_id} |") != 1:
         failures.append(f"ledger mapping count invalid: {source_id}")
         continue
     cells = ledger_rows.get(source_id, [])
     if len(cells) != 6 or any(not cells[index] for index in (1, 2, 3, 4, 5)):
         failures.append(f"ledger row incomplete: {source_id}")
+        continue
+    for artifact in re.findall(r"`([^`]+/[^`]+)`", cells[4]):
+        if not (ROOT / artifact).is_file():
+            failures.append(f"ledger artifact missing: {source_id} -> {artifact}")
 
 hash_lines = [line for line in (ROOT / "docs/contracts/source-ledger.sha256").read_text().splitlines() if line and not line.startswith("#")]
-if len(hash_lines) != 10 or sum(bool(re.match(r"^[a-f0-9]{64}  [A-Z0-9-]+$", line)) for line in hash_lines) != 9:
-    failures.append("source hashes must contain nine retrieved hashes and one explicit unavailable source")
+hash_rows = {}
+for line in hash_lines:
+    match = re.fullmatch(r"([a-f0-9]{64}|unavailable-no-source-url)  ([A-Z0-9-]+)", line)
+    if not match:
+        failures.append(f"invalid source hash row: {line}")
+        continue
+    digest, source_id = match.groups()
+    if source_id in hash_rows:
+        failures.append(f"duplicate source hash ID: {source_id}")
+    hash_rows[source_id] = digest
+if set(hash_rows) != expected_source_ids:
+    failures.append("source hash IDs do not match ledger IDs")
+if hash_rows.get("PRACT-1") != "unavailable-no-source-url":
+    failures.append("PRACT-1 must retain explicit unavailable marker")
+for source_id in expected_source_ids - {"PRACT-1"}:
+    if not re.fullmatch(r"[a-f0-9]{64}", hash_rows.get(source_id, "")):
+        failures.append(f"source hash missing: {source_id}")
 
 for path in (ROOT / "docs").rglob("*.md"):
     text = path.read_text(encoding="utf-8")
