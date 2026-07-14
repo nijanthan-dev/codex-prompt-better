@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import sys
 from copy import deepcopy
@@ -15,9 +16,16 @@ GOLDEN = ROOT / "testdata" / "golden"
 failures: list[str] = []
 
 
+def reject_non_json_constant(value):
+    raise ValueError(f"non-JSON numeric constant: {value}")
+
+
 def load(path: Path):
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(
+            path.read_text(encoding="utf-8"),
+            parse_constant=reject_non_json_constant,
+        )
     except Exception as exc:
         failures.append(f"{path.relative_to(ROOT)}: invalid JSON: {exc}")
         return None
@@ -92,6 +100,8 @@ def schema_valid(value, schema, schema_path):
         except ValueError:
             return False
     if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if not math.isfinite(value):
+            return False
         if value < schema.get("minimum", value):
             return False
         if value > schema.get("maximum", value):
@@ -179,6 +189,18 @@ unsafe_runtime_observation["tool_call"] = {
 }
 if schema_valid(unsafe_runtime_observation, runtime_schema, runtime_schema_path):
     failures.append("runtime observation accepted unsafe tool identifier")
+misclassified_subscription = deepcopy(runtime_observation)
+misclassified_subscription.update(
+    product_surface="codex_subscription",
+    accounting_regime="api_money",
+    usage_unit="currency_minor",
+)
+if schema_valid(misclassified_subscription, runtime_schema, runtime_schema_path):
+    failures.append("subscription observation accepted API accounting")
+non_finite_runtime = deepcopy(runtime_observation)
+non_finite_runtime["confidence"] = float("nan")
+if schema_valid(non_finite_runtime, runtime_schema, runtime_schema_path):
+    failures.append("runtime observation accepted non-finite number")
 
 for path, schema in schemas.items():
     if not isinstance(schema, dict):

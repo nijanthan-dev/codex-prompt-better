@@ -112,11 +112,11 @@
         "opaque_item_hash"
       ],
       "properties": {
-          "event_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128,
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        "event_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
         },
         "mode": {
           "enum": [
@@ -153,11 +153,11 @@
         "program_output_id"
       ],
       "properties": {
-          "call_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128,
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        "call_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
         },
         "path": {
           "enum": [
@@ -168,19 +168,19 @@
         },
         "caller": {
           "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 128,
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
         },
         "program_output_id": {
           "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 128,
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
         }
       }
     },
@@ -205,11 +205,11 @@
         },
         "parent_id": {
           "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 128,
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
         },
         "context_mode": {
           "enum": [
@@ -268,5 +268,103 @@
       "minimum": 0,
       "maximum": 1
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "product_surface": {
+            "const": "codex_subscription"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "accounting_regime": {
+            "enum": [
+              "subscription_usage",
+              "unknown"
+            ]
+          },
+          "usage_unit": {
+            "enum": [
+              "subscription_unit",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "product_surface": {
+            "const": "openai_api"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "accounting_regime": {
+            "enum": [
+              "api_tokens",
+              "api_money",
+              "unknown"
+            ]
+          },
+          "usage_unit": {
+            "enum": [
+              "token",
+              "currency_minor",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "product_surface": {
+            "const": "local"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "accounting_regime": {
+            "enum": [
+              "local",
+              "unknown"
+            ]
+          },
+          "usage_unit": {
+            "enum": [
+              "event",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "product_surface": {
+            "const": "unknown"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "accounting_regime": {
+            "const": "unknown"
+          },
+          "usage_unit": {
+            "const": "unknown"
+          }
+        }
+      }
+    }
+  ]
 }
