@@ -242,6 +242,36 @@ misclassified_subscription.update(
 )
 if schema_valid(misclassified_subscription, runtime_schema, runtime_schema_path):
     failures.append("subscription observation accepted API accounting")
+for regime, unit in (
+    ("api_tokens", "currency_minor"),
+    ("api_money", "token"),
+    ("api_money", "unknown"),
+):
+    mismatched_api_accounting = deepcopy(runtime_observation)
+    mismatched_api_accounting.update(
+        product_surface="openai_api",
+        accounting_regime=regime,
+        usage_unit=unit,
+    )
+    if schema_valid(mismatched_api_accounting, runtime_schema, runtime_schema_path):
+        failures.append(f"API accounting accepted mismatched {regime}/{unit}")
+unknown_api_accounting = deepcopy(runtime_observation)
+unknown_api_accounting.update(
+    product_surface="openai_api",
+    accounting_regime="unknown",
+    usage_unit="unknown",
+)
+if not schema_valid(unknown_api_accounting, runtime_schema, runtime_schema_path):
+    failures.append("API accounting rejected paired unknown state")
+for regime, unit in (("api_tokens", "token"), ("api_money", "currency_minor")):
+    valid_api_accounting = deepcopy(runtime_observation)
+    valid_api_accounting.update(
+        product_surface="openai_api",
+        accounting_regime=regime,
+        usage_unit=unit,
+    )
+    if not schema_valid(valid_api_accounting, runtime_schema, runtime_schema_path):
+        failures.append(f"API accounting rejected valid {regime}/{unit}")
 non_finite_runtime = deepcopy(runtime_observation)
 non_finite_runtime["confidence"] = float("nan")
 if schema_valid(non_finite_runtime, runtime_schema, runtime_schema_path):

@@ -301,20 +301,28 @@
         }
       },
       "then": {
-        "properties": {
-          "accounting_regime": {
-            "enum": [
-              "subscription_usage",
-              "unknown"
-            ]
+        "oneOf": [
+          {
+            "properties": {
+              "accounting_regime": {
+                "const": "subscription_usage"
+              },
+              "usage_unit": {
+                "const": "subscription_unit"
+              }
+            }
           },
-          "usage_unit": {
-            "enum": [
-              "subscription_unit",
-              "unknown"
-            ]
+          {
+            "properties": {
+              "accounting_regime": {
+                "const": "unknown"
+              },
+              "usage_unit": {
+                "const": "unknown"
+              }
+            }
           }
-        }
+        ]
       }
     },
     {
@@ -326,22 +334,38 @@
         }
       },
       "then": {
-        "properties": {
-          "accounting_regime": {
-            "enum": [
-              "api_tokens",
-              "api_money",
-              "unknown"
-            ]
+        "oneOf": [
+          {
+            "properties": {
+              "accounting_regime": {
+                "const": "api_tokens"
+              },
+              "usage_unit": {
+                "const": "token"
+              }
+            }
           },
-          "usage_unit": {
-            "enum": [
-              "token",
-              "currency_minor",
-              "unknown"
-            ]
+          {
+            "properties": {
+              "accounting_regime": {
+                "const": "api_money"
+              },
+              "usage_unit": {
+                "const": "currency_minor"
+              }
+            }
+          },
+          {
+            "properties": {
+              "accounting_regime": {
+                "const": "unknown"
+              },
+              "usage_unit": {
+                "const": "unknown"
+              }
+            }
           }
-        }
+        ]
       }
     },
     {
@@ -353,20 +377,28 @@
         }
       },
       "then": {
-        "properties": {
-          "accounting_regime": {
-            "enum": [
-              "local",
-              "unknown"
-            ]
+        "oneOf": [
+          {
+            "properties": {
+              "accounting_regime": {
+                "const": "local"
+              },
+              "usage_unit": {
+                "const": "event"
+              }
+            }
           },
-          "usage_unit": {
-            "enum": [
-              "event",
-              "unknown"
-            ]
+          {
+            "properties": {
+              "accounting_regime": {
+                "const": "unknown"
+              },
+              "usage_unit": {
+                "const": "unknown"
+              }
+            }
           }
-        }
+        ]
       }
     },
     {
