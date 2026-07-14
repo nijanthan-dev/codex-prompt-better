@@ -1,4 +1,4 @@
-# Threat model
+# Security risk model
 
 ## Scope and trust boundaries
 

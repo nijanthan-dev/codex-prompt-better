@@ -5,7 +5,7 @@ sources are read-only. Raw prompts and source payloads are not retained by
 default, reports aggregate/redact, backups inherit retention/classification, and
 remote telemetry is off. Secrets are rejected, not stored. Optional raw retention
 or remote behavior needs explicit consent, encryption/deletion design, access
-audit, threat-model update, and a new ADR.
+audit, security-risk-model update, and a new ADR.
 
 Data flows: configured local sources -> platform adapter -> normalization ->
 classification/redaction -> local PostgreSQL -> local audit/report. Codex invokes
