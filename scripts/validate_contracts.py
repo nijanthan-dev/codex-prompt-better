@@ -94,8 +94,15 @@ def schema_valid(value, schema, schema_path):
             return False
         try:
             if schema.get("format") == "date":
+                if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) is None:
+                    return False
                 date.fromisoformat(value)
             if schema.get("format") == "date-time":
+                if re.fullmatch(
+                    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})",
+                    value,
+                ) is None:
+                    return False
                 datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError:
             return False
@@ -165,6 +172,10 @@ if evidence_positive:
     mutable_source["source"]["read_only"] = False
     if schema_valid(mutable_source, evidence_schema, evidence_schema_path):
         failures.append("evidence accepted mutable source")
+    naive_observed_at = deepcopy(evidence_positive)
+    naive_observed_at["observed_at"] = "2026-07-14T00:00:00"
+    if schema_valid(naive_observed_at, evidence_schema, evidence_schema_path):
+        failures.append("evidence accepted non-RFC3339 observed_at")
 
 runtime_schema_path = SCHEMAS / "runtime-observation.schema.json"
 runtime_schema = schemas[runtime_schema_path]
