@@ -6,6 +6,7 @@ import json
 import re
 import sys
 from copy import deepcopy
+from datetime import date, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -60,10 +61,10 @@ def resolve_reference(reference, schema_path):
     return target, target_path
 
 
-def shallow_valid(value, schema, schema_path):
+def schema_valid(value, schema, schema_path):
     if "$ref" in schema:
         resolved, resolved_path = resolve_reference(schema["$ref"], schema_path)
-        return resolved is not None and shallow_valid(value, resolved, resolved_path)
+        return resolved is not None and schema_valid(value, resolved, resolved_path)
 
     kinds = expected_types(schema)
     if kinds and not any(type_matches(value, kind) for kind in kinds):
@@ -72,16 +73,42 @@ def shallow_valid(value, schema, schema_path):
         return False
     if "enum" in schema and value not in schema["enum"]:
         return False
+    if isinstance(value, str):
+        if len(value) < schema.get("minLength", 0):
+            return False
+        if len(value) > schema.get("maxLength", len(value)):
+            return False
+        if "pattern" in schema and re.search(schema["pattern"], value) is None:
+            return False
+        try:
+            if schema.get("format") == "date":
+                date.fromisoformat(value)
+            if schema.get("format") == "date-time":
+                datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if value < schema.get("minimum", value):
+            return False
+        if value > schema.get("maximum", value):
+            return False
+    if isinstance(value, list):
+        if len(value) < schema.get("minItems", 0):
+            return False
+        if len(value) > schema.get("maxItems", len(value)):
+            return False
+        if schema.get("uniqueItems") and len({json.dumps(item, sort_keys=True) for item in value}) != len(value):
+            return False
 
     for rule in schema.get("allOf", []):
         condition = rule.get("if")
         if condition is None:
-            if not shallow_valid(value, rule, schema_path):
+            if not schema_valid(value, rule, schema_path):
                 return False
             continue
-        if shallow_valid(value, condition, schema_path):
+        if schema_valid(value, condition, schema_path):
             consequence = rule.get("then", {})
-            if not shallow_valid(value, consequence, schema_path):
+            if not schema_valid(value, consequence, schema_path):
                 return False
 
     if isinstance(value, dict):
@@ -92,13 +119,13 @@ def shallow_valid(value, schema, schema_path):
         if schema.get("additionalProperties") is False and not set(value) <= set(properties):
             return False
         return all(
-            shallow_valid(item, properties[key], schema_path)
+            schema_valid(item, properties[key], schema_path)
             for key, item in value.items()
             if key in properties
         )
 
     if isinstance(value, list) and "items" in schema:
-        return all(shallow_valid(item, schema["items"], schema_path) for item in value)
+        return all(schema_valid(item, schema["items"], schema_path) for item in value)
     return True
 
 
@@ -137,24 +164,24 @@ for path, schema in schemas.items():
     for kind in ("request", "result"):
         definition = schema["$defs"][kind]
         example = tools.get(name, {}).get(kind)
-        if not shallow_valid(example, definition, path):
+        if not schema_valid(example, definition, path):
             failures.append(f"{name}: positive {kind} fails contract")
             continue
         negative = deepcopy(example)
         negative["unexpected"] = True
-        if shallow_valid(negative, definition, path):
+        if schema_valid(negative, definition, path):
             failures.append(f"{name}: negative closed-object case accepted")
 
 common_schema_path = SCHEMAS / "common.schema.json"
 error_schema = schemas[common_schema_path]["$defs"]["error"]
 for name, examples in tools.items():
     error = examples.get("error")
-    if not shallow_valid(error, error_schema, common_schema_path):
+    if not schema_valid(error, error_schema, common_schema_path):
         failures.append(f"{name}: error example fails common error contract")
         continue
     invalid_error = deepcopy(error)
     invalid_error["unexpected"] = True
-    if shallow_valid(invalid_error, error_schema, common_schema_path):
+    if schema_valid(invalid_error, error_schema, common_schema_path):
         failures.append(f"{name}: negative error closed-object case accepted")
 
 prompt_plan = tools.get("create_goal_prompt", {}).get("request", {}).get("prompt_plan")
@@ -162,7 +189,7 @@ if prompt_plan:
     invalid_prompt_plan = deepcopy(prompt_plan)
     invalid_prompt_plan.pop("goal", None)
     prompt_plan_schema = schemas[SCHEMAS / "prompt-plan.schema.json"]
-    if shallow_valid(invalid_prompt_plan, prompt_plan_schema, SCHEMAS / "prompt-plan.schema.json"):
+    if schema_valid(invalid_prompt_plan, prompt_plan_schema, SCHEMAS / "prompt-plan.schema.json"):
         failures.append("nested prompt-plan reference accepted missing goal")
 
 improve_request = tools.get("improve_prompt", {}).get("request")
@@ -171,8 +198,21 @@ if improve_request:
     invalid_budget_request["budget"]["max_agent_depth"] = None
     improve_schema_path = SCHEMAS / "tools/improve_prompt.schema.json"
     improve_request_schema = schemas[improve_schema_path]["$defs"]["request"]
-    if shallow_valid(invalid_budget_request, improve_request_schema, improve_schema_path):
+    if schema_valid(invalid_budget_request, improve_request_schema, improve_schema_path):
         failures.append("nested execution-budget reference accepted null bounded limit")
+    excessive_budget_request = deepcopy(improve_request)
+    excessive_budget_request["budget"]["max_concurrency"] = 65
+    if schema_valid(excessive_budget_request, improve_request_schema, improve_schema_path):
+        failures.append("nested execution-budget reference accepted excessive concurrency")
+
+review_request = tools.get("create_review_fix_prompt", {}).get("request")
+if review_request:
+    invalid_review_request = deepcopy(review_request)
+    invalid_review_request["review_head"] = "not-hex"
+    review_schema_path = SCHEMAS / "tools/create_review_fix_prompt.schema.json"
+    review_request_schema = schemas[review_schema_path]["$defs"]["request"]
+    if schema_valid(invalid_review_request, review_request_schema, review_schema_path):
+        failures.append("review head pattern constraint not enforced")
 
 budget_schema = schemas[SCHEMAS / "execution-budget.schema.json"]
 bounded_limits = budget_schema["allOf"][0]["then"]["properties"]
