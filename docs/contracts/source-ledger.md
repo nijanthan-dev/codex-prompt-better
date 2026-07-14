@@ -14,7 +14,7 @@ describes OpenAI API guidance; it does not assert Codex-host support.
 | OAI-FC | [Function calling](https://developers.openai.com/api/docs/guides/function-calling) | `official_current` | Strict closed schemas where supported; nullable optionals; semantic validation; parallel capability explicit | base/tool schemas; validator | implemented/tested |
 | OAI-CS | [Conversation state](https://developers.openai.com/api/docs/guides/conversation-state) | `official_current` | `previous_response_id` differs from manual replay | runtime observations | implemented; API-only capability |
 | OAI-MG | [GPT-5.6 model guide](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6) | `official_current` | Alias/variant, reasoning, PTC, multi-agent beta, image detail, safeguards and safety identifier are capability-qualified API features | capability and runtime schemas | advisory/deferred to owning implementation issues |
-| STAFF-1 | [Tibo clarification](https://x.com/thsottiaux/status/2076543065045795309) | `staff_clarification` | Codex subscription accounting is not an API pricing contract | `accounting-separation.json` | contextual/tested; chart values excluded |
+| STAFF-1 | [Issue #2 staff-context record](https://github.com/nijanthan-dev/codex-prompt-better/issues/2) | `staff_clarification` | Codex subscription accounting is not an API pricing contract | `accounting-separation.json` | contextual/tested; personal attribution and chart values excluded |
 | PRACT-1 | Theo practitioner material referenced by issue #2 | `practitioner_hypothesis` | Trajectory efficiency may matter more than isolated prompt length | execution budget; runtime observations | hypothesis only; requires #8 eval evidence |
 
 ## Retrieval integrity

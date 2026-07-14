@@ -134,6 +134,24 @@ fixtures = {p: load(p) for p in sorted(GOLDEN.rglob("*.json"))}
 if len(schemas) != 14:
     failures.append(f"expected 14 schemas, found {len(schemas)}")
 
+evidence_schema_path = SCHEMAS / "evidence-envelope.schema.json"
+evidence_schema = schemas[evidence_schema_path]
+evidence_positive = fixtures.get(GOLDEN / "evidence-positive.json")
+evidence_negative = fixtures.get(GOLDEN / "evidence-negative.json")
+if not schema_valid(evidence_positive, evidence_schema, evidence_schema_path):
+    failures.append("positive evidence fixture fails evidence contract")
+if schema_valid(evidence_negative, evidence_schema, evidence_schema_path):
+    failures.append("negative evidence fixture accepted")
+if evidence_positive:
+    missing_observed_at = deepcopy(evidence_positive)
+    missing_observed_at.pop("observed_at", None)
+    if schema_valid(missing_observed_at, evidence_schema, evidence_schema_path):
+        failures.append("evidence accepted without observed_at")
+    mutable_source = deepcopy(evidence_positive)
+    mutable_source["source"]["read_only"] = False
+    if schema_valid(mutable_source, evidence_schema, evidence_schema_path):
+        failures.append("evidence accepted mutable source")
+
 for path, schema in schemas.items():
     if not isinstance(schema, dict):
         continue
