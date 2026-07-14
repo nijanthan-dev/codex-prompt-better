@@ -194,18 +194,23 @@ func loadConfig(parent context.Context, opt options) (config.Config, error) {
 }
 
 func (r runner) runImprove() int {
-	request := contracts.ImprovePromptRequest{
-		SchemaVersion:   contracts.SchemaVersion,
-		Kind:            "request",
-		Intent:          string(r.input),
-		ExecutionPolicy: r.config.ExecutionPolicy,
-	}
+	var request contracts.ImprovePromptRequest
 	if r.options.isRequestJSON {
 		if err := decodeStrict(r.input, &request); err != nil {
 			return r.emitError(err)
 		}
+		if err := compiler.ValidateImproveRequest(request); err != nil {
+			return r.emitError(err)
+		}
 		if r.options.isPolicySet {
 			request.ExecutionPolicy = r.config.ExecutionPolicy
+		}
+	} else {
+		request = contracts.ImprovePromptRequest{
+			SchemaVersion:   contracts.SchemaVersion,
+			Kind:            "request",
+			Intent:          string(r.input),
+			ExecutionPolicy: r.config.ExecutionPolicy,
 		}
 	}
 	if request.PromptPlan == nil && r.options.phase != "design" {
@@ -223,16 +228,18 @@ func (r runner) runImprove() int {
 }
 
 func (r runner) runGoal() int {
-	objective := string(r.input)
-	request := contracts.CreateGoalPromptRequest{
-		SchemaVersion: contracts.SchemaVersion,
-		Kind:          "request",
-		Objective:     objective,
-		PromptPlan:    compiler.NewPlan(objective),
-	}
+	var request contracts.CreateGoalPromptRequest
 	if r.options.isRequestJSON {
 		if err := decodeStrict(r.input, &request); err != nil {
 			return r.emitError(err)
+		}
+	} else {
+		objective := string(r.input)
+		request = contracts.CreateGoalPromptRequest{
+			SchemaVersion: contracts.SchemaVersion,
+			Kind:          "request",
+			Objective:     objective,
+			PromptPlan:    compiler.NewPlan(objective),
 		}
 	}
 	result, err := compiler.CreateGoal(r.ctx, request)
@@ -243,15 +250,17 @@ func (r runner) runGoal() int {
 }
 
 func (r runner) runReview() int {
-	request := contracts.CreateReviewFixPromptRequest{
-		SchemaVersion: contracts.SchemaVersion,
-		Kind:          "request",
-		Findings:      nonEmptyLines(string(r.input)),
-		ReviewHead:    r.options.reviewHead,
-	}
+	var request contracts.CreateReviewFixPromptRequest
 	if r.options.isRequestJSON {
 		if err := decodeStrict(r.input, &request); err != nil {
 			return r.emitError(err)
+		}
+	} else {
+		request = contracts.CreateReviewFixPromptRequest{
+			SchemaVersion: contracts.SchemaVersion,
+			Kind:          "request",
+			Findings:      nonEmptyLines(string(r.input)),
+			ReviewHead:    r.options.reviewHead,
 		}
 	}
 	result, err := compiler.CreateReviewFix(r.ctx, request)
@@ -262,14 +271,16 @@ func (r runner) runReview() int {
 }
 
 func (r runner) runLint() int {
-	request := contracts.LintPromptRequest{
-		SchemaVersion: contracts.SchemaVersion,
-		Kind:          "request",
-		Candidate:     string(r.input),
-	}
+	var request contracts.LintPromptRequest
 	if r.options.isRequestJSON {
 		if err := decodeStrict(r.input, &request); err != nil {
 			return r.emitError(err)
+		}
+	} else {
+		request = contracts.LintPromptRequest{
+			SchemaVersion: contracts.SchemaVersion,
+			Kind:          "request",
+			Candidate:     string(r.input),
 		}
 	}
 	result, err := lint.CheckPrompt(request)

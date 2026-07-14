@@ -43,6 +43,30 @@ func TestImproveDeterministicIdempotentAndPreservesPaths(t *testing.T) {
 	}
 }
 
+func TestImproveIdempotentWithLeadingOptionalSections(t *testing.T) {
+	request := improveRequest("Synthetic")
+	plan := NewPlan("Synthetic")
+	plan.Role = "Reviewer"
+	plan.Personality = "Direct"
+	plan.CollaborationStyle = "Report evidence."
+	stable := "Preserve durable constraints."
+	plan.StablePrefix = &stable
+	request.PromptPlan = &plan
+
+	first, err := Improve(context.Background(), request, policy.HostUnknown)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondRequest := improveRequest(first.ImprovedPrompt)
+	second, err := Improve(context.Background(), secondRequest, policy.HostUnknown)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.ImprovedPrompt != first.ImprovedPrompt {
+		t.Fatalf("compiled prompt changed:\n%s", second.ImprovedPrompt)
+	}
+}
+
 func TestImproveCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

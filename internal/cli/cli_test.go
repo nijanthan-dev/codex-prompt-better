@@ -212,6 +212,72 @@ func TestRequestRejectsInvalidUTF8(t *testing.T) {
 	}
 }
 
+func TestRequestJSONDoesNotInheritPlainInputDefaults(t *testing.T) {
+	minimal := `{"schema_version":"1.0.0","kind":"request"}`
+	tests := []struct {
+		name    string
+		command string
+		request string
+	}{
+		{name: "improve missing fields", command: "improve_prompt", request: minimal},
+		{
+			name: "improve null intent", command: "improve_prompt",
+			request: `{"schema_version":"1.0.0","kind":"request",` +
+				`"intent":null,"execution_policy":"improve_only"}`,
+		},
+		{name: "goal missing fields", command: "create_goal_prompt", request: minimal},
+		{name: "review missing fields", command: "create_review_fix_prompt", request: minimal},
+		{name: "lint missing fields", command: "lint_prompt", request: minimal},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			code, _, stderr := execute(
+				[]string{test.command, "--request-json"},
+				test.request,
+			)
+			if code != exitInvalid || stderr == "" {
+				t.Fatalf("code=%d stderr=%q", code, stderr)
+			}
+		})
+	}
+}
+
+func TestRequestJSONIsValidatedBeforeCLIOverrides(t *testing.T) {
+	tests := []struct {
+		name    string
+		request string
+		flag    string
+	}{
+		{
+			name: "missing policy",
+			request: `{"schema_version":"1.0.0","kind":"request",` +
+				`"intent":"Synthetic"}`,
+			flag: "--execution-policy=improve_only",
+		},
+		{
+			name: "missing plan phase",
+			request: strings.Replace(
+				improveRequestJSON(),
+				`"phase_scope":"implementation",`,
+				"",
+				1,
+			),
+			flag: "--phase=review",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			code, _, stderr := execute(
+				[]string{"improve_prompt", "--request-json", test.flag},
+				test.request,
+			)
+			if code != exitInvalid || stderr == "" {
+				t.Fatalf("code=%d stderr=%q", code, stderr)
+			}
+		})
+	}
+}
+
 type failingWriter struct{}
 
 func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("synthetic write failure") }

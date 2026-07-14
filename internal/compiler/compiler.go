@@ -23,30 +23,9 @@ func Improve(
 	if err := checkContext(ctx); err != nil {
 		return contracts.ImprovePromptResult{}, err
 	}
-	if request.SchemaVersion != contracts.SchemaVersion || request.Kind != "request" {
-		return contracts.ImprovePromptResult{}, invalid("request must use schema 1.0.0 and kind request", "request")
-	}
-	if !policy.ValidExecutionPolicy(request.ExecutionPolicy) {
-		return contracts.ImprovePromptResult{}, invalid("invalid execution policy", "execution_policy")
-	}
-	intent, err := textutil.Normalize(request.Intent)
+	intent, plan, err := prepareImproveRequest(request)
 	if err != nil {
 		return contracts.ImprovePromptResult{}, err
-	}
-	if len(intent) > 8000 {
-		return contracts.ImprovePromptResult{}, invalid("intent exceeds 8000 bytes", "intent")
-	}
-	plan := defaultPlan(intent)
-	if request.PromptPlan != nil {
-		plan = *request.PromptPlan
-		if err := validatePlan(plan); err != nil {
-			return contracts.ImprovePromptResult{}, err
-		}
-	}
-	if request.Budget != nil {
-		if err := validateBudget(*request.Budget); err != nil {
-			return contracts.ImprovePromptResult{}, err
-		}
 	}
 	if err := checkContext(ctx); err != nil {
 		return contracts.ImprovePromptResult{}, err
@@ -65,7 +44,50 @@ func Improve(
 	return contracts.ImprovePromptResult{
 		SchemaVersion: contracts.SchemaVersion, Kind: "result", ImprovedPrompt: compiled,
 		PolicyOutcome: outcome, Diagnostics: []string{},
-	}, policyErr
+	}, nil
+}
+
+// ValidateImproveRequest validates the unmodified v1 request contract.
+func ValidateImproveRequest(request contracts.ImprovePromptRequest) error {
+	_, _, err := prepareImproveRequest(request)
+	return err
+}
+
+func prepareImproveRequest(
+	request contracts.ImprovePromptRequest,
+) (string, contracts.PromptPlan, error) {
+	if request.SchemaVersion != contracts.SchemaVersion || request.Kind != "request" {
+		return "", contracts.PromptPlan{}, invalid(
+			"request must use schema 1.0.0 and kind request",
+			"request",
+		)
+	}
+	if !policy.ValidExecutionPolicy(request.ExecutionPolicy) {
+		return "", contracts.PromptPlan{}, invalid(
+			"invalid execution policy",
+			"execution_policy",
+		)
+	}
+	intent, err := textutil.Normalize(request.Intent)
+	if err != nil {
+		return "", contracts.PromptPlan{}, err
+	}
+	if len(intent) > 8000 {
+		return "", contracts.PromptPlan{}, invalid("intent exceeds 8000 bytes", "intent")
+	}
+	plan := defaultPlan(intent)
+	if request.PromptPlan != nil {
+		plan = *request.PromptPlan
+		if err := validatePlan(plan); err != nil {
+			return "", contracts.PromptPlan{}, err
+		}
+	}
+	if request.Budget != nil {
+		if err := validateBudget(*request.Budget); err != nil {
+			return "", contracts.PromptPlan{}, err
+		}
+	}
+	return intent, plan, nil
 }
 
 // CreateGoal renders one v1 goal request in the house format.
@@ -396,7 +418,21 @@ func truncateUTF8(value string, limit int) string {
 }
 
 func looksCompiled(value string) bool {
-	return strings.HasPrefix(value, "Goal:\n") && strings.Contains(value, "\n\nStop:\n")
+	goal := sectionIndex(value, "Goal")
+	stop := sectionIndex(value, "Stop")
+	return goal >= 0 && stop > goal
+}
+
+func sectionIndex(value, title string) int {
+	heading := title + ":\n"
+	if strings.HasPrefix(value, heading) {
+		return 0
+	}
+	index := strings.Index(value, "\n\n"+heading)
+	if index < 0 {
+		return -1
+	}
+	return index + 2
 }
 
 func checkContext(ctx context.Context) error {
