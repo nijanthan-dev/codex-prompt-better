@@ -145,6 +145,18 @@ for path, schema in schemas.items():
         if shallow_valid(negative, definition, path):
             failures.append(f"{name}: negative closed-object case accepted")
 
+common_schema_path = SCHEMAS / "common.schema.json"
+error_schema = schemas[common_schema_path]["$defs"]["error"]
+for name, examples in tools.items():
+    error = examples.get("error")
+    if not shallow_valid(error, error_schema, common_schema_path):
+        failures.append(f"{name}: error example fails common error contract")
+        continue
+    invalid_error = deepcopy(error)
+    invalid_error["unexpected"] = True
+    if shallow_valid(invalid_error, error_schema, common_schema_path):
+        failures.append(f"{name}: negative error closed-object case accepted")
+
 prompt_plan = tools.get("create_goal_prompt", {}).get("request", {}).get("prompt_plan")
 if prompt_plan:
     invalid_prompt_plan = deepcopy(prompt_plan)
@@ -177,7 +189,20 @@ if missing:
 if len({case.get("id") for case in cases}) != len(cases):
     failures.append("duplicate golden case id")
 
-sensitive = re.compile(r"(?:/Users/|[A-Za-z]:\\\\Users\\\\|ghp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|BEGIN [A-Z ]*PRIVATE KEY|@(?:gmail|outlook)\.)")
+sensitive = re.compile(
+    r"(?:/Users/|[A-Za-z]:\\Users\\[^\\\s]+|ghp_[A-Za-z0-9]{20,}|"
+    r"github_pat_[A-Za-z0-9_]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|"
+    r"BEGIN [A-Z ]*PRIVATE KEY|@(?:gmail|outlook)\.)"
+)
+sensitive_samples = (
+    "/Users/" + "synthetic",
+    "C:" + "\\Users\\synthetic",
+    "sk-" + "proj-" + "a" * 20,
+    "github_" + "pat_" + "a" * 20,
+)
+for sample in sensitive_samples:
+    if sensitive.search(sample) is None:
+        failures.append("sensitive-pattern regression: " + sample[:8])
 for base in (ROOT / "docs", SCHEMAS, ROOT / "testdata"):
     for path in base.rglob("*"):
         if path.is_file() and sensitive.search(path.read_text(encoding="utf-8", errors="replace")):
