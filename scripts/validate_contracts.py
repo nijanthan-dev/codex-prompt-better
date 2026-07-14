@@ -337,9 +337,18 @@ for base in (ROOT / "docs", SCHEMAS, ROOT / "testdata"):
             failures.append(f"{path.relative_to(ROOT)}: sensitive-pattern match")
 
 ledger = (ROOT / "docs/contracts/source-ledger.md").read_text(encoding="utf-8")
+ledger_rows = {}
+for line in ledger.splitlines():
+    cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+    if cells and re.fullmatch(r"(?:OAI-[A-Z0-9]+|STAFF-1|PRACT-1)", cells[0]):
+        ledger_rows[cells[0]] = cells
 for source_id in ("OAI-56","OAI-PE","OAI-RB","OAI-PC","OAI-CO","OAI-FC","OAI-CS","OAI-MG","STAFF-1","PRACT-1"):
     if ledger.count(f"| {source_id} |") != 1:
         failures.append(f"ledger mapping count invalid: {source_id}")
+        continue
+    cells = ledger_rows.get(source_id, [])
+    if len(cells) != 6 or any(not cells[index] for index in (1, 2, 3, 4, 5)):
+        failures.append(f"ledger row incomplete: {source_id}")
 
 hash_lines = [line for line in (ROOT / "docs/contracts/source-ledger.sha256").read_text().splitlines() if line and not line.startswith("#")]
 if len(hash_lines) != 10 or sum(bool(re.match(r"^[a-f0-9]{64}  [A-Z0-9-]+$", line)) for line in hash_lines) != 9:
