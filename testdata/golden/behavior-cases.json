@@ -1,0 +1,216 @@
+{
+  "schema_version": "1.0.0",
+  "cases": [
+    {
+      "id": "happy-outcome-first",
+      "covers": [
+        "happy",
+        "concise_outcome_first",
+        "full_structure",
+        "personality_collaboration",
+        "output_language",
+        "editing_preservation"
+      ],
+      "expected": "accept"
+    },
+    {
+      "id": "ambiguous-smallest-question",
+      "covers": [
+        "ambiguous",
+        "missing",
+        "fallback",
+        "abstain"
+      ],
+      "expected": "clarify"
+    },
+    {
+      "id": "malformed-closed-object",
+      "covers": [
+        "malformed",
+        "strict_schema",
+        "nullable_optional"
+      ],
+      "expected": "invalid_schema"
+    },
+    {
+      "id": "duplicate-evidence",
+      "covers": [
+        "duplicate",
+        "cursor",
+        "hash"
+      ],
+      "expected": "deduplicate"
+    },
+    {
+      "id": "drifted-source-version",
+      "covers": [
+        "drifted",
+        "source_conflict",
+        "stale_state"
+      ],
+      "expected": "quarantine"
+    },
+    {
+      "id": "sensitive-evidence",
+      "covers": [
+        "sensitive",
+        "privacy",
+        "redaction",
+        "consent",
+        "retention"
+      ],
+      "expected": "reject_raw"
+    },
+    {
+      "id": "host-permission-denied",
+      "covers": [
+        "permissions",
+        "host_dominance",
+        "approval"
+      ],
+      "expected": "permission_denied"
+    },
+    {
+      "id": "plan-then-stop",
+      "covers": [
+        "stop_rules",
+        "phase_scope",
+        "plan_only"
+      ],
+      "expected": "stop"
+    },
+    {
+      "id": "one-review-cycle-stop",
+      "covers": [
+        "stop_rules",
+        "review_cycle",
+        "same_pattern_scan"
+      ],
+      "expected": "stop"
+    },
+    {
+      "id": "bounded-retrieval",
+      "covers": [
+        "retrieval_budget",
+        "empty_partial_fallback",
+        "citations"
+      ],
+      "expected": "fallback"
+    },
+    {
+      "id": "no-delegation",
+      "covers": [
+        "delegation_budget",
+        "no_delegation"
+      ],
+      "expected": "stop"
+    },
+    {
+      "id": "bounded-delegation",
+      "covers": [
+        "delegation_budget",
+        "depth",
+        "concurrency",
+        "semantic_handoff"
+      ],
+      "expected": "bounded"
+    },
+    {
+      "id": "contradictory-instructions",
+      "covers": [
+        "contradiction",
+        "repetition",
+        "unnecessary_absolutes",
+        "keyword_shortcuts",
+        "explicit_values"
+      ],
+      "expected": "semantic_invalid"
+    },
+    {
+      "id": "unknown-capability",
+      "covers": [
+        "unknown_capability",
+        "unsupported_capability",
+        "reasoning",
+        "verbosity",
+        "model_variant",
+        "safeguards",
+        "image_detail",
+        "multi_agent"
+      ],
+      "expected": "unknown"
+    },
+    {
+      "id": "direct-versus-programmatic",
+      "covers": [
+        "direct_tool",
+        "programmatic_tool",
+        "program_output",
+        "final_output",
+        "dependent_calls",
+        "independent_calls",
+        "approval_handoff",
+        "citation_handoff"
+      ],
+      "expected": "preserve_linkage"
+    },
+    {
+      "id": "compaction-schedules",
+      "covers": [
+        "trajectory",
+        "window",
+        "compaction",
+        "opaque_state",
+        "assistant_phase",
+        "previous_response_id",
+        "manual_replay"
+      ],
+      "expected": "distinguish"
+    },
+    {
+      "id": "accounting-separation",
+      "covers": [
+        "api_tokens",
+        "cache_read",
+        "cache_write",
+        "reasoning_tokens",
+        "output_tokens",
+        "subscription_units",
+        "api_money",
+        "unknown_accounting"
+      ],
+      "expected": "separate"
+    },
+    {
+      "id": "cross-platform-capability",
+      "covers": [
+        "macos",
+        "linux",
+        "windows",
+        "adapter"
+      ],
+      "expected": "equivalent_core"
+    },
+    {
+      "id": "source-precedence-conflict",
+      "covers": [
+        "official_current",
+        "staff_clarification",
+        "practitioner_hypothesis",
+        "runtime_observed",
+        "derived",
+        "unknown"
+      ],
+      "expected": "official_wins"
+    },
+    {
+      "id": "stable-prefix-tail",
+      "covers": [
+        "stable_prefix",
+        "dynamic_tail",
+        "cache_advisory"
+      ],
+      "expected": "recommend_only"
+    }
+  ]
+}

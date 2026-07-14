@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-better.local/schemas/v1/tools/render_governance_report.schema.json",
+  "title": "render_governance_report v1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/result"
+    },
+    {
+      "$ref": "../common.schema.json#/$defs/error"
+    }
+  ],
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "audit_reference",
+        "format"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "kind": {
+          "const": "request"
+        },
+        "audit_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "format": {
+          "enum": [
+            "chat",
+            "markdown",
+            "table"
+          ]
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "format",
+        "rendered",
+        "coverage",
+        "provenance_labels"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "kind": {
+          "const": "result"
+        },
+        "format": {
+          "enum": [
+            "chat",
+            "markdown",
+            "table"
+          ]
+        },
+        "rendered": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50000
+        },
+        "coverage": {
+          "enum": [
+            "complete",
+            "partial",
+            "missing",
+            "unknown"
+          ]
+        },
+        "provenance_labels": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "enum": [
+              "official_current",
+              "staff_clarification",
+              "practitioner_hypothesis",
+              "runtime_observed",
+              "derived",
+              "unknown"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

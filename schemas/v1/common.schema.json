@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-better.local/schemas/v1/common.schema.json",
+  "title": "Prompt Better common v1",
+  "$defs": {
+    "version": {
+      "const": "1.0.0"
+    },
+    "classification": {
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted",
+        "unknown"
+      ]
+    },
+    "provenance": {
+      "enum": [
+        "official_current",
+        "staff_clarification",
+        "practitioner_hypothesis",
+        "runtime_observed",
+        "derived",
+        "unknown"
+      ]
+    },
+    "surface": {
+      "enum": [
+        "codex_subscription",
+        "openai_api",
+        "local",
+        "unknown"
+      ]
+    },
+    "knowledge": {
+      "enum": [
+        "observed",
+        "configured",
+        "derived",
+        "unsupported",
+        "unknown"
+      ]
+    },
+    "coverage": {
+      "enum": [
+        "complete",
+        "partial",
+        "missing",
+        "unknown"
+      ]
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "code",
+        "message",
+        "retryable"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/version"
+        },
+        "code": {
+          "enum": [
+            "invalid_schema",
+            "semantic_invalid",
+            "permission_denied",
+            "approval_required",
+            "unsupported_capability",
+            "unknown_capability",
+            "coverage_incomplete",
+            "source_conflict",
+            "budget_exhausted",
+            "sensitive_payload",
+            "not_found",
+            "internal_error"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "field_path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 200
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      }
+    }
+  }
+}

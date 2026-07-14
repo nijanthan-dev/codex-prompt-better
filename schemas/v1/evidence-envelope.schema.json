@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-better.local/schemas/v1/evidence-envelope.schema.json",
+  "title": "EvidenceEnvelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source",
+    "external_id",
+    "cursor",
+    "observed_at",
+    "content_sha256",
+    "classification",
+    "redaction",
+    "coverage",
+    "provenance",
+    "product_surface",
+    "retention"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "identity",
+        "version",
+        "read_only"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "identity": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 80
+        },
+        "read_only": {
+          "const": true
+        }
+      }
+    },
+    "external_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "cursor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "value"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "content_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "classification": {
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted",
+        "unknown"
+      ]
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "fields"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "not_needed",
+            "applied",
+            "rejected",
+            "unknown"
+          ]
+        },
+        "fields": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "maxLength": 100
+          }
+        }
+      }
+    },
+    "coverage": {
+      "enum": [
+        "complete",
+        "partial",
+        "missing",
+        "unknown"
+      ]
+    },
+    "provenance": {
+      "enum": [
+        "official_current",
+        "staff_clarification",
+        "practitioner_hypothesis",
+        "runtime_observed",
+        "derived",
+        "unknown"
+      ]
+    },
+    "product_surface": {
+      "enum": [
+        "codex_subscription",
+        "openai_api",
+        "local",
+        "unknown"
+      ]
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_retained",
+        "consent",
+        "policy_id"
+      ],
+      "properties": {
+        "raw_retained": {
+          "const": false
+        },
+        "consent": {
+          "enum": [
+            "not_required",
+            "granted",
+            "denied",
+            "unknown"
+          ]
+        },
+        "policy_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "join_keys": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "value_hash"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "value_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

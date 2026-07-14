@@ -1,0 +1,228 @@
+{
+  "schema_version": "1.0.0",
+  "tools": {
+    "improve_prompt": {
+      "request": {
+        "schema_version": "1.0.0",
+        "kind": "request",
+        "intent": "Make the synthetic task outcome explicit.",
+        "execution_policy": "improve_only"
+      },
+      "result": {
+        "schema_version": "1.0.0",
+        "kind": "result",
+        "improved_prompt": "Return the synthetic outcome with evidence and stop.",
+        "policy_outcome": "return_only",
+        "diagnostics": []
+      },
+      "error": {
+        "schema_version": "1.0.0",
+        "code": "semantic_invalid",
+        "message": "Goal conflicts with stop rule.",
+        "field_path": "stop_rules",
+        "retryable": false,
+        "evidence_refs": []
+      }
+    },
+    "create_goal_prompt": {
+      "request": {
+        "schema_version": "1.0.0",
+        "kind": "request",
+        "objective": "Complete synthetic contract review.",
+        "prompt_plan": {
+          "schema_version": "1.0.0",
+          "goal": "Complete synthetic contract review.",
+          "success_criteria": [
+            "Contracts pass validation."
+          ],
+          "invariants": [
+            "Synthetic data only."
+          ],
+          "decision_rules": [
+            "Ask only for material ambiguity."
+          ],
+          "evidence_requirements": [
+            "Use retrieved evidence."
+          ],
+          "tools": [
+            "Read-only discovery."
+          ],
+          "output_contract": "Return outcome and gates.",
+          "approval_boundary": "Require approval for external writes.",
+          "phase_scope": "design",
+          "stop_rules": [
+            "Stop when validated."
+          ],
+          "fallback_rules": [
+            "Report missing evidence."
+          ],
+          "abstain_rules": [
+            "Abstain when unsafe."
+          ],
+          "validation_bar": [
+            "Run contract validator."
+          ]
+        }
+      },
+      "result": {
+        "schema_version": "1.0.0",
+        "kind": "result",
+        "goal_prompt": "Take this as a new goal: complete synthetic contract review.",
+        "checkpoint_required": true
+      },
+      "error": {
+        "schema_version": "1.0.0",
+        "code": "invalid_schema",
+        "message": "Prompt plan is missing.",
+        "field_path": "prompt_plan",
+        "retryable": false,
+        "evidence_refs": []
+      }
+    },
+    "create_review_fix_prompt": {
+      "request": {
+        "schema_version": "1.0.0",
+        "kind": "request",
+        "findings": [
+          "Missing unknown-state test."
+        ],
+        "review_head": "abcdef1"
+      },
+      "result": {
+        "schema_version": "1.0.0",
+        "kind": "result",
+        "fix_prompt": "Add the unknown-state guardrail and scan equivalent paths.",
+        "failure_classes": [
+          "unknown-state coercion"
+        ],
+        "same_pattern_scan_required": true
+      },
+      "error": {
+        "schema_version": "1.0.0",
+        "code": "not_found",
+        "message": "Review head unavailable.",
+        "field_path": "review_head",
+        "retryable": true,
+        "evidence_refs": []
+      }
+    },
+    "lint_prompt": {
+      "request": {
+        "schema_version": "1.0.0",
+        "kind": "request",
+        "candidate": "Plan the synthetic change, then stop."
+      },
+      "result": {
+        "schema_version": "1.0.0",
+        "kind": "result",
+        "valid": true,
+        "diagnostics": []
+      },
+      "error": {
+        "schema_version": "1.0.0",
+        "code": "sensitive_payload",
+        "message": "Candidate failed synthetic-data policy.",
+        "field_path": "candidate",
+        "retryable": false,
+        "evidence_refs": []
+      }
+    },
+    "get_checkpoint": {
+      "request": {
+        "schema_version": "1.0.0",
+        "kind": "request",
+        "reference": "checkpoint-alpha"
+      },
+      "result": {
+        "schema_version": "1.0.0",
+        "kind": "result",
+        "objective": "Freeze v1 contracts.",
+        "accepted_decisions": [
+          "Host permissions dominate."
+        ],
+        "constraints": [
+          "Synthetic data only."
+        ],
+        "evidence_refs": [
+          "OAI-56"
+        ],
+        "completed": [
+          "Schemas drafted."
+        ],
+        "validation": [
+          "JSON parsed."
+        ],
+        "blockers": [],
+        "next_action": "Validate fixtures.",
+        "remaining_gates": [
+          "Review"
+        ]
+      },
+      "error": {
+        "schema_version": "1.0.0",
+        "code": "not_found",
+        "message": "Checkpoint unavailable.",
+        "field_path": "reference",
+        "retryable": false,
+        "evidence_refs": []
+      }
+    },
+    "audit_session": {
+      "request": {
+        "schema_version": "1.0.0",
+        "kind": "request",
+        "reference": "synthetic-session-alpha",
+        "consent": "granted",
+        "configured_sources": [
+          "synthetic_jsonl"
+        ]
+      },
+      "result": {
+        "schema_version": "1.0.0",
+        "kind": "result",
+        "coverage": "partial",
+        "evidence_refs": [
+          "evidence-alpha"
+        ],
+        "findings": [
+          "One optional source unavailable."
+        ],
+        "redaction_applied": true
+      },
+      "error": {
+        "schema_version": "1.0.0",
+        "code": "coverage_incomplete",
+        "message": "Required source missing.",
+        "field_path": "configured_sources",
+        "retryable": true,
+        "evidence_refs": []
+      }
+    },
+    "render_governance_report": {
+      "request": {
+        "schema_version": "1.0.0",
+        "kind": "request",
+        "audit_reference": "audit-alpha",
+        "format": "markdown"
+      },
+      "result": {
+        "schema_version": "1.0.0",
+        "kind": "result",
+        "format": "markdown",
+        "rendered": "Synthetic report: partial coverage.",
+        "coverage": "partial",
+        "provenance_labels": [
+          "derived"
+        ]
+      },
+      "error": {
+        "schema_version": "1.0.0",
+        "code": "unsupported_capability",
+        "message": "Requested renderer unsupported.",
+        "field_path": "format",
+        "retryable": false,
+        "evidence_refs": []
+      }
+    }
+  }
+}

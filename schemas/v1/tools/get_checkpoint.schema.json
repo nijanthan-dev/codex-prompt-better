@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-better.local/schemas/v1/tools/get_checkpoint.schema.json",
+  "title": "get_checkpoint v1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/result"
+    },
+    {
+      "$ref": "../common.schema.json#/$defs/error"
+    }
+  ],
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "reference"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "kind": {
+          "const": "request"
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "objective",
+        "accepted_decisions",
+        "constraints",
+        "evidence_refs",
+        "completed",
+        "validation",
+        "blockers",
+        "next_action",
+        "remaining_gates"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "kind": {
+          "const": "result"
+        },
+        "objective": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "accepted_decisions": {
+          "$ref": "#/$defs/list"
+        },
+        "constraints": {
+          "$ref": "#/$defs/list"
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/list"
+        },
+        "completed": {
+          "$ref": "#/$defs/list"
+        },
+        "validation": {
+          "$ref": "#/$defs/list"
+        },
+        "blockers": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "next_action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "remaining_gates": {
+          "$ref": "#/$defs/list"
+        }
+      }
+    },
+    "list": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    }
+  }
+}
