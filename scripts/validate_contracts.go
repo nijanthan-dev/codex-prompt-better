@@ -92,6 +92,7 @@ func (v *validator) run() stats {
 	v.validateSensitiveContent()
 	v.validateSourceLedger()
 	v.validateDocumentation()
+	v.validateCIRunners()
 
 	return stats{schemas: len(v.schemas), fixtures: len(v.fixtures), cases: cases, tools: tools}
 }
@@ -413,6 +414,15 @@ func (v *validator) validateEvidence() {
 		candidate["cursor"] = document{"kind": "unknown", "value": value}
 		v.expectInvalid(candidate, schema, schemaPath, "evidence accepted unsafe cursor value")
 	}
+	for _, value := range []string{
+		"/Users/synthetic/.codex/session.json",
+		"sk-proj-" + strings.Repeat("a", 20),
+		"ghp_" + strings.Repeat("a", 20),
+	} {
+		candidate := clone(positive)
+		candidate["source"].(document)["kind"] = value
+		v.expectInvalid(candidate, schema, schemaPath, "evidence accepted unsafe source kind")
+	}
 }
 
 func (v *validator) validateCapabilities() {
@@ -620,10 +630,13 @@ func (v *validator) validateGoldenCoverage() int {
 }
 
 func (v *validator) validateSensitiveContent() {
-	pattern := regexp.MustCompile(`(?:/Users/|/home/[^/\s]+/|/mnt/[A-Za-z]/Users/|[A-Za-z]:\\Users\\[^\\\s]+|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|BEGIN [A-Z ]*PRIVATE KEY|@(?:gmail|outlook)\.)`)
+	pattern := regexp.MustCompile(`(?:/Users/|/home/[^/\s]+/|/mnt/[A-Za-z]/Users/|[A-Za-z]:\\Users\\[^\\\s]+|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|BEGIN [A-Z ]*PRIVATE KEY|@(?:gmail|outlook)\.)`)
 	samples := []string{
 		"/Users/" + "synthetic", "/home/" + "synthetic/work", "/mnt/c/" + "Users/synthetic",
 		`C:\Users\synthetic`, "sk-" + "proj-" + strings.Repeat("a", 20), "github_" + "pat_" + strings.Repeat("a", 20),
+	}
+	for _, prefix := range []string{"ghp_", "gho_", "ghu_", "ghs_", "ghr_"} {
+		samples = append(samples, prefix+strings.Repeat("a", 20))
 	}
 	for _, sample := range samples {
 		if !pattern.MatchString(sample) {
@@ -635,6 +648,26 @@ func (v *validator) validateSensitiveContent() {
 			data, err := os.ReadFile(path)
 			if err == nil && pattern.Match(data) {
 				v.fail("%s: sensitive-pattern match", relative(v.root, path))
+			}
+		}
+	}
+}
+
+func (v *validator) validateCIRunners() {
+	workflowRoot := filepath.Join(v.root, ".github", "workflows")
+	runnerPattern := regexp.MustCompile(`(?m)^\s*runs-on:\s*([^\s#]+)`)
+	for _, path := range walkFiles(workflowRoot, "", &v.failures, v.root) {
+		if extension := filepath.Ext(path); extension != ".yml" && extension != ".yaml" {
+			continue
+		}
+		content := v.read(path)
+		lower := strings.ToLower(content)
+		if strings.Contains(lower, "windows-") || strings.Contains(lower, "macos-") {
+			v.fail("%s: paid non-Ubuntu runner configured", relative(v.root, path))
+		}
+		for _, match := range runnerPattern.FindAllStringSubmatch(content, -1) {
+			if !strings.HasPrefix(match[1], "ubuntu-") {
+				v.fail("%s: runner must be Ubuntu: %s", relative(v.root, path), match[1])
 			}
 		}
 	}

@@ -33,9 +33,17 @@
       ],
       "properties": {
         "kind": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 80
+          "enum": [
+            "codex_jsonl",
+            "codex_state_sqlite",
+            "git",
+            "github",
+            "configuration",
+            "rollout_summary",
+            "process",
+            "synthetic_jsonl",
+            "unknown"
+          ]
         },
         "identity": {
           "type": "string",
@@ -46,7 +54,7 @@
             "string",
             "null"
           ],
-          "maxLength": 80
+          "pattern": "^(unknown|[0-9]+(\\.[0-9]+){0,3}|[a-f0-9]{7,64})$"
         },
         "read_only": {
           "const": true
@@ -223,9 +231,10 @@
           ]
         },
         "policy_id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
+          "enum": [
+            "local-default-v1",
+            "unknown"
+          ]
         }
       }
     },
@@ -241,8 +250,14 @@
         ],
         "properties": {
           "kind": {
-            "type": "string",
-            "maxLength": 80
+            "enum": [
+              "session",
+              "project",
+              "attempt",
+              "response",
+              "source",
+              "unknown"
+            ]
           },
           "value_hash": {
             "type": "string",
