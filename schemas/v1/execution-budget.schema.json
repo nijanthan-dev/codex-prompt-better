@@ -114,7 +114,19 @@
         "required": [
           "max_agent_depth",
           "max_concurrency"
-        ]
+        ],
+        "properties": {
+          "max_agent_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 16
+          },
+          "max_concurrency": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64
+          }
+        }
       }
     },
     {

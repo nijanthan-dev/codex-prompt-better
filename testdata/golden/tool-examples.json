@@ -6,7 +6,17 @@
         "schema_version": "1.0.0",
         "kind": "request",
         "intent": "Make the synthetic task outcome explicit.",
-        "execution_policy": "improve_only"
+        "execution_policy": "improve_only",
+        "budget": {
+          "schema_version": "1.0.0",
+          "enforcement": "advisory",
+          "active_phases": ["implementation"],
+          "delegation_policy": "bounded",
+          "max_agent_depth": 1,
+          "max_concurrency": 2,
+          "context_mode": "minimal",
+          "exhaustion_outcome": "stop"
+        }
       },
       "result": {
         "schema_version": "1.0.0",

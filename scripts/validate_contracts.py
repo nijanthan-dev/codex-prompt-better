@@ -49,9 +49,21 @@ def type_matches(value, kind):
     return False
 
 
-def shallow_valid(value, schema):
+def resolve_reference(reference, schema_path):
+    file_name, _, fragment = reference.partition("#")
+    target_path = (schema_path.parent / file_name).resolve() if file_name else schema_path
+    target = schemas.get(target_path)
+    if target is None:
+        return None, target_path
+    for part in fragment.removeprefix("/").split("/") if fragment else []:
+        target = target[part.replace("~1", "/").replace("~0", "~")]
+    return target, target_path
+
+
+def shallow_valid(value, schema, schema_path):
     if "$ref" in schema:
-        return True
+        resolved, resolved_path = resolve_reference(schema["$ref"], schema_path)
+        return resolved is not None and shallow_valid(value, resolved, resolved_path)
 
     kinds = expected_types(schema)
     if kinds and not any(type_matches(value, kind) for kind in kinds):
@@ -61,6 +73,17 @@ def shallow_valid(value, schema):
     if "enum" in schema and value not in schema["enum"]:
         return False
 
+    for rule in schema.get("allOf", []):
+        condition = rule.get("if")
+        if condition is None:
+            if not shallow_valid(value, rule, schema_path):
+                return False
+            continue
+        if shallow_valid(value, condition, schema_path):
+            consequence = rule.get("then", {})
+            if not shallow_valid(value, consequence, schema_path):
+                return False
+
     if isinstance(value, dict):
         required = set(schema.get("required", []))
         properties = schema.get("properties", {})
@@ -69,13 +92,13 @@ def shallow_valid(value, schema):
         if schema.get("additionalProperties") is False and not set(value) <= set(properties):
             return False
         return all(
-            shallow_valid(item, properties[key])
+            shallow_valid(item, properties[key], schema_path)
             for key, item in value.items()
             if key in properties
         )
 
     if isinstance(value, list) and "items" in schema:
-        return all(shallow_valid(item, schema["items"]) for item in value)
+        return all(shallow_valid(item, schema["items"], schema_path) for item in value)
     return True
 
 
@@ -114,13 +137,36 @@ for path, schema in schemas.items():
     for kind in ("request", "result"):
         definition = schema["$defs"][kind]
         example = tools.get(name, {}).get(kind)
-        if not shallow_valid(example, definition):
+        if not shallow_valid(example, definition, path):
             failures.append(f"{name}: positive {kind} fails contract")
             continue
         negative = deepcopy(example)
         negative["unexpected"] = True
-        if shallow_valid(negative, definition):
+        if shallow_valid(negative, definition, path):
             failures.append(f"{name}: negative closed-object case accepted")
+
+prompt_plan = tools.get("create_goal_prompt", {}).get("request", {}).get("prompt_plan")
+if prompt_plan:
+    invalid_prompt_plan = deepcopy(prompt_plan)
+    invalid_prompt_plan.pop("goal", None)
+    prompt_plan_schema = schemas[SCHEMAS / "prompt-plan.schema.json"]
+    if shallow_valid(invalid_prompt_plan, prompt_plan_schema, SCHEMAS / "prompt-plan.schema.json"):
+        failures.append("nested prompt-plan reference accepted missing goal")
+
+improve_request = tools.get("improve_prompt", {}).get("request")
+if improve_request:
+    invalid_budget_request = deepcopy(improve_request)
+    invalid_budget_request["budget"]["max_agent_depth"] = None
+    improve_schema_path = SCHEMAS / "tools/improve_prompt.schema.json"
+    improve_request_schema = schemas[improve_schema_path]["$defs"]["request"]
+    if shallow_valid(invalid_budget_request, improve_request_schema, improve_schema_path):
+        failures.append("nested execution-budget reference accepted null bounded limit")
+
+budget_schema = schemas[SCHEMAS / "execution-budget.schema.json"]
+bounded_limits = budget_schema["allOf"][0]["then"]["properties"]
+for field in ("max_agent_depth", "max_concurrency"):
+    if "null" in expected_types(bounded_limits[field]):
+        failures.append(f"bounded delegation permits null {field}")
 
 required_cases = {"happy","ambiguous","malformed","missing","duplicate","drifted","sensitive","privacy","permissions","stop_rules","delegation_budget","source_conflict","unknown_capability","subscription_units","api_money","macos","linux","windows","stable_prefix","compaction","direct_tool","programmatic_tool"}
 cases = fixtures.get(GOLDEN / "behavior-cases.json", {}).get("cases", [])
