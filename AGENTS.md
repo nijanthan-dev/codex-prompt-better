@@ -5,6 +5,10 @@
 - Use fresh worktrees from current `origin/main`; never risk user work in cleanup.
 - Keep scope issue-bound. Planning/issues do not authorize implementation.
 - Use cross-platform Go architecture; macOS-first integration must stay isolated.
+- Before creating, modifying, reviewing, or validating Go source, scripts, tools,
+  or tests, load and follow the applicable `golang-*` skills. Select the narrowest
+  useful set; always consider code style, naming, safety, error handling, and
+  testing, then add domain-specific Go skills only when the work requires them.
 - Preserve local-only, opt-in ingestion; raw prompt retention and telemetry off by default.
 - Never weaken Codex permissions or add a second LLM by default.
 - Use synthetic fixtures only. Never expose secrets, prompts, sessions, DB data,
