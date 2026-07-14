@@ -1,13 +1,13 @@
 # Installation plan
 
-Prompt Better is pre-alpha. There is no working binary, package, installer,
-database migration, MCP configuration, or Codex skill yet. Do not run commands
-from this page as if a release exists.
+Prompt Better is pre-alpha. Its deterministic Go CLI can be run from source, but
+there is no released binary, package, installer, database migration, MCP
+configuration, or Codex skill yet. Do not treat source commands as a release.
 
 ## Planned prerequisites
 
 - Supported macOS initially; Windows and Linux follow through platform adapters.
-- A supported Go toolchain for source builds (version set when implementation starts).
+- Go 1.24 or newer for source builds.
 - PostgreSQL 16 or newer, on the latest minor release for its major version.
 - Codex with local skill and stdio MCP support for the interactive integration.
 - Git; GitHub CLI only for GitHub evidence/features that the user configures.
