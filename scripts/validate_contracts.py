@@ -258,12 +258,15 @@ if len({case.get("id") for case in cases}) != len(cases):
     failures.append("duplicate golden case id")
 
 sensitive = re.compile(
-    r"(?:/Users/|[A-Za-z]:\\Users\\[^\\\s]+|ghp_[A-Za-z0-9]{20,}|"
+    r"(?:/Users/|/home/[^/\s]+/|/mnt/[A-Za-z]/Users/|"
+    r"[A-Za-z]:\\Users\\[^\\\s]+|ghp_[A-Za-z0-9]{20,}|"
     r"github_pat_[A-Za-z0-9_]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|"
     r"BEGIN [A-Z ]*PRIVATE KEY|@(?:gmail|outlook)\.)"
 )
 sensitive_samples = (
     "/Users/" + "synthetic",
+    "/home/" + "synthetic/work",
+    "/mnt/c/" + "Users/synthetic",
     "C:" + "\\Users\\synthetic",
     "sk-" + "proj-" + "a" * 20,
     "github_" + "pat_" + "a" * 20,
