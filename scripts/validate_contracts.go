@@ -630,9 +630,10 @@ func (v *validator) validateGoldenCoverage() int {
 }
 
 func (v *validator) validateSensitiveContent() {
-	pattern := regexp.MustCompile(`(?:/Users/|/home/[^/\s]+/|/mnt/[A-Za-z]/Users/|[A-Za-z]:\\Users\\[^\\\s]+|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|BEGIN [A-Z ]*PRIVATE KEY|@(?:gmail|outlook)\.)`)
+	pattern := regexp.MustCompile(`(?:/Users/|/home/[^/\s]+|/root(?:/|\b)|~/|/mnt/[A-Za-z]/Users/|[A-Za-z]:\\Users\\[^\\\s]+|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|BEGIN [A-Z ]*PRIVATE KEY|@(?:gmail|outlook)\.)`)
 	samples := []string{
-		"/Users/" + "synthetic", "/home/" + "synthetic/work", "/mnt/c/" + "Users/synthetic",
+		"/Users/" + "synthetic", "/home/" + "synthetic", "/home/" + "synthetic/work",
+		"/root", "/root/work", "~/work", "/mnt/c/" + "Users/synthetic",
 		`C:\Users\synthetic`, "sk-" + "proj-" + strings.Repeat("a", 20), "github_" + "pat_" + strings.Repeat("a", 20),
 	}
 	for _, prefix := range []string{"ghp_", "gho_", "ghu_", "ghs_", "ghr_"} {
