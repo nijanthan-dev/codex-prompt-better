@@ -40,10 +40,11 @@ func TestLoadFilePrecedenceAndProvenance(t *testing.T) {
 
 func TestLoadFileRejectsUnknownAndUnsafeValues(t *testing.T) {
 	tests := map[string]string{
-		"unknown":  `{"extra":true}`,
-		"limit":    `{"max_input_bytes":1048577}`,
-		"timeout":  `{"timeout":"2m"}`,
-		"trailing": `{} garbage`,
+		"unknown":       `{"extra":true}`,
+		"limit":         `{"max_input_bytes":1048577}`,
+		"timeout":       `{"timeout":"2m"}`,
+		"empty timeout": `{"timeout":""}`,
+		"trailing":      `{} garbage`,
 	}
 	for name, data := range tests {
 		t.Run(name, func(t *testing.T) {

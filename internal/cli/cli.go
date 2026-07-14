@@ -50,7 +50,11 @@ type options struct {
 	positional       []string
 	isRequestJSON    bool
 	isShowProvenance bool
+	isFormatSet      bool
 	isPolicySet      bool
+	isHostSet        bool
+	isTimeoutSet     bool
+	isMaxInputSet    bool
 	isPhaseSet       bool
 }
 
@@ -134,8 +138,16 @@ func parseOptions(command string, args []string) (options, error) {
 	}
 	fs.Visit(func(item *flag.Flag) {
 		switch item.Name {
+		case "format":
+			opt.isFormatSet = true
 		case "execution-policy":
 			opt.isPolicySet = true
+		case "host-permission":
+			opt.isHostSet = true
+		case "timeout":
+			opt.isTimeoutSet = true
+		case "max-input-bytes":
+			opt.isMaxInputSet = true
 		case "phase":
 			opt.isPhaseSet = true
 		}
@@ -155,7 +167,7 @@ func loadConfig(parent context.Context, opt options) (config.Config, error) {
 		}
 		cfg = loaded
 	}
-	if opt.format != "" {
+	if opt.isFormatSet {
 		cfg.Format = opt.format
 		cfg.Provenance["format"] = "cli"
 	}
@@ -163,15 +175,15 @@ func loadConfig(parent context.Context, opt options) (config.Config, error) {
 		cfg.ExecutionPolicy = contracts.ExecutionPolicy(opt.executionPolicy)
 		cfg.Provenance["execution_policy"] = "cli"
 	}
-	if opt.hostPermission != "" {
+	if opt.isHostSet {
 		cfg.HostPermission = policy.HostPermission(opt.hostPermission)
 		cfg.Provenance["host_permission"] = "cli"
 	}
-	if opt.maxInputBytes != 0 {
+	if opt.isMaxInputSet {
 		cfg.MaxInputBytes = opt.maxInputBytes
 		cfg.Provenance["max_input_bytes"] = "cli"
 	}
-	if opt.timeout != "" {
+	if opt.isTimeoutSet {
 		cfg.TimeoutText = opt.timeout
 		cfg.Provenance["timeout"] = "cli"
 	}

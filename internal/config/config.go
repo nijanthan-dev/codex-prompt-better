@@ -162,18 +162,16 @@ func (c *Config) Validate() error {
 			false,
 		)
 	}
-	if c.TimeoutText != "" {
-		duration, err := time.ParseDuration(c.TimeoutText)
-		if err != nil || duration <= 0 || duration > time.Minute {
-			return contracts.NewError(
-				contracts.ErrorCodeInvalidSchema,
-				"timeout must be positive and at most 1m",
-				"timeout",
-				false,
-			)
-		}
-		c.Timeout = duration
+	duration, err := time.ParseDuration(c.TimeoutText)
+	if err != nil || duration <= 0 || duration > time.Minute {
+		return contracts.NewError(
+			contracts.ErrorCodeInvalidSchema,
+			"timeout must be positive and at most 1m",
+			"timeout",
+			false,
+		)
 	}
+	c.Timeout = duration
 	if c.Format != "text" && c.Format != "json" {
 		return contracts.NewError(contracts.ErrorCodeInvalidSchema, "format must be text or json", "format", false)
 	}

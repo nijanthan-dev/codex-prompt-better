@@ -140,6 +140,29 @@ func TestInputFileCRLFAndLimit(t *testing.T) {
 	}
 }
 
+func TestExplicitConfigurationFlagsAreValidated(t *testing.T) {
+	tests := []struct {
+		name string
+		flag string
+	}{
+		{name: "zero input limit", flag: "--max-input-bytes=0"},
+		{name: "empty format", flag: "--format="},
+		{name: "empty host permission", flag: "--host-permission="},
+		{name: "empty timeout", flag: "--timeout="},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			code, _, stderr := execute(
+				[]string{"improve_prompt", test.flag},
+				"Synthetic",
+			)
+			if code != exitInvalid || stderr == "" {
+				t.Fatalf("code=%d stderr=%q", code, stderr)
+			}
+		})
+	}
+}
+
 func TestCancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

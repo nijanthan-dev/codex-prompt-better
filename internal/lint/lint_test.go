@@ -121,18 +121,51 @@ func TestCheckPromptRuleDiagnostics(t *testing.T) {
 }
 
 func TestCheckPromptFlagsDynamicStablePrefix(t *testing.T) {
-	candidate := "Stable prefix:\n- Snapshot 2026-07-15.\n\n" +
-		validCandidate("Return result.")
-	result, err := CheckPrompt(lintRequest(candidate))
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name      string
+		candidate string
+		want      bool
+	}{
+		{
+			name: "bullet body",
+			candidate: "Stable prefix:\n- Snapshot 2026-07-15.\n\n" +
+				validCandidate("Return result."),
+			want: true,
+		},
+		{
+			name: "paragraph body",
+			candidate: "Stable prefix:\nAs of 2026-07-15 use the snapshot.\n\n" +
+				validCandidate("Return result."),
+			want: true,
+		},
+		{
+			name: "next section",
+			candidate: "Stable prefix:\nPreserve durable rules.\n\n" +
+				validCandidate("Return the 2026-07-15 result."),
+			want: false,
+		},
 	}
-	for _, diagnostic := range result.Diagnostics {
-		if diagnostic.Code == "unstable-prefix-dynamic-content" {
-			return
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := CheckPrompt(lintRequest(test.candidate))
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := hasDiagnostic(result.Diagnostics, "unstable-prefix-dynamic-content")
+			if got != test.want {
+				t.Fatalf("diagnostic=%t want=%t: %+v", got, test.want, result.Diagnostics)
+			}
+		})
+	}
+}
+
+func hasDiagnostic(diagnostics []contracts.Diagnostic, code string) bool {
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Code == code {
+			return true
 		}
 	}
-	t.Fatal("cache-stability diagnostic missing")
+	return false
 }
 
 func lintRequest(candidate string) contracts.LintPromptRequest {

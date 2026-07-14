@@ -206,7 +206,7 @@ func CheckPrompt(request contracts.LintPromptRequest) (contracts.LintPromptResul
 				inPrefix = true
 				continue
 			}
-			if inPrefix && trimmed != "" && !strings.HasPrefix(trimmed, "-") {
+			if inPrefix && isSectionBoundary(trimmed) {
 				inPrefix = false
 			}
 			if inPrefix && dynamicDatePattern.MatchString(line) {
@@ -235,6 +235,13 @@ func CheckPrompt(request contracts.LintPromptRequest) (contracts.LintPromptResul
 		Valid:         valid,
 		Diagnostics:   diagnostics,
 	}, nil
+}
+
+func isSectionBoundary(value string) bool {
+	if value == "" || !strings.HasSuffix(value, ":") {
+		return false
+	}
+	return !dynamicDatePattern.MatchString(value)
 }
 
 func invalid(message, field string) error {
