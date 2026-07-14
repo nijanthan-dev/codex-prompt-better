@@ -182,7 +182,29 @@
           "maxLength": 128,
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "path"
+            ],
+            "properties": {
+              "path": {
+                "const": "programmatic"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "program_output_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
     },
     "delegation": {
       "type": [

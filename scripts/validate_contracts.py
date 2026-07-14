@@ -200,6 +200,19 @@ unsafe_runtime_observation["tool_call"] = {
 }
 if schema_valid(unsafe_runtime_observation, runtime_schema, runtime_schema_path):
     failures.append("runtime observation accepted unsafe tool identifier")
+unlinked_programmatic_call = deepcopy(runtime_observation)
+unlinked_programmatic_call["tool_call"] = {
+    "call_id": "call-programmatic",
+    "path": "programmatic",
+    "caller": "synthetic-program",
+    "program_output_id": None,
+}
+if schema_valid(unlinked_programmatic_call, runtime_schema, runtime_schema_path):
+    failures.append("runtime observation accepted unlinked programmatic tool call")
+linked_programmatic_call = deepcopy(unlinked_programmatic_call)
+linked_programmatic_call["tool_call"]["program_output_id"] = "program-output-alpha"
+if not schema_valid(linked_programmatic_call, runtime_schema, runtime_schema_path):
+    failures.append("runtime observation rejected linked programmatic tool call")
 misclassified_subscription = deepcopy(runtime_observation)
 misclassified_subscription.update(
     product_surface="codex_subscription",
