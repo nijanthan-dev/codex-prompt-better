@@ -1,5 +1,11 @@
 # Architecture
 
+Frozen v1 interfaces, lifecycle states, compatibility rules, truth tables, and
+stable errors are defined in [`contracts/architecture-v1.md`](contracts/architecture-v1.md).
+Privacy and security controls are defined in [`privacy-model.md`](privacy-model.md)
+and [`security-risk-model.md`](security-risk-model.md). Versioned schemas live
+in `schemas/v1`.
+
 ## Principles
 
 Prompt Better is a generic, project-agnostic compiler and risk-weighted boundary

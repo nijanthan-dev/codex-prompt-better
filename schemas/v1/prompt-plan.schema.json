@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-better.local/schemas/v1/prompt-plan.schema.json",
+  "title": "PromptPlan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "goal",
+    "success_criteria",
+    "invariants",
+    "decision_rules",
+    "evidence_requirements",
+    "tools",
+    "output_contract",
+    "approval_boundary",
+    "phase_scope",
+    "stop_rules",
+    "fallback_rules",
+    "abstain_rules",
+    "validation_bar"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "role": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "personality": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "collaboration_style": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "success_criteria": {
+      "$ref": "#/$defs/list"
+    },
+    "invariants": {
+      "$ref": "#/$defs/list"
+    },
+    "decision_rules": {
+      "$ref": "#/$defs/list"
+    },
+    "evidence_requirements": {
+      "$ref": "#/$defs/list"
+    },
+    "tools": {
+      "$ref": "#/$defs/list"
+    },
+    "output_contract": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "output_language": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 80
+    },
+    "artifact_priorities": {
+      "$ref": "#/$defs/list"
+    },
+    "approval_boundary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "phase_scope": {
+      "enum": [
+        "research",
+        "design",
+        "implementation",
+        "review",
+        "external_coordination"
+      ]
+    },
+    "stop_rules": {
+      "$ref": "#/$defs/list"
+    },
+    "fallback_rules": {
+      "$ref": "#/$defs/list"
+    },
+    "abstain_rules": {
+      "$ref": "#/$defs/list"
+    },
+    "validation_bar": {
+      "$ref": "#/$defs/list"
+    },
+    "stable_prefix": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 4000
+    },
+    "dynamic_tail": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 4000
+    }
+  },
+  "$defs": {
+    "list": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    }
+  }
+}

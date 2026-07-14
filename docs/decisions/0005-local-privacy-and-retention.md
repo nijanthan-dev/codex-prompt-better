@@ -19,4 +19,4 @@ preferred. Prompt Better never expands Codex permissions.
 
 Reports redact and aggregate by default. Retention/deletion is policy-driven and
 auditable. Public examples are synthetic. Storing raw content or adding a remote
-feature requires explicit consent, threat-model review, and a new ADR.
+feature requires explicit consent, security-risk review, and a new ADR.

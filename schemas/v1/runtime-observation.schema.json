@@ -1,0 +1,424 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-better.local/schemas/v1/runtime-observation.schema.json",
+  "title": "RuntimeObservation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "trajectory_id",
+    "knowledge_state",
+    "product_surface",
+    "accounting_regime",
+    "usage_unit",
+    "source_version",
+    "confidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "trajectory_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "turn_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "response_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "parent_response_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "knowledge_state": {
+      "enum": [
+        "observed",
+        "configured",
+        "derived",
+        "unsupported",
+        "unknown"
+      ]
+    },
+    "rendered_context_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "input_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "output_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "reasoning_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "cached_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "cache_write_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "compaction": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "mode",
+        "threshold",
+        "opaque_item_hash"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        },
+        "mode": {
+          "enum": [
+            "automatic",
+            "server",
+            "standalone",
+            "host",
+            "unknown"
+          ]
+        },
+        "threshold": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "opaque_item_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "tool_call": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "call_id",
+        "path",
+        "caller",
+        "program_output_id"
+      ],
+      "properties": {
+        "call_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        },
+        "path": {
+          "enum": [
+            "direct",
+            "programmatic",
+            "unknown"
+          ]
+        },
+        "caller": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        },
+        "program_output_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "path"
+            ],
+            "properties": {
+              "path": {
+                "const": "programmatic"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "program_output_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "delegation": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "depth",
+        "parent_id",
+        "context_mode"
+      ],
+      "properties": {
+        "depth": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "parent_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        },
+        "context_mode": {
+          "enum": [
+            "none",
+            "minimal",
+            "selected",
+            "full",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "latency_ms": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "product_surface": {
+      "enum": [
+        "codex_subscription",
+        "openai_api",
+        "local",
+        "unknown"
+      ]
+    },
+    "accounting_regime": {
+      "enum": [
+        "subscription_usage",
+        "api_tokens",
+        "api_money",
+        "local",
+        "unknown"
+      ]
+    },
+    "usage_unit": {
+      "enum": [
+        "subscription_unit",
+        "token",
+        "currency_minor",
+        "event",
+        "unknown"
+      ]
+    },
+    "source_version": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 80,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,79}$"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "product_surface": {
+            "const": "codex_subscription"
+          }
+        }
+      },
+      "then": {
+        "oneOf": [
+          {
+            "properties": {
+              "accounting_regime": {
+                "const": "subscription_usage"
+              },
+              "usage_unit": {
+                "const": "subscription_unit"
+              }
+            }
+          },
+          {
+            "properties": {
+              "accounting_regime": {
+                "const": "unknown"
+              },
+              "usage_unit": {
+                "const": "unknown"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "product_surface": {
+            "const": "openai_api"
+          }
+        }
+      },
+      "then": {
+        "oneOf": [
+          {
+            "properties": {
+              "accounting_regime": {
+                "const": "api_tokens"
+              },
+              "usage_unit": {
+                "const": "token"
+              }
+            }
+          },
+          {
+            "properties": {
+              "accounting_regime": {
+                "const": "api_money"
+              },
+              "usage_unit": {
+                "const": "currency_minor"
+              }
+            }
+          },
+          {
+            "properties": {
+              "accounting_regime": {
+                "const": "unknown"
+              },
+              "usage_unit": {
+                "const": "unknown"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "product_surface": {
+            "const": "local"
+          }
+        }
+      },
+      "then": {
+        "oneOf": [
+          {
+            "properties": {
+              "accounting_regime": {
+                "const": "local"
+              },
+              "usage_unit": {
+                "const": "event"
+              }
+            }
+          },
+          {
+            "properties": {
+              "accounting_regime": {
+                "const": "unknown"
+              },
+              "usage_unit": {
+                "const": "unknown"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "product_surface": {
+            "const": "unknown"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "accounting_regime": {
+            "const": "unknown"
+          },
+          "usage_unit": {
+            "const": "unknown"
+          }
+        }
+      }
+    }
+  ]
+}

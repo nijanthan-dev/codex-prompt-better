@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-better.local/schemas/v1/tools/improve_prompt.schema.json",
+  "title": "improve_prompt v1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/result"
+    },
+    {
+      "$ref": "../common.schema.json#/$defs/error"
+    }
+  ],
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "intent",
+        "execution_policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "kind": {
+          "const": "request"
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000
+        },
+        "execution_policy": {
+          "enum": [
+            "improve_only",
+            "ask_before_execute",
+            "follow_user_intent"
+          ]
+        },
+        "prompt_plan": {
+          "$ref": "../prompt-plan.schema.json"
+        },
+        "budget": {
+          "$ref": "../execution-budget.schema.json"
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "improved_prompt",
+        "policy_outcome",
+        "diagnostics"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "kind": {
+          "const": "result"
+        },
+        "improved_prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16000
+        },
+        "policy_outcome": {
+          "enum": [
+            "return_only",
+            "approval_required",
+            "execution_recommended",
+            "denied"
+          ]
+        },
+        "diagnostics": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      }
+    }
+  }
+}

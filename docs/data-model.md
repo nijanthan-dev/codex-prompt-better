@@ -44,8 +44,8 @@ unmatched evidence rather than invent relationships.
 Raw prompt bodies and raw source payloads have no default storage column. The
 default stores hashes, lengths, classifications, diagnostics, and derived facts.
 Any future raw-content table requires a separate migration, explicit opt-in
-policy, encryption and deletion design, access audit, threat-model update, and
-ADR. Secrets must never be stored.
+policy, encryption and deletion design, access audit, security-risk-model
+update, and ADR. Secrets must never be stored.
 
 ## Views
 

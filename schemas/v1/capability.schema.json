@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-better.local/schemas/v1/capability.schema.json",
+  "title": "HostCapability v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "name",
+    "observed_name",
+    "state",
+    "source",
+    "checked_at",
+    "product_surface",
+    "mutable_by_prompt_better"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "name": {
+      "enum": [
+        "text_verbosity",
+        "model_variant",
+        "reasoning_effort",
+        "reasoning_mode",
+        "reasoning_context",
+        "prompt_caching",
+        "previous_response_id",
+        "assistant_phase",
+        "compaction",
+        "programmatic_tool_calling",
+        "multi_agent",
+        "image_detail",
+        "safeguards",
+        "safety_identifier",
+        "parallel_tool_calls",
+        "unknown"
+      ]
+    },
+    "observed_name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[a-z][a-z0-9_]{0,79}$"
+    },
+    "state": {
+      "enum": [
+        "supported",
+        "advisory",
+        "deferred",
+        "not_applicable",
+        "unsupported",
+        "unknown"
+      ]
+    },
+    "source": {
+      "enum": [
+        "official_current",
+        "staff_clarification",
+        "practitioner_hypothesis",
+        "runtime_observed",
+        "derived",
+        "unknown"
+      ]
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date"
+    },
+    "product_surface": {
+      "enum": [
+        "codex_subscription",
+        "openai_api",
+        "local",
+        "unknown"
+      ]
+    },
+    "value": {
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "mutable_by_prompt_better": {
+      "const": false
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "const": "unknown"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "observed_name": {
+            "type": "string"
+          },
+          "state": {
+            "const": "unknown"
+          }
+        }
+      }
+    }
+  ]
+}

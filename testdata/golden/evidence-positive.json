@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0.0",
+  "source": {
+    "kind": "synthetic_jsonl",
+    "identity": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "version": "1",
+    "read_only": true
+  },
+  "external_id": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "cursor": {
+    "kind": "sequence",
+    "value": "42"
+  },
+  "observed_at": "2026-07-14T00:00:00Z",
+  "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "classification": "internal",
+  "redaction": {
+    "state": "applied",
+    "fields": [
+      "body"
+    ]
+  },
+  "coverage": "partial",
+  "provenance": "runtime_observed",
+  "product_surface": "local",
+  "retention": {
+    "raw_retained": false,
+    "consent": "granted",
+    "policy_id": "local-default-v1"
+  },
+  "join_keys": [
+    {
+      "kind": "session",
+      "value_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ]
+}

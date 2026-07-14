@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-better.local/schemas/v1/host-recommendation.schema.json",
+  "title": "HostRecommendation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "setting",
+    "recommended_value",
+    "capability_state",
+    "provenance",
+    "product_surface",
+    "checked_at",
+    "advisory_only"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "setting": {
+      "enum": [
+        "reasoning_effort",
+        "reasoning_mode",
+        "text_verbosity",
+        "model_variant"
+      ]
+    },
+    "recommended_value": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 80
+    },
+    "capability_state": {
+      "enum": [
+        "supported",
+        "advisory",
+        "deferred",
+        "not_applicable",
+        "unsupported",
+        "unknown"
+      ]
+    },
+    "provenance": {
+      "enum": [
+        "official_current",
+        "staff_clarification",
+        "practitioner_hypothesis",
+        "runtime_observed",
+        "derived",
+        "unknown"
+      ]
+    },
+    "product_surface": {
+      "enum": [
+        "codex_subscription",
+        "openai_api",
+        "local",
+        "unknown"
+      ]
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date"
+    },
+    "advisory_only": {
+      "const": true
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "eval_reference": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    }
+  }
+}
