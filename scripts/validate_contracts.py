@@ -65,6 +65,10 @@ def schema_valid(value, schema, schema_path):
     if "$ref" in schema:
         resolved, resolved_path = resolve_reference(schema["$ref"], schema_path)
         return resolved is not None and schema_valid(value, resolved, resolved_path)
+    if "oneOf" in schema:
+        matches = sum(schema_valid(value, branch, schema_path) for branch in schema["oneOf"])
+        if matches != 1:
+            return False
 
     kinds = expected_types(schema)
     if kinds and not any(type_matches(value, kind) for kind in kinds):
@@ -179,6 +183,12 @@ for path, schema in schemas.items():
     if path.parent.name != "tools" or not isinstance(schema, dict):
         continue
     name = path.stem.removesuffix(".schema")
+    for kind in ("request", "result", "error"):
+        example = tools.get(name, {}).get(kind)
+        if not schema_valid(example, schema, path):
+            failures.append(f"{name}: full tool schema rejects {kind}")
+    if schema_valid({"arbitrary": True}, schema, path):
+        failures.append(f"{name}: full tool schema accepts arbitrary payload")
     for kind in ("request", "result"):
         definition = schema["$defs"][kind]
         example = tools.get(name, {}).get(kind)
