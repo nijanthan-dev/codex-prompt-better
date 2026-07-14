@@ -198,6 +198,37 @@ if evidence_positive:
         if schema_valid(unsafe_cursor, evidence_schema, evidence_schema_path):
             failures.append("evidence accepted unsafe cursor value")
 
+capability_schema_path = SCHEMAS / "capability.schema.json"
+capability_schema = schemas[capability_schema_path]
+known_capability = {
+    "schema_version": "1.0.0",
+    "name": "prompt_caching",
+    "observed_name": None,
+    "state": "supported",
+    "source": "runtime_observed",
+    "checked_at": "2026-07-14",
+    "product_surface": "openai_api",
+    "mutable_by_prompt_better": False,
+}
+if not schema_valid(known_capability, capability_schema, capability_schema_path):
+    failures.append("known capability fails contract")
+unknown_capability = deepcopy(known_capability)
+unknown_capability.update(
+    name="unknown",
+    observed_name="future_host_capability",
+    state="unknown",
+)
+if not schema_valid(unknown_capability, capability_schema, capability_schema_path):
+    failures.append("unknown capability name cannot be preserved")
+misclassified_capability = deepcopy(unknown_capability)
+misclassified_capability["state"] = "supported"
+if schema_valid(misclassified_capability, capability_schema, capability_schema_path):
+    failures.append("unknown capability coerced to supported")
+unsafe_capability = deepcopy(unknown_capability)
+unsafe_capability["observed_name"] = "/home/synthetic/capability"
+if schema_valid(unsafe_capability, capability_schema, capability_schema_path):
+    failures.append("unsafe unknown capability name accepted")
+
 runtime_schema_path = SCHEMAS / "runtime-observation.schema.json"
 runtime_schema = schemas[runtime_schema_path]
 runtime_observation = {

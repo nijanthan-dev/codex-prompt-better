@@ -36,7 +36,8 @@ changing meaning/type/requiredness, or loosening a security invariant is
 breaking and requires a new major schema plus migration plan. Invalid required
 data fails with a stable error. Missing optional data remains absent or `unknown`;
 it is never guessed. Persisted changes later require migrations; tables precede
-indexes, foreign keys, and views.
+indexes, foreign keys, and views. Unknown capability names use `name: unknown`,
+preserve the source-safe name in `observed_name`, and require `state: unknown`.
 
 ## Permission and execution truth table
 

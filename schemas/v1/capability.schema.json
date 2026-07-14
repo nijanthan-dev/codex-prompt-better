@@ -7,6 +7,7 @@
   "required": [
     "schema_version",
     "name",
+    "observed_name",
     "state",
     "source",
     "checked_at",
@@ -33,8 +34,18 @@
         "image_detail",
         "safeguards",
         "safety_identifier",
-        "parallel_tool_calls"
+        "parallel_tool_calls",
+        "unknown"
       ]
+    },
+    "observed_name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[a-z][a-z0-9_]{0,79}$"
     },
     "state": {
       "enum": [
@@ -86,5 +97,29 @@
       "minLength": 1,
       "maxLength": 500
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "const": "unknown"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "observed_name": {
+            "type": "string"
+          },
+          "state": {
+            "const": "unknown"
+          }
+        }
+      }
+    }
+  ]
 }
