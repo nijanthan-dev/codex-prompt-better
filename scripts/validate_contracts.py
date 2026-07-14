@@ -189,6 +189,14 @@ if evidence_positive:
             unsafe_identity[field] = unsafe_value
         if schema_valid(unsafe_identity, evidence_schema, evidence_schema_path):
             failures.append(f"evidence accepted unsafe {field}")
+    for unsafe_value in (
+        "/home/synthetic/.codex/session.json",
+        "sk-proj-" + "a" * 20,
+    ):
+        unsafe_cursor = deepcopy(evidence_positive)
+        unsafe_cursor["cursor"] = {"kind": "unknown", "value": unsafe_value}
+        if schema_valid(unsafe_cursor, evidence_schema, evidence_schema_path):
+            failures.append("evidence accepted unsafe cursor value")
 
 runtime_schema_path = SCHEMAS / "runtime-observation.schema.json"
 runtime_schema = schemas[runtime_schema_path]
