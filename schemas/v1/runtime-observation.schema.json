@@ -21,28 +21,32 @@
     "trajectory_id": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 128
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
     },
     "turn_id": {
       "type": [
         "string",
         "null"
       ],
-      "maxLength": 128
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
     },
     "response_id": {
       "type": [
         "string",
         "null"
       ],
-      "maxLength": 128
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
     },
     "parent_response_id": {
       "type": [
         "string",
         "null"
       ],
-      "maxLength": 128
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
     },
     "knowledge_state": {
       "enum": [
@@ -108,8 +112,11 @@
         "opaque_item_hash"
       ],
       "properties": {
-        "event_id": {
-          "type": "string"
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
         },
         "mode": {
           "enum": [
@@ -146,8 +153,11 @@
         "program_output_id"
       ],
       "properties": {
-        "call_id": {
-          "type": "string"
+          "call_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
         },
         "path": {
           "enum": [
@@ -158,15 +168,19 @@
         },
         "caller": {
           "type": [
-            "string",
-            "null"
-          ]
+              "string",
+              "null"
+            ],
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
         },
         "program_output_id": {
           "type": [
-            "string",
-            "null"
-          ]
+              "string",
+              "null"
+            ],
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
         }
       }
     },
@@ -191,9 +205,11 @@
         },
         "parent_id": {
           "type": [
-            "string",
-            "null"
-          ]
+              "string",
+              "null"
+            ],
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
         },
         "context_mode": {
           "enum": [
@@ -243,7 +259,9 @@
       "type": [
         "string",
         "null"
-      ]
+      ],
+      "maxLength": 80,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,79}$"
     },
     "confidence": {
       "type": "number",

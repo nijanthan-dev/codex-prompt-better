@@ -156,6 +156,30 @@ if evidence_positive:
     if schema_valid(mutable_source, evidence_schema, evidence_schema_path):
         failures.append("evidence accepted mutable source")
 
+runtime_schema_path = SCHEMAS / "runtime-observation.schema.json"
+runtime_schema = schemas[runtime_schema_path]
+runtime_observation = {
+    "schema_version": "1.0.0",
+    "trajectory_id": "trajectory-alpha",
+    "knowledge_state": "observed",
+    "product_surface": "local",
+    "accounting_regime": "local",
+    "usage_unit": "event",
+    "source_version": None,
+    "confidence": 1,
+}
+if not schema_valid(runtime_observation, runtime_schema, runtime_schema_path):
+    failures.append("synthetic runtime observation fails contract")
+unsafe_runtime_observation = deepcopy(runtime_observation)
+unsafe_runtime_observation["tool_call"] = {
+    "call_id": "/home/synthetic/tool",
+    "path": "direct",
+    "caller": None,
+    "program_output_id": None,
+}
+if schema_valid(unsafe_runtime_observation, runtime_schema, runtime_schema_path):
+    failures.append("runtime observation accepted unsafe tool identifier")
+
 for path, schema in schemas.items():
     if not isinstance(schema, dict):
         continue
