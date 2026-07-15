@@ -341,6 +341,53 @@ func TestRequestJSONRejectsNullBudgetContextMode(t *testing.T) {
 	}
 }
 
+func TestImproveRequestJSONRejectsNonNullableOptionals(t *testing.T) {
+	base := `{"schema_version":"1.0.0","kind":"request",` +
+		`"intent":"Synthetic","execution_policy":"improve_only"}`
+	budget := `{"schema_version":"1.0.0","enforcement":"advisory",` +
+		`"active_phases":["implementation"],"delegation_policy":"none",` +
+		`"exhaustion_outcome":"stop"}`
+	tests := []struct{ name, field, want string }{
+		{name: "null prompt plan", field: `"prompt_plan":null`, want: "prompt_plan"},
+		{name: "null budget", field: `"budget":null`, want: "budget"},
+		{
+			name: "empty context mode",
+			want: "context_mode",
+			field: `"budget":` + strings.Replace(
+				budget,
+				`"exhaustion_outcome":"stop"`,
+				`"context_mode":"","exhaustion_outcome":"stop"`,
+				1,
+			),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request := strings.TrimSuffix(base, "}") + "," + test.field + "}"
+			code, _, stderr := execute(
+				[]string{"improve_prompt", "--request-json"},
+				request,
+			)
+			if code != exitInvalid || !strings.Contains(stderr, test.want) {
+				t.Fatalf("code=%d stderr=%q", code, stderr)
+			}
+		})
+	}
+
+	for _, request := range []string{
+		base,
+		strings.TrimSuffix(base, "}") + `,"budget":` + budget + "}",
+	} {
+		code, _, stderr := execute(
+			[]string{"improve_prompt", "--request-json"},
+			request,
+		)
+		if code != exitOK || stderr != "" {
+			t.Fatalf("optional omission rejected: code=%d stderr=%q", code, stderr)
+		}
+	}
+}
+
 func TestRequestJSONRejectsEmptyArtifactPriorities(t *testing.T) {
 	goalRequest := strings.Replace(
 		improveRequestJSON(),

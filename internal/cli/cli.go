@@ -212,13 +212,20 @@ func (r runner) runImprove() int {
 		if err := decodeStrict(r.input, &request); err != nil {
 			return r.emitError(err)
 		}
-		if jsonNullAtPath(r.input, "budget", "context_mode") {
-			return r.emitError(contracts.NewError(
-				contracts.ErrorCodeInvalidSchema,
-				"context_mode must be a supported string",
-				"budget.context_mode",
-				false,
-			))
+		for _, path := range [][]string{{"prompt_plan"}, {"budget"}, {"budget", "context_mode"}} {
+			if err := rejectJSONNull(r.input, path...); err != nil {
+				return r.emitError(err)
+			}
+		}
+		if request.Budget != nil && request.Budget.ContextMode == "" {
+			if _, ok := jsonValueAtPath(r.input, "budget", "context_mode"); ok {
+				return r.emitError(contracts.NewError(
+					contracts.ErrorCodeInvalidSchema,
+					"context_mode must be a supported string",
+					"budget.context_mode",
+					false,
+				))
+			}
 		}
 		if err := rejectEmptyJSONList(r.input, "prompt_plan", "artifact_priorities"); err != nil {
 			return r.emitError(err)
@@ -446,9 +453,17 @@ func decodeStrict(data []byte, target any) error {
 	return nil
 }
 
-func jsonNullAtPath(data []byte, path ...string) bool {
+func rejectJSONNull(data []byte, path ...string) error {
 	value, ok := jsonValueAtPath(data, path...)
-	return ok && bytes.Equal(bytes.TrimSpace(value), []byte("null"))
+	if !ok || !bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+		return nil
+	}
+	return contracts.NewError(
+		contracts.ErrorCodeInvalidSchema,
+		path[len(path)-1]+" must not be null",
+		strings.Join(path, "."),
+		false,
+	)
 }
 
 func rejectEmptyJSONList(data []byte, path ...string) error {
