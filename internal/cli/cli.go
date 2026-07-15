@@ -258,14 +258,15 @@ func (r runner) runImprove() int {
 			ExecutionPolicy: r.config.ExecutionPolicy,
 		}
 	}
-	if request.PromptPlan == nil && r.options.phase != "design" {
-		plan := compiler.NewPlan(request.Intent)
-		plan.PhaseScope = r.options.phase
-		request.PromptPlan = &plan
-	} else if request.PromptPlan != nil && r.options.isPhaseSet {
-		request.PromptPlan.PhaseScope = r.options.phase
+	var result contracts.ImprovePromptResult
+	var err error
+	if r.options.isPhaseSet {
+		result, err = compiler.ImproveWithPhase(
+			r.ctx, request, r.config.HostPermission, r.options.phase,
+		)
+	} else {
+		result, err = compiler.Improve(r.ctx, request, r.config.HostPermission)
 	}
-	result, err := compiler.Improve(r.ctx, request, r.config.HostPermission)
 	if err != nil {
 		return r.emitError(err)
 	}
@@ -282,13 +283,11 @@ func (r runner) runGoal() int {
 			return r.emitError(err)
 		}
 	} else {
-		objective := string(r.input)
-		request = contracts.CreateGoalPromptRequest{
-			SchemaVersion: contracts.SchemaVersion,
-			Kind:          "request",
-			Objective:     objective,
-			PromptPlan:    compiler.NewPlan(objective),
+		result, err := compiler.CreateGoalFromObjective(r.ctx, string(r.input))
+		if err != nil {
+			return r.emitError(err)
 		}
+		return r.emitResult(result, result.GoalPrompt)
 	}
 	result, err := compiler.CreateGoal(r.ctx, request)
 	if err != nil {

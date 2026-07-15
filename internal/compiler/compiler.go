@@ -20,6 +20,28 @@ func Improve(
 	request contracts.ImprovePromptRequest,
 	host policy.HostPermission,
 ) (contracts.ImprovePromptResult, error) {
+	return improve(ctx, request, host, "")
+}
+
+// ImproveWithPhase compiles one request with an explicit validated phase override.
+func ImproveWithPhase(
+	ctx context.Context,
+	request contracts.ImprovePromptRequest,
+	host policy.HostPermission,
+	phase string,
+) (contracts.ImprovePromptResult, error) {
+	if !validPhase(phase) {
+		return contracts.ImprovePromptResult{}, invalid("invalid phase scope", "phase")
+	}
+	return improve(ctx, request, host, phase)
+}
+
+func improve(
+	ctx context.Context,
+	request contracts.ImprovePromptRequest,
+	host policy.HostPermission,
+	phaseOverride string,
+) (contracts.ImprovePromptResult, error) {
 	if err := checkContext(ctx); err != nil {
 		return contracts.ImprovePromptResult{}, err
 	}
@@ -30,7 +52,10 @@ func Improve(
 	if err := checkContext(ctx); err != nil {
 		return contracts.ImprovePromptResult{}, err
 	}
-	preserveCompiled := request.PromptPlan == nil && looksCompiled(intent)
+	if phaseOverride != "" {
+		plan.PhaseScope = phaseOverride
+	}
+	preserveCompiled := phaseOverride == "" && request.PromptPlan == nil && looksCompiled(intent)
 	if preserveCompiled {
 		phase, ok := sectionValue(intent, "Phase")
 		if !ok || !validPhase(phase) {
@@ -54,6 +79,19 @@ func Improve(
 		SchemaVersion: contracts.SchemaVersion, Kind: "result", ImprovedPrompt: compiled,
 		PolicyOutcome: outcome, Diagnostics: []string{},
 	}, nil
+}
+
+// CreateGoalFromObjective renders a plain objective with a generated valid plan.
+func CreateGoalFromObjective(
+	ctx context.Context,
+	objective string,
+) (contracts.CreateGoalPromptResult, error) {
+	return CreateGoal(ctx, contracts.CreateGoalPromptRequest{
+		SchemaVersion: contracts.SchemaVersion,
+		Kind:          "request",
+		Objective:     objective,
+		PromptPlan:    defaultPlan("Create the requested goal artifact."),
+	})
 }
 
 // ValidateImproveRequest validates the unmodified v1 request contract.

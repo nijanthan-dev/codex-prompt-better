@@ -140,6 +140,20 @@ func TestInputFileCRLFAndLimit(t *testing.T) {
 	}
 }
 
+func TestSynthesizedPlansPreserveLongValidInput(t *testing.T) {
+	input := strings.Repeat("x", 3000)
+	tests := [][]string{
+		{"improve_prompt", "--phase", "implementation"},
+		{"create_goal_prompt"},
+	}
+	for _, args := range tests {
+		code, out, stderr := execute(args, input)
+		if code != exitOK || stderr != "" || !strings.Contains(out, input) {
+			t.Fatalf("args=%v code=%d preserved=%t stderr=%q", args, code, strings.Contains(out, input), stderr)
+		}
+	}
+}
+
 func TestExplicitConfigurationFlagsAreValidated(t *testing.T) {
 	tests := []struct {
 		name string

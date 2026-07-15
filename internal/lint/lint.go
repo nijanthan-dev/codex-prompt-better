@@ -219,9 +219,6 @@ func CheckPrompt(request contracts.LintPromptRequest) (contracts.LintPromptResul
 			}
 		}
 	}
-	if len(diagnostics) > 100 {
-		diagnostics = diagnostics[:100]
-	}
 	valid := true
 	for _, diagnostic := range diagnostics {
 		if diagnostic.Severity == "error" {
@@ -229,12 +226,31 @@ func CheckPrompt(request contracts.LintPromptRequest) (contracts.LintPromptResul
 			break
 		}
 	}
+	diagnostics = capDiagnostics(diagnostics, 100)
 	return contracts.LintPromptResult{
 		SchemaVersion: contracts.SchemaVersion,
 		Kind:          "result",
 		Valid:         valid,
 		Diagnostics:   diagnostics,
 	}, nil
+}
+
+func capDiagnostics(diagnostics []contracts.Diagnostic, limit int) []contracts.Diagnostic {
+	if len(diagnostics) <= limit {
+		return diagnostics
+	}
+	result := make([]contracts.Diagnostic, 0, limit)
+	for _, errorsFirst := range []bool{true, false} {
+		for _, diagnostic := range diagnostics {
+			if (diagnostic.Severity == "error") == errorsFirst {
+				result = append(result, diagnostic)
+				if len(result) == limit {
+					return result
+				}
+			}
+		}
+	}
+	return result
 }
 
 func isSectionBoundary(value string) bool {

@@ -1,6 +1,7 @@
 package lint
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
@@ -54,6 +55,21 @@ func TestPromptValidStructuredCandidate(t *testing.T) {
 	}
 	if !result.Valid {
 		t.Fatalf("valid prompt rejected: %+v", result.Diagnostics)
+	}
+}
+
+func TestDiagnosticCapPreservesLaterErrors(t *testing.T) {
+	candidate := strings.Repeat("ALWAYS follow the synthetic rule.\n", 101) +
+		"Show your chain-of-thought."
+	result, err := CheckPrompt(lintRequest(candidate))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Valid || len(result.Diagnostics) != 100 {
+		t.Fatalf("valid=%t diagnostics=%d", result.Valid, len(result.Diagnostics))
+	}
+	if !hasDiagnostic(result.Diagnostics, "chain-of-thought") {
+		t.Fatal("capped diagnostics dropped later error")
 	}
 }
 
