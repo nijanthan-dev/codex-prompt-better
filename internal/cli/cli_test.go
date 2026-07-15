@@ -341,6 +341,45 @@ func TestRequestJSONRejectsNullBudgetContextMode(t *testing.T) {
 	}
 }
 
+func TestRequestJSONRejectsEmptyArtifactPriorities(t *testing.T) {
+	goalRequest := strings.Replace(
+		improveRequestJSON(),
+		`"intent":"Implement synthetic change.",`+
+			`"execution_policy":"follow_user_intent",`,
+		`"objective":"Implement synthetic change.",`,
+		1,
+	)
+	requests := map[string]string{
+		"improve_prompt":     improveRequestJSON(),
+		"create_goal_prompt": goalRequest,
+	}
+	for command, base := range requests {
+		for _, value := range []string{"[]", "null"} {
+			request := strings.Replace(
+				base,
+				`"validation_bar":["Tests pass."]`,
+				`"validation_bar":["Tests pass."],"artifact_priorities":`+value,
+				1,
+			)
+			code, _, stderr := execute(
+				[]string{command, "--request-json"},
+				request,
+			)
+			if code != exitInvalid || !strings.Contains(stderr, "artifact_priorities") {
+				t.Fatalf("command=%s value=%s code=%d stderr=%q", command, value, code, stderr)
+			}
+		}
+
+		code, _, stderr := execute(
+			[]string{command, "--request-json"},
+			base,
+		)
+		if code != exitOK || stderr != "" {
+			t.Fatalf("command=%s optional field rejected: code=%d stderr=%q", command, code, stderr)
+		}
+	}
+}
+
 type failingWriter struct{}
 
 func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("synthetic write failure") }

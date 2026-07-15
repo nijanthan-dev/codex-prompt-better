@@ -220,6 +220,9 @@ func (r runner) runImprove() int {
 				false,
 			))
 		}
+		if err := rejectEmptyJSONList(r.input, "prompt_plan", "artifact_priorities"); err != nil {
+			return r.emitError(err)
+		}
 		if err := compiler.ValidateImproveRequest(request); err != nil {
 			return r.emitError(err)
 		}
@@ -252,6 +255,9 @@ func (r runner) runGoal() int {
 	var request contracts.CreateGoalPromptRequest
 	if r.options.isRequestJSON {
 		if err := decodeStrict(r.input, &request); err != nil {
+			return r.emitError(err)
+		}
+		if err := rejectEmptyJSONList(r.input, "prompt_plan", "artifact_priorities"); err != nil {
 			return r.emitError(err)
 		}
 	} else {
@@ -441,19 +447,42 @@ func decodeStrict(data []byte, target any) error {
 }
 
 func jsonNullAtPath(data []byte, path ...string) bool {
+	value, ok := jsonValueAtPath(data, path...)
+	return ok && bytes.Equal(bytes.TrimSpace(value), []byte("null"))
+}
+
+func rejectEmptyJSONList(data []byte, path ...string) error {
+	value, ok := jsonValueAtPath(data, path...)
+	if !ok {
+		return nil
+	}
+	var items []json.RawMessage
+	if bytes.Equal(bytes.TrimSpace(value), []byte("null")) ||
+		(json.Unmarshal(value, &items) == nil && len(items) == 0) {
+		return contracts.NewError(
+			contracts.ErrorCodeInvalidSchema,
+			path[len(path)-1]+" must contain at least one item",
+			strings.Join(path, "."),
+			false,
+		)
+	}
+	return nil
+}
+
+func jsonValueAtPath(data []byte, path ...string) (json.RawMessage, bool) {
 	current := json.RawMessage(data)
 	for _, segment := range path {
 		var object map[string]json.RawMessage
 		if err := json.Unmarshal(current, &object); err != nil {
-			return false
+			return nil, false
 		}
 		next, ok := object[segment]
 		if !ok {
-			return false
+			return nil, false
 		}
 		current = next
 	}
-	return bytes.Equal(bytes.TrimSpace(current), []byte("null"))
+	return current, true
 }
 
 func (r runner) emitResult(value any, text string) int {
