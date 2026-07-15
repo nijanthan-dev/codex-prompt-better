@@ -81,6 +81,21 @@
               "message": {
                 "type": "string",
                 "maxLength": 300
+              },
+              "location": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "rationale": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "remediation": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
               }
             }
           }
