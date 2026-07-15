@@ -1,0 +1,8 @@
+{"schema_version":"1.0.0","id":"builtin.autonomy-fallback-stopping-delegation","version":"1.0.0","rules":[
+  {"id":"autonomy.in-scope","category":"autonomy","outcome":"continue","risk_score":25,"explanation":"Continue only while useful work remains within explicit authority.","conditions":[{"field":"category","operator":"equals","value":"autonomy"}]},
+  {"id":"fallback.bounded","category":"fallback","outcome":"warn","risk_score":25,"explanation":"Use a bounded fallback without repeating failed work.","conditions":[{"field":"category","operator":"equals","value":"fallback"}]},
+  {"id":"stopping.exhausted","category":"stopping","outcome":"block","risk_score":75,"explanation":"Stop when bounds, useful work, or authority are exhausted.","conditions":[{"field":"category","operator":"equals","value":"stopping"}]},
+  {"id":"delegation.none","category":"delegation","outcome":"continue","risk_score":10,"explanation":"Do not delegate.","conditions":[{"field":"delegation_policy","operator":"equals","value":"none"}]},
+  {"id":"delegation.user-requested","category":"delegation","outcome":"clarify","risk_score":50,"explanation":"Delegate only after an explicit user request and capability check.","conditions":[{"field":"delegation_policy","operator":"equals","value":"user_requested_only"}]},
+  {"id":"delegation.bounded","category":"delegation","outcome":"clarify","risk_score":50,"explanation":"Bounded delegation requires known capability, depth, concurrency, and stop limits.","conditions":[{"field":"delegation_policy","operator":"equals","value":"bounded"}]}
+]}

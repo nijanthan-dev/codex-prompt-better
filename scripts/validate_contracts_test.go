@@ -18,7 +18,7 @@ func TestContracts(t *testing.T) {
 	if len(v.failures) != 0 {
 		t.Fatalf("contract validation failed:\n%s", strings.Join(v.failures, "\n"))
 	}
-	if result != (stats{schemas: 14, fixtures: 4, cases: 20, tools: 7}) {
+	if result != (stats{schemas: 16, fixtures: 4, cases: 20, tools: 7}) {
 		t.Fatalf("unexpected validation stats: %+v", result)
 	}
 }

@@ -52,6 +52,45 @@ func TestImprovePlainJSONIsByteStable(t *testing.T) {
 	}
 }
 
+func TestBoundaryDiscoveryIsExplicitAndSanitized(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("Non-goal: do not publish."), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	code, out, stderr := execute([]string{"improve_prompt", "--format", "json", "--context-root", root, "--scope", "src"}, "Change synthetic code.")
+	if code != 0 || stderr != "" {
+		t.Fatalf("code=%d stderr=%s", code, stderr)
+	}
+	if strings.Contains(out, root) || strings.Contains(out, filepath.Base(root)) {
+		t.Fatalf("root escaped: %s", out)
+	}
+	var result contracts.ImprovePromptResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.BoundaryDecisions) == 0 || !strings.Contains(result.ImprovedPrompt, "Scope:\n- src") || !strings.Contains(result.ImprovedPrompt, "Non-goals:") {
+		t.Fatalf("missing boundary integration: %+v", result)
+	}
+}
+
+func TestBoundaryFlagsRejectUnsafeCombinations(t *testing.T) {
+	root := t.TempDir()
+	tests := [][]string{
+		{"create_goal_prompt", "--context-root", root},
+		{"lint_prompt", "--scope", "src"},
+		{"improve_prompt", "--context-root", root, "--scope", "../outside"},
+	}
+	for _, args := range tests {
+		code, _, _ := execute(args, "Synthetic prompt.")
+		if code == 0 {
+			t.Fatalf("unsafe flags accepted: %v", args)
+		}
+	}
+}
+
 func TestImproveRequestJSONPolicyOutcomes(t *testing.T) {
 	request := improveRequestJSON()
 	code, out, stderr := execute(

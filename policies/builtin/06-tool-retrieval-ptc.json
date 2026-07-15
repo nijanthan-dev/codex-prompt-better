@@ -1,0 +1,6 @@
+{"schema_version":"1.0.0","id":"builtin.tool-retrieval-ptc","version":"1.0.0","rules":[
+  {"id":"tool.direct","category":"tool_routing","outcome":"continue","risk_score":10,"explanation":"Use a direct bounded tool when it fully covers the request.","conditions":[{"field":"category","operator":"equals","value":"tool_routing"},{"field":"capability_state","operator":"equals","value":"supported"}]},
+  {"id":"tool.unknown","category":"tool_routing","outcome":"clarify","risk_score":50,"explanation":"Unknown tool capability cannot be treated as supported.","conditions":[{"field":"category","operator":"equals","value":"tool_routing"},{"field":"capability_state","operator":"equals","value":"unknown"}]},
+  {"id":"retrieval.bounded","category":"retrieval","outcome":"continue","risk_score":10,"explanation":"Retrieve only evidence needed for the current decision and cite its sanitized source.","conditions":[{"field":"category","operator":"equals","value":"retrieval"}]},
+  {"id":"ptc.capability","category":"ptc","outcome":"clarify","risk_score":50,"explanation":"PTC routing requires an observed supported host capability.","conditions":[{"field":"category","operator":"equals","value":"ptc"},{"field":"capability_state","operator":"not_equals","value":"supported"}]}
+]}

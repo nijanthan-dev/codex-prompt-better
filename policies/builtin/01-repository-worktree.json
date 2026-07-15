@@ -1,0 +1,4 @@
+{"schema_version":"1.0.0","id":"builtin.repository-worktree","version":"1.0.0","rules":[
+  {"id":"repository.detected","category":"repository","outcome":"continue","risk_score":10,"explanation":"Use sanitized repository metadata only.","conditions":[{"field":"category","operator":"equals","value":"repository"}]},
+  {"id":"worktree.detected","category":"worktree","outcome":"warn","risk_score":20,"explanation":"Keep worktree identity and targets private.","conditions":[{"field":"category","operator":"equals","value":"worktree"}]}
+]}

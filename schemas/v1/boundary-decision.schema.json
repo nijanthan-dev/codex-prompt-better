@@ -1,0 +1,21 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://prompt-better.local/schemas/v1/boundary-decision.schema.json",
+  "title":"BoundaryDecision v1",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["category","outcome","risk","risk_level","confidence","source_ref","pack_id","rule_id","version","explanation","conflict_refs"],
+  "properties":{
+    "category":{"type":"string","minLength":1,"maxLength":80},
+    "outcome":{"enum":["continue","warn","clarify","block"]},
+    "risk":{"type":"integer","minimum":0,"maximum":100},
+    "risk_level":{"enum":["low","medium","high","critical"]},
+    "confidence":{"type":"number","minimum":0,"maximum":1},
+    "source_ref":{"type":"string","pattern":"^[a-z][a-z0-9_.-]{0,79}$"},
+    "pack_id":{"type":"string","pattern":"^[a-z][a-z0-9_.-]{0,79}$"},
+    "rule_id":{"type":"string","pattern":"^[a-z][a-z0-9_.-]{0,79}$"},
+    "version":{"const":"1.0.0"},
+    "explanation":{"type":"string","minLength":1,"maxLength":300},
+    "conflict_refs":{"type":"array","maxItems":64,"items":{"type":"string","pattern":"^[a-z][a-z0-9_.-]{0,79}$"}}
+  }
+}

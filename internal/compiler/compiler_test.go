@@ -332,6 +332,19 @@ func TestImprovePreservesRepresentativeSemantics(t *testing.T) {
 	}
 }
 
+func TestRenderPlanBoundarySectionsAreStable(t *testing.T) {
+	plan := NewPlan("Change synthetic code.")
+	plan.Scope = []string{"apps/api"}
+	plan.NonGoals = []string{"Do not publish."}
+	plan.Gates = []string{"Run synthetic validation."}
+	want := "Scope:\n- apps/api\n\nNon-goals:\n- Do not publish."
+	first := RenderPlan(plan, true)
+	second := RenderPlan(plan, true)
+	if first != second || !strings.Contains(first, want) || !strings.Contains(first, "Gates:\n- Run synthetic validation.") {
+		t.Fatalf("unstable boundary render: %s", first)
+	}
+}
+
 func improveRequest(intent string) contracts.ImprovePromptRequest {
 	return contracts.ImprovePromptRequest{
 		SchemaVersion:   contracts.SchemaVersion,

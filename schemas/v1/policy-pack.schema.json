@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-better.local/schemas/v1/policy-pack.schema.json",
+  "title": "PolicyPack v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "version", "rules"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,79}$"},
+    "version": {"const": "1.0.0"},
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {"$ref": "#/$defs/rule"}
+    }
+  },
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "category", "outcome", "risk_score", "explanation", "conditions"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,79}$"},
+        "category": {
+          "enum": ["repository", "worktree", "instruction", "scope", "non_goal", "generated", "vendor", "validation", "release", "privacy", "security", "tool_routing", "retrieval", "ptc", "autonomy", "fallback", "stopping", "delegation"]
+        },
+        "outcome": {"enum": ["continue", "warn", "clarify", "block"]},
+        "risk_score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "explanation": {"type": "string", "minLength": 1, "maxLength": 300},
+        "conditions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {"$ref": "#/$defs/condition"}
+        }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "operator", "value"],
+      "properties": {
+        "field": {"enum": ["category", "action_class", "phase", "source_kind", "capability_state", "delegation_policy", "ambiguous", "conflicted"]},
+        "operator": {"enum": ["equals", "not_equals", "prefix", "present"]},
+        "value": {"type": "string", "maxLength": 128}
+      }
+    }
+  }
+}
