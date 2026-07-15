@@ -317,6 +317,30 @@ func TestRequestJSONIsValidatedBeforeCLIOverrides(t *testing.T) {
 	}
 }
 
+func TestRequestJSONRejectsNullBudgetContextMode(t *testing.T) {
+	base := strings.TrimSuffix(improveRequestJSON(), "}")
+	budgetPrefix := `,"budget":{"schema_version":"1.0.0","enforcement":"advisory",` +
+		`"active_phases":["implementation"],"delegation_policy":"none",`
+	request := base + budgetPrefix +
+		`"context_mode":null,"exhaustion_outcome":"stop"}}`
+	code, _, stderr := execute(
+		[]string{"improve_prompt", "--request-json"},
+		request,
+	)
+	if code != exitInvalid || !strings.Contains(stderr, "context_mode") {
+		t.Fatalf("code=%d stderr=%q", code, stderr)
+	}
+
+	withoutContext := base + budgetPrefix + `"exhaustion_outcome":"stop"}}`
+	code, _, stderr = execute(
+		[]string{"improve_prompt", "--request-json"},
+		withoutContext,
+	)
+	if code != exitOK || stderr != "" {
+		t.Fatalf("optional field rejected: code=%d stderr=%q", code, stderr)
+	}
+}
+
 type failingWriter struct{}
 
 func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("synthetic write failure") }

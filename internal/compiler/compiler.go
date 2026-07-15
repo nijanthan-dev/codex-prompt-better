@@ -30,8 +30,17 @@ func Improve(
 	if err := checkContext(ctx); err != nil {
 		return contracts.ImprovePromptResult{}, err
 	}
+	preserveCompiled := request.PromptPlan == nil && looksCompiled(intent)
+	if preserveCompiled {
+		phase, ok := sectionValue(intent, "Phase")
+		if !ok || !validPhase(phase) {
+			preserveCompiled = false
+		} else {
+			plan.PhaseScope = phase
+		}
+	}
 	compiled := intent
-	if !looksCompiled(intent) || request.PromptPlan != nil {
+	if !preserveCompiled {
 		compiled = RenderPlan(plan, true)
 	}
 	if len(compiled) > 16000 {
@@ -454,6 +463,22 @@ func sectionIndex(value, title string) int {
 		return -1
 	}
 	return index + 2
+}
+
+func sectionValue(value, title string) (string, bool) {
+	start := sectionIndex(value, title)
+	if start < 0 {
+		return "", false
+	}
+	start += len(title) + len(":\n")
+	end := strings.Index(value[start:], "\n\n")
+	if end < 0 {
+		end = len(value)
+	} else {
+		end += start
+	}
+	result := strings.TrimSpace(value[start:end])
+	return result, result != ""
 }
 
 func checkContext(ctx context.Context) error {

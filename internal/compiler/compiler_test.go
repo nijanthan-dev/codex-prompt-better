@@ -67,6 +67,30 @@ func TestImproveIdempotentWithLeadingOptionalSections(t *testing.T) {
 	}
 }
 
+func TestImprovePreservedPromptUsesCompiledPhaseForPolicy(t *testing.T) {
+	plan := NewPlan("Synthetic")
+	plan.PhaseScope = "implementation"
+	initial := improveRequest("Synthetic")
+	initial.PromptPlan = &plan
+	compiled, err := Improve(context.Background(), initial, policy.HostUnknown)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	preserved := improveRequest(compiled.ImprovedPrompt)
+	preserved.ExecutionPolicy = contracts.ExecutionPolicyFollowUserIntent
+	result, err := Improve(context.Background(), preserved, policy.HostPermitted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ImprovedPrompt != compiled.ImprovedPrompt {
+		t.Fatal("compiled prompt changed")
+	}
+	if result.PolicyOutcome != contracts.PolicyOutcomeExecutionRecommended {
+		t.Fatalf("outcome=%s", result.PolicyOutcome)
+	}
+}
+
 func TestImproveCompletesPartialStructuredDraft(t *testing.T) {
 	partial := "Goal:\nReturn a synthetic result.\n\nStop:\nStop after one result."
 	result, err := Improve(
