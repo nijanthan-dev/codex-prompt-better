@@ -53,6 +53,21 @@ func TestResolveRejectsInvalidInputs(t *testing.T) {
 	}
 }
 
+func TestExternalCoordinationRequiresApprovalWithPermittedHost(t *testing.T) {
+	for _, executionPolicy := range []contracts.ExecutionPolicy{
+		contracts.ExecutionPolicyAskBeforeExecute,
+		contracts.ExecutionPolicyFollowUserIntent,
+	} {
+		got, err := Resolve(executionPolicy, "external_coordination", HostPermitted)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != contracts.PolicyOutcomeApprovalRequired {
+			t.Fatalf("policy=%s outcome=%s", executionPolicy, got)
+		}
+	}
+}
+
 func expectedOutcome(
 	executionPolicy contracts.ExecutionPolicy,
 	phase string,
@@ -64,6 +79,9 @@ func expectedOutcome(
 	}
 	if host == HostDenied {
 		return contracts.PolicyOutcomeDenied
+	}
+	if phase == "external_coordination" {
+		return contracts.PolicyOutcomeApprovalRequired
 	}
 	if host == HostUnknown || executionPolicy == contracts.ExecutionPolicyAskBeforeExecute {
 		return contracts.PolicyOutcomeApprovalRequired

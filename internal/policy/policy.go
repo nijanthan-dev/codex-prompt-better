@@ -31,6 +31,9 @@ func Resolve(
 	if host == HostDenied {
 		return contracts.PolicyOutcomeDenied, nil
 	}
+	if phase == "external_coordination" {
+		return contracts.PolicyOutcomeApprovalRequired, nil
+	}
 	if host == HostUnknown || executionPolicy == contracts.ExecutionPolicyAskBeforeExecute {
 		return contracts.PolicyOutcomeApprovalRequired, nil
 	}
