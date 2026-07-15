@@ -5,8 +5,9 @@ governance toolkit for OpenAI Codex. Its cross-platform Go CLI/core, thin Codex
 skill, and local MCP server are designed to turn rough intent into bounded,
 reviewable instructions while measuring whether execution stayed in scope.
 
-> **Status:** pre-alpha. A deterministic Go compiler/linter CLI exists for source
-> builds. MCP, collection, database, reports, packages, and installers do not.
+> **Status:** pre-alpha. The v0.1.0 contract-preview source release and a
+> deterministic Go compiler/linter CLI exist. MCP, collection, database,
+> reports, installable artifacts, packages, and installers do not.
 
 ## Vision
 
@@ -42,9 +43,10 @@ default. Synthetic fixtures are required in the public repository.
 
 ## Installation and usage
 
-Nothing is packaged or released yet. Developers can run the source CLI with a
-supported Go toolchain; see [the CLI contract](docs/cli.md). The intended public
-installation order is a signed release artifact,
+No installable artifact or package is published yet. Developers can run the
+source CLI with a supported Go toolchain; see [the CLI contract](docs/cli.md).
+The existing v0.1.0 GitHub release freezes the source contracts only. The
+intended public installation order is a signed release artifact,
 Homebrew/install script, then WinGet and Linux packages. Planned first-run
 commands are `prompt-better doctor` and `prompt-better init`; names and behavior
 remain design contracts until implemented. See [installation](docs/installation.md).
