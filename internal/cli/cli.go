@@ -85,11 +85,11 @@ func Run(parent context.Context, args []string, streams Streams) int {
 
 	opt, parseErr := parseOptions(command, args[1:])
 	if parseErr != nil {
-		return emitError(streams.Error, "text", parseErr)
+		return emitError(streams.Error, requestedErrorFormat(opt), parseErr)
 	}
 	cfg, loadErr := loadConfig(parent, opt)
 	if loadErr != nil {
-		return emitError(streams.Error, "text", loadErr)
+		return emitError(streams.Error, requestedErrorFormat(opt), loadErr)
 	}
 	if opt.isShowProvenance {
 		if _, err := fmt.Fprintln(streams.Error, formatProvenance(cfg.Provenance)); err != nil {
@@ -118,6 +118,13 @@ func Run(parent context.Context, args []string, streams Streams) int {
 	}
 }
 
+func requestedErrorFormat(opt options) string {
+	if opt.isFormatSet && opt.format == "json" {
+		return "json"
+	}
+	return "text"
+}
+
 func parseOptions(command string, args []string) (options, error) {
 	fs := flag.NewFlagSet(command, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
@@ -133,9 +140,7 @@ func parseOptions(command string, args []string) (options, error) {
 	fs.IntVar(&opt.maxInputBytes, "max-input-bytes", 0, "input byte limit")
 	fs.BoolVar(&opt.isRequestJSON, "request-json", false, "parse frozen v1 request JSON")
 	fs.BoolVar(&opt.isShowProvenance, "show-provenance", false, "print configuration source names")
-	if err := fs.Parse(args); err != nil {
-		return options{}, contracts.NewError(contracts.ErrorCodeInvalidSchema, "invalid command flags", "flags", false)
-	}
+	parseErr := fs.Parse(args)
 	fs.Visit(func(item *flag.Flag) {
 		switch item.Name {
 		case "format":
@@ -152,6 +157,14 @@ func parseOptions(command string, args []string) (options, error) {
 			opt.isPhaseSet = true
 		}
 	})
+	if parseErr != nil {
+		return opt, contracts.NewError(
+			contracts.ErrorCodeInvalidSchema,
+			"invalid command flags",
+			"flags",
+			false,
+		)
+	}
 	opt.positional = append([]string{}, fs.Args()...)
 	return opt, nil
 }

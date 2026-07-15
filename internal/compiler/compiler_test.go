@@ -67,6 +67,31 @@ func TestImproveIdempotentWithLeadingOptionalSections(t *testing.T) {
 	}
 }
 
+func TestImproveCompletesPartialStructuredDraft(t *testing.T) {
+	partial := "Goal:\nReturn a synthetic result.\n\nStop:\nStop after one result."
+	result, err := Improve(
+		context.Background(),
+		improveRequest(partial),
+		policy.HostUnknown,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ImprovedPrompt == partial {
+		t.Fatal("partial draft bypassed compilation")
+	}
+	for _, section := range []string{
+		"Success criteria:",
+		"Evidence:",
+		"Approval boundary:",
+		"Validation:",
+	} {
+		if !strings.Contains(result.ImprovedPrompt, section) {
+			t.Fatalf("missing %s", section)
+		}
+	}
+}
+
 func TestImproveCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

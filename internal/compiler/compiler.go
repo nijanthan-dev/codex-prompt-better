@@ -418,9 +418,30 @@ func truncateUTF8(value string, limit int) string {
 }
 
 func looksCompiled(value string) bool {
-	goal := sectionIndex(value, "Goal")
-	stop := sectionIndex(value, "Stop")
-	return goal >= 0 && stop > goal
+	required := []string{
+		"Goal",
+		"Success criteria",
+		"Constraints",
+		"Decision rules",
+		"Evidence",
+		"Tools",
+		"Approval boundary",
+		"Phase",
+		"Validation",
+		"Output",
+		"Stop",
+		"Fallback",
+		"Abstain",
+	}
+	previous := -1
+	for _, title := range required {
+		index := sectionIndex(value, title)
+		if index <= previous {
+			return false
+		}
+		previous = index
+	}
+	return true
 }
 
 func sectionIndex(value, title string) int {

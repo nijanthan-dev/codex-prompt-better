@@ -163,6 +163,45 @@ func TestExplicitConfigurationFlagsAreValidated(t *testing.T) {
 	}
 }
 
+func TestConfigErrorsHonorRequestedJSONFormat(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(path, []byte(`{"timeout":"bad"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "invalid flag",
+			args: []string{"improve_prompt", "--format", "json", "--unknown"},
+		},
+		{
+			name: "invalid config flag",
+			args: []string{"improve_prompt", "--format", "json", "--timeout", "bad"},
+		},
+		{
+			name: "invalid config",
+			args: []string{"improve_prompt", "--format", "json", "--config", path},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			code, _, stderr := execute(test.args, "Synthetic")
+			if code != exitInvalid {
+				t.Fatalf("code=%d stderr=%q", code, stderr)
+			}
+			var stable contracts.StableError
+			if err := json.Unmarshal([]byte(stderr), &stable); err != nil {
+				t.Fatalf("non-JSON error %q: %v", stderr, err)
+			}
+			if stable.Code != contracts.ErrorCodeInvalidSchema {
+				t.Fatalf("error=%+v", stable)
+			}
+		})
+	}
+}
+
 func TestCancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
