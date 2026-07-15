@@ -115,12 +115,12 @@ func prepareImproveRequest(
 			"execution_policy",
 		)
 	}
+	if len(request.Intent) > 8000 {
+		return "", contracts.PromptPlan{}, invalid("intent exceeds 8000 bytes", "intent")
+	}
 	intent, err := textutil.Normalize(request.Intent)
 	if err != nil {
 		return "", contracts.PromptPlan{}, err
-	}
-	if len(intent) > 8000 {
-		return "", contracts.PromptPlan{}, invalid("intent exceeds 8000 bytes", "intent")
 	}
 	plan := defaultPlan(intent)
 	if request.PromptPlan != nil {
@@ -148,6 +148,9 @@ func CreateGoal(
 	if request.SchemaVersion != contracts.SchemaVersion || request.Kind != "request" {
 		return contracts.CreateGoalPromptResult{}, invalid("request must use schema 1.0.0 and kind request", "request")
 	}
+	if len(request.Objective) > 4000 {
+		return contracts.CreateGoalPromptResult{}, invalid("objective exceeds 4000 bytes", "objective")
+	}
 	objective, err := textutil.Normalize(request.Objective)
 	if err != nil {
 		return contracts.CreateGoalPromptResult{}, err
@@ -160,7 +163,7 @@ func CreateGoal(
 	if body != "" {
 		prompt += "\n\n" + body
 	}
-	if len(objective) > 4000 || len(prompt) > 16000 {
+	if len(prompt) > 16000 {
 		return contracts.CreateGoalPromptResult{}, invalid("goal request or result exceeds contract limit", "objective")
 	}
 	return contracts.CreateGoalPromptResult{
@@ -192,12 +195,12 @@ func CreateReviewFix(
 	classes := make([]string, 0, len(request.Findings))
 	seen := map[string]bool{}
 	for _, item := range request.Findings {
+		if len(item) > 1000 {
+			return contracts.CreateReviewFixPromptResult{}, invalid("finding exceeds 1000 bytes", "findings")
+		}
 		value, err := textutil.Normalize(item)
 		if err != nil {
 			return contracts.CreateReviewFixPromptResult{}, invalid("finding must not be empty", "findings")
-		}
-		if len(value) > 1000 {
-			return contracts.CreateReviewFixPromptResult{}, invalid("finding exceeds 1000 bytes", "findings")
 		}
 		findings = append(findings, value)
 		class := failureClass(value)

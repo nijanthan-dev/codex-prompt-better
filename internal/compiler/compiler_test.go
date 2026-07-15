@@ -145,6 +145,32 @@ func TestImproveCancellation(t *testing.T) {
 	}
 }
 
+func TestRequestLimitsApplyBeforeNormalization(t *testing.T) {
+	t.Run("improve intent", func(t *testing.T) {
+		request := improveRequest(strings.Repeat(" ", 8001) + "x")
+		if _, err := Improve(context.Background(), request, policy.HostUnknown); err == nil {
+			t.Fatal("oversized raw intent succeeded")
+		}
+	})
+	t.Run("goal objective", func(t *testing.T) {
+		objective := strings.Repeat(" ", 4001) + "x"
+		if _, err := CreateGoalFromObjective(context.Background(), objective); err == nil {
+			t.Fatal("oversized raw objective succeeded")
+		}
+	})
+	t.Run("review finding", func(t *testing.T) {
+		request := contracts.CreateReviewFixPromptRequest{
+			SchemaVersion: contracts.SchemaVersion,
+			Kind:          "request",
+			Findings:      []string{strings.Repeat(" ", 1001) + "x"},
+			ReviewHead:    "abcdef1",
+		}
+		if _, err := CreateReviewFix(context.Background(), request); err == nil {
+			t.Fatal("oversized raw finding succeeded")
+		}
+	})
+}
+
 func TestCreateGoalHouseOrder(t *testing.T) {
 	plan := NewPlan("Synthetic review")
 	plan.Role = "Reviewer"

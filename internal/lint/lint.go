@@ -136,12 +136,12 @@ func CheckPrompt(request contracts.LintPromptRequest) (contracts.LintPromptResul
 	if request.SchemaVersion != contracts.SchemaVersion || request.Kind != "request" {
 		return contracts.LintPromptResult{}, invalid("request must use schema 1.0.0 and kind request", "request")
 	}
+	if len(request.Candidate) > 16000 {
+		return contracts.LintPromptResult{}, invalid("candidate exceeds 16000 bytes", "candidate")
+	}
 	candidate, err := textutil.Normalize(request.Candidate)
 	if err != nil {
 		return contracts.LintPromptResult{}, err
-	}
-	if len(candidate) > 16000 {
-		return contracts.LintPromptResult{}, invalid("candidate exceeds 16000 bytes", "candidate")
 	}
 	lines := strings.Split(candidate, "\n")
 	lower := strings.ToLower(candidate)

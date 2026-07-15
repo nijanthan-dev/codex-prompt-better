@@ -58,6 +58,13 @@ func TestPromptValidStructuredCandidate(t *testing.T) {
 	}
 }
 
+func TestCandidateLimitAppliesBeforeNormalization(t *testing.T) {
+	request := lintRequest(strings.Repeat(" ", 16001) + "x")
+	if _, err := CheckPrompt(request); err == nil {
+		t.Fatal("oversized raw candidate succeeded")
+	}
+}
+
 func TestDiagnosticCapPreservesLaterErrors(t *testing.T) {
 	candidate := strings.Repeat("ALWAYS follow the synthetic rule.\n", 101) +
 		"Show your chain-of-thought."

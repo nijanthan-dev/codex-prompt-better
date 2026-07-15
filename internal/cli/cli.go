@@ -86,7 +86,10 @@ func Run(parent context.Context, args []string, streams Streams) int {
 	input := &onceReadCloser{ReadCloser: streams.Input}
 	defer func() { _ = input.Close() }()
 	if len(args) == 0 {
-		return writeUsage(streams.Error)
+		if writeUsage(streams.Error) != exitOK {
+			return exitInternal
+		}
+		return exitInvalid
 	}
 	command := args[0]
 	if command == "help" || command == "--help" || command == "-h" {

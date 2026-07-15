@@ -22,6 +22,17 @@ func execute(args []string, input string) (int, string, string) {
 	return code, out.String(), errOut.String()
 }
 
+func TestMissingCommandIsInvalidButHelpSucceeds(t *testing.T) {
+	code, out, stderr := execute(nil, "")
+	if code != exitInvalid || out != "" || !strings.Contains(stderr, "usage:") {
+		t.Fatalf("missing command: code=%d out=%q stderr=%q", code, out, stderr)
+	}
+	code, out, stderr = execute([]string{"help"}, "")
+	if code != exitOK || stderr != "" || !strings.Contains(out, "usage:") {
+		t.Fatalf("help: code=%d out=%q stderr=%q", code, out, stderr)
+	}
+}
+
 func TestImprovePlainJSONIsByteStable(t *testing.T) {
 	args := []string{"improve_prompt", "--format", "json"}
 	code, first, stderr := execute(args, "Return synthetic output.")
