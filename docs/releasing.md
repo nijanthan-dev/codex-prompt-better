@@ -11,10 +11,11 @@ Release Please manages versions, changelog entries, tags, and GitHub Releases.
 5. The next workflow run creates the matching `vX.Y.Z` tag and GitHub Release.
 6. Verify the release and tag target the reviewed merge commit.
 
-The repository starts at manifest version `0.0.0`. The first `feat:` commit will
-propose `v0.1.0`; `fix:` commits propose patch releases. Before `v1.0.0`, a
-breaking change bumps the minor version. `docs:`, `chore:`, and `ci:` commits do
-not create releases by themselves.
+The manifest is at `0.1.0`, the contract-preview source release. Feature work
+updates the open Release Please PR toward `v0.2.0`; that PR stays unmerged until
+issues #4–#11 complete their release gates. Before `v1.0.0`, a breaking change
+bumps the minor version. `docs:`, `chore:`, and `ci:` commits do not create
+releases by themselves.
 
 ## Boundaries
 
@@ -24,5 +25,5 @@ not create releases by themselves.
 - No package or binary is published yet. Future artifact publishing must use the
   action's `release_created` output in this workflow or explicitly revise the
   token/event design.
-- Keep `bootstrap-sha` until the first generated release PR is merged; remove it
-  in a later reviewed change after Release Please has a durable release marker.
+- The first generated release and durable `v0.1.0` marker exist, so bootstrap
+  configuration is no longer used.

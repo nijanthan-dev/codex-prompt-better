@@ -1,8 +1,9 @@
 # Installation plan
 
-Prompt Better is pre-alpha. Its deterministic Go CLI can be run from source, but
-there is no released binary, package, installer, database migration, MCP
-configuration, or Codex skill yet. Do not treat source commands as a release.
+Prompt Better is pre-alpha. Its v0.1.0 GitHub release freezes source contracts,
+and its deterministic Go CLI can be run from source, but there is no released
+binary, package, installer, database migration, MCP configuration, or Codex
+skill yet. Do not treat source commands as an installable artifact.
 
 ## Planned prerequisites
 
@@ -14,7 +15,7 @@ configuration, or Codex skill yet. Do not treat source commands as a release.
 
 PostgreSQL is not bundled or silently provisioned. The installer must not request
 or copy Codex session content. Package instructions will use release checksums and
-provenance after v0.1.0 artifacts exist.
+provenance after v0.2.0 artifacts exist.
 
 ## Planned channels
 
@@ -22,7 +23,7 @@ provenance after v0.1.0 artifacts exist.
 2. Direct signed/checksummed release archives.
 3. Later WinGet and Linux packages after platform validation.
 
-No package or release is published by the foundation roadmap.
+No package or installable artifact is published before the v0.2.0 closeout.
 
 ## Planned first run
 
