@@ -43,6 +43,26 @@ func TestImproveDeterministicIdempotentAndPreservesPaths(t *testing.T) {
 	}
 }
 
+func TestImproveRendersArtifactPriorities(t *testing.T) {
+	plan := NewPlan("Synthetic")
+	plan.ArtifactPriorities = []string{"Patch before summary.", "Summary before follow-up."}
+	request := improveRequest("Synthetic")
+	request.PromptPlan = &plan
+	result, err := Improve(context.Background(), request, policy.HostUnknown)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []string{
+		"Artifact priorities:",
+		"- Patch before summary.",
+		"- Summary before follow-up.",
+	} {
+		if !strings.Contains(result.ImprovedPrompt, value) {
+			t.Fatalf("missing %q", value)
+		}
+	}
+}
+
 func TestImproveIdempotentWithLeadingOptionalSections(t *testing.T) {
 	request := improveRequest("Synthetic")
 	plan := NewPlan("Synthetic")

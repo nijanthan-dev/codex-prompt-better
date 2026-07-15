@@ -402,6 +402,7 @@ func RenderPlan(plan contracts.PromptPlan, includeGoal bool) string {
 	addList("Validation", plan.ValidationBar)
 	addText("Output", plan.OutputContract)
 	addText("Output language", plan.OutputLanguage)
+	addList("Artifact priorities", plan.ArtifactPriorities)
 	addList("Stop", plan.StopRules)
 	addList("Fallback", plan.FallbackRules)
 	addList("Abstain", plan.AbstainRules)

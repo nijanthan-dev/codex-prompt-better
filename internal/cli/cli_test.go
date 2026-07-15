@@ -224,6 +224,30 @@ func TestConfigThenCLIOverride(t *testing.T) {
 	}
 }
 
+func TestConfigPolicyOverridesRequestJSON(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(path, []byte(`{"execution_policy":"improve_only"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, out, stderr := execute(
+		[]string{
+			"improve_prompt", "--request-json", "--format", "json",
+			"--config", path, "--host-permission", "permitted",
+		},
+		improveRequestJSON(),
+	)
+	if code != exitOK || stderr != "" {
+		t.Fatalf("code=%d stderr=%q", code, stderr)
+	}
+	var result contracts.ImprovePromptResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.PolicyOutcome != contracts.PolicyOutcomeReturnOnly {
+		t.Fatalf("file policy not applied: %s", result.PolicyOutcome)
+	}
+}
+
 func TestProvenanceShowsSourcesOnly(t *testing.T) {
 	code, _, stderr := execute(
 		[]string{"improve_prompt", "--show-provenance", "--execution-policy", "improve_only"},
@@ -458,6 +482,32 @@ type blockingInput struct {
 	started chan struct{}
 	closed  chan struct{}
 	done    chan struct{}
+}
+
+type trackedInput struct{ closed bool }
+
+func (*trackedInput) Read([]byte) (int, error) { return 0, io.EOF }
+func (r *trackedInput) Close() error {
+	r.closed = true
+	return nil
+}
+
+func TestEarlyReturnsCloseInput(t *testing.T) {
+	tests := [][]string{
+		nil,
+		{"help"},
+		{"unknown"},
+		{"improve_prompt", "--unknown"},
+		{"improve_prompt", "--config", filepath.Join(t.TempDir(), "missing.json")},
+	}
+	for _, args := range tests {
+		input := &trackedInput{}
+		var out, errOut bytes.Buffer
+		Run(context.Background(), args, Streams{Input: input, Output: &out, Error: &errOut})
+		if !input.closed {
+			t.Fatalf("input left open for args=%v", args)
+		}
+	}
 }
 
 func newBlockingInput() *blockingInput {

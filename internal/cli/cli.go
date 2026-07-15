@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/nijanthan-dev/codex-prompt-better/internal/compiler"
@@ -35,6 +36,17 @@ type Streams struct {
 	Input  io.ReadCloser
 	Output io.Writer
 	Error  io.Writer
+}
+
+type onceReadCloser struct {
+	io.ReadCloser
+	once sync.Once
+	err  error
+}
+
+func (r *onceReadCloser) Close() error {
+	r.once.Do(func() { r.err = r.ReadCloser.Close() })
+	return r.err
 }
 
 type options struct {
@@ -71,6 +83,8 @@ func Run(parent context.Context, args []string, streams Streams) int {
 	if streams.Input == nil || streams.Output == nil || streams.Error == nil {
 		return exitInternal
 	}
+	input := &onceReadCloser{ReadCloser: streams.Input}
+	defer func() { _ = input.Close() }()
 	if len(args) == 0 {
 		return writeUsage(streams.Error)
 	}
@@ -99,11 +113,11 @@ func Run(parent context.Context, args []string, streams Streams) int {
 
 	ctx, cancel := context.WithTimeout(parent, cfg.Timeout)
 	defer cancel()
-	input, readErr := readInput(ctx, streams.Input, opt.inputPath, opt.positional, cfg.MaxInputBytes)
+	data, readErr := readInput(ctx, input, opt.inputPath, opt.positional, cfg.MaxInputBytes)
 	if readErr != nil {
 		return emitError(streams.Error, cfg.Format, readErr)
 	}
-	r := runner{ctx: ctx, input: input, options: opt, config: cfg, streams: streams}
+	r := runner{ctx: ctx, input: data, options: opt, config: cfg, streams: streams}
 	switch command {
 	case "improve_prompt":
 		return r.runImprove()
@@ -233,7 +247,7 @@ func (r runner) runImprove() int {
 		if err := compiler.ValidateImproveRequest(request); err != nil {
 			return r.emitError(err)
 		}
-		if r.options.isPolicySet {
+		if source := r.config.Provenance["execution_policy"]; source == "file" || source == "cli" {
 			request.ExecutionPolicy = r.config.ExecutionPolicy
 		}
 	} else {
