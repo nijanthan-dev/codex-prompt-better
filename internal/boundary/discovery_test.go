@@ -10,19 +10,22 @@ import (
 
 func TestDiscoverNormalizedCandidates(t *testing.T) {
 	fixture := fstest.MapFS{
-		".git":                       {Data: []byte("gitdir: synthetic")},
-		"AGENTS.md":                  {Data: []byte("Out of scope: generated artifacts.")},
-		"SECURITY.md":                {Data: []byte("Synthetic policy")},
-		"src/file.go":                {Data: []byte("package fixture")},
-		"vendor/module/file.go":      {Data: []byte("package module")},
-		"generated/output.go":        {Data: []byte("package generated")},
-		"release-please-config.json": {Data: []byte("{}")},
+		".git":                                 {Data: []byte("gitdir: synthetic")},
+		"AGENTS.md":                            {Data: []byte("Out of scope: generated artifacts.")},
+		"SECURITY.md":                          {Data: []byte("Synthetic policy")},
+		"src/file.go":                          {Data: []byte("package fixture")},
+		"vendor/module/file.go":                {Data: []byte("package module")},
+		"generated/output.go":                  {Data: []byte("package generated")},
+		"release-please-config.json":           {Data: []byte("{}")},
+		".github/workflows/ci.yml":             {Data: []byte("name: synthetic")},
+		".github/workflows/release.yaml":       {Data: []byte("name: synthetic release")},
+		"apps/api/.github/workflows/test.yaml": {Data: []byte("name: nested synthetic")},
 	}
 	result, err := Discover(context.Background(), FSReader{FS: fixture}, []string{"src"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	wanted := []string{"repository", "worktree", "instruction", "scope", "non_goal", "vendor", "generated", "privacy", "release"}
+	wanted := []string{"repository", "worktree", "instruction", "scope", "non_goal", "vendor", "generated", "privacy", "validation", "release"}
 	for _, category := range wanted {
 		if !hasCategory(result.Candidates, category) {
 			t.Fatalf("missing %s: %+v", category, result.Candidates)

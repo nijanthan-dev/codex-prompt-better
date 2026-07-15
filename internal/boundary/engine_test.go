@@ -40,3 +40,23 @@ func TestEvaluateContextAllowsSixteenExtensions(t *testing.T) {
 		t.Fatalf("decisions=%d err=%v", len(decisions), err)
 	}
 }
+
+func TestEvaluateContextCapsDecisionsDeterministically(t *testing.T) {
+	rules := make([]policypack.Rule, policypack.MaxRules)
+	for index := range rules {
+		rules[index] = policypack.Rule{ID: fmt.Sprintf("scope.%03d", index), Category: "scope", Outcome: "warn", RiskScore: 20, Explanation: "Synthetic narrowing.", Conditions: []policypack.Condition{{Field: "category", Operator: "equals", Value: "scope"}}}
+	}
+	extension := policypack.Pack{SchemaVersion: "1.0.0", ID: "extension.large", Version: "1.0.0", Rules: rules}
+	context := Context{Candidates: []Candidate{
+		{ID: "scope.a", Category: "scope", SourceKind: "user_request", SourceRef: "scope.a", Confidence: 1, Facts: map[string]string{"category": "scope"}},
+		{ID: "scope.b", Category: "scope", SourceKind: "user_request", SourceRef: "scope.b", Confidence: 1, Facts: map[string]string{"category": "scope"}},
+	}}
+	first, err := EvaluateContext(context, []policypack.Pack{extension})
+	if err != nil || len(first) != MaxDecisions {
+		t.Fatalf("decisions=%d err=%v", len(first), err)
+	}
+	second, err := EvaluateContext(Context{Candidates: []Candidate{context.Candidates[1], context.Candidates[0]}}, []policypack.Pack{extension})
+	if err != nil || !reflect.DeepEqual(first, second) {
+		t.Fatalf("cap unstable: err=%v", err)
+	}
+}

@@ -8,6 +8,8 @@ import (
 	"github.com/nijanthan-dev/codex-prompt-better/policies/builtin"
 )
 
+const MaxDecisions = 256
+
 func EvaluateContext(discovered Context, extensions []policypack.Pack) ([]contracts.BoundaryDecision, error) {
 	packs, err := builtin.Load()
 	if err != nil {
@@ -37,7 +39,24 @@ func EvaluateContext(discovered Context, extensions []policypack.Pack) ([]contra
 			return nil, evaluateErr
 		}
 		matches = append(matches, extensionMatches...)
+		sort.Slice(matches, func(i, j int) bool {
+			left, right := matches[i], matches[j]
+			leftPriority, rightPriority := outcomePriority(left.Rule.Outcome), outcomePriority(right.Rule.Outcome)
+			if leftPriority != rightPriority {
+				return leftPriority > rightPriority
+			}
+			if left.Rule.RiskScore != right.Rule.RiskScore {
+				return left.Rule.RiskScore > right.Rule.RiskScore
+			}
+			if left.PackID != right.PackID {
+				return left.PackID < right.PackID
+			}
+			return left.Rule.ID < right.Rule.ID
+		})
 		for _, match := range matches {
+			if len(decisions) == MaxDecisions {
+				break
+			}
 			conflicts := append([]string{}, candidate.Conflicts...)
 			sort.Strings(conflicts)
 			outcome := match.Rule.Outcome
@@ -52,6 +71,9 @@ func EvaluateContext(discovered Context, extensions []policypack.Pack) ([]contra
 				Version: match.PackVersion, Explanation: match.Rule.Explanation, ConflictRefs: conflicts,
 			})
 		}
+		if len(decisions) == MaxDecisions {
+			break
+		}
 	}
 	sort.Slice(decisions, func(i, j int) bool {
 		left, right := decisions[i], decisions[j]
@@ -64,4 +86,17 @@ func EvaluateContext(discovered Context, extensions []policypack.Pack) ([]contra
 		return left.SourceRef < right.SourceRef
 	})
 	return decisions, nil
+}
+
+func outcomePriority(outcome string) int {
+	switch Outcome(outcome) {
+	case OutcomeBlock:
+		return 4
+	case OutcomeClarify:
+		return 3
+	case OutcomeWarn:
+		return 2
+	default:
+		return 1
+	}
 }

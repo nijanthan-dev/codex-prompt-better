@@ -91,6 +91,26 @@ func TestBoundaryFlagsRejectUnsafeCombinations(t *testing.T) {
 	}
 }
 
+func TestBoundaryDiscoveryPreservesAndNarrowsRequestScopes(t *testing.T) {
+	root := t.TempDir()
+	request := strings.Replace(improveRequestJSON(), `"phase_scope":"implementation"`, `"scope":["existing"],"phase_scope":"implementation"`, 1)
+	code, out, stderr := execute([]string{"improve_prompt", "--request-json", "--format", "json", "--context-root", root, "--scope", "added"}, request)
+	if code != 0 || stderr != "" {
+		t.Fatalf("code=%d stderr=%s", code, stderr)
+	}
+	var result contracts.ImprovePromptResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(result.ImprovedPrompt, "Scope:\n- existing\n- added") {
+		t.Fatalf("scope lost: %s", result.ImprovedPrompt)
+	}
+	code, out, stderr = execute([]string{"improve_prompt", "--request-json", "--format", "json", "--context-root", root}, request)
+	if code != 0 || stderr != "" || !strings.Contains(out, "Scope:\\n- existing") {
+		t.Fatalf("scope lost without CLI scope: code=%d out=%s stderr=%s", code, out, stderr)
+	}
+}
+
 func TestImproveRequestJSONPolicyOutcomes(t *testing.T) {
 	request := improveRequestJSON()
 	code, out, stderr := execute(

@@ -120,7 +120,7 @@ func Discover(ctx context.Context, reader Reader, scopes []string) (Context, err
 			}
 			return nil
 		}
-		if !targetedFile(base) {
+		if !targetedFile(clean, base) {
 			return nil
 		}
 		category := fileCategory(clean, base)
@@ -173,17 +173,24 @@ func normalizeScopes(scopes []string) ([]string, error) {
 	return result, nil
 }
 
-func targetedFile(base string) bool {
-	return instructionFile(base) || base == "security.md" || base == "release-please-config.json" || base == ".goreleaser.yml" || base == ".goreleaser.yaml" || base == "makefile"
+func targetedFile(name, base string) bool {
+	return workflowFile(name, base) || instructionFile(base) || base == "security.md" || base == "release-please-config.json" || base == ".goreleaser.yml" || base == ".goreleaser.yaml" || base == "makefile"
 }
 func instructionFile(base string) bool { return base == "agents.md" || base == "claude.md" }
+func workflowFile(name, base string) bool {
+	inWorkflowDirectory := strings.HasPrefix(name, ".github/workflows/") || strings.Contains(name, "/.github/workflows/")
+	return inWorkflowDirectory && (strings.HasSuffix(base, ".yml") || strings.HasSuffix(base, ".yaml"))
+}
 func fileCategory(name, base string) string {
 	switch {
 	case instructionFile(base):
 		return "instruction"
 	case base == "security.md":
 		return "privacy"
-	case strings.Contains(name, ".github/workflows") || base == "makefile":
+	case workflowFile(name, base) || base == "makefile":
+		if strings.Contains(base, "release") || strings.Contains(base, "publish") {
+			return "release"
+		}
 		return "validation"
 	default:
 		return "release"

@@ -294,7 +294,9 @@ func (r runner) runImprove() int {
 			plan := compiler.NewPlan(request.Intent)
 			request.PromptPlan = &plan
 		}
-		request.PromptPlan.Scope = append([]string{}, r.options.scopes...)
+		for _, scope := range r.options.scopes {
+			request.PromptPlan.Scope = appendUnique(request.PromptPlan.Scope, scope)
+		}
 		for _, decision := range decisions {
 			switch decision.Category {
 			case "non_goal":
