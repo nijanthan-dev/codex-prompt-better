@@ -64,7 +64,13 @@ func Discover(ctx context.Context, reader Reader, scopes []string) (Context, err
 			return
 		}
 		seen[id] = struct{}{}
-		result.Candidates = append(result.Candidates, Candidate{ID: id, Category: category, SourceKind: sourceKind, SourceRef: id, Confidence: confidence, Specificity: specificity, Facts: facts, Conflicts: []string{}})
+		normalizedFacts := make(map[string]string, len(facts)+2)
+		for name, value := range facts {
+			normalizedFacts[name] = value
+		}
+		normalizedFacts["category"] = category
+		normalizedFacts["source_kind"] = sourceKind
+		result.Candidates = append(result.Candidates, Candidate{ID: id, Category: category, SourceKind: sourceKind, SourceRef: id, Confidence: confidence, Specificity: specificity, Facts: normalizedFacts, Conflicts: []string{}})
 	}
 
 	if _, err := reader.Stat("."); err != nil {

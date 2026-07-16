@@ -388,6 +388,18 @@ func (r runner) runLint() int {
 		return r.emitError(discoveryErr)
 	}
 	result.BoundaryDecisions = decisions
+	result = addBoundaryDiagnostics(result, decisions)
+	if err := r.writeLint(result); err != nil {
+		return r.outputFailure()
+	}
+	if !result.Valid {
+		return exitSemantic
+	}
+	return exitOK
+}
+
+func addBoundaryDiagnostics(result contracts.LintPromptResult, decisions []contracts.BoundaryDecision) contracts.LintPromptResult {
+	const maxDiagnostics = 100
 	for _, decision := range decisions {
 		if decision.Outcome == "continue" {
 			continue
@@ -397,15 +409,11 @@ func (r runner) runLint() int {
 			severity = "error"
 			result.Valid = false
 		}
-		result.Diagnostics = append(result.Diagnostics, contracts.Diagnostic{Code: "boundary-" + decision.Outcome, Severity: severity, Message: decision.Explanation, Location: decision.SourceRef, Rationale: "Repository boundary policy applies.", Remediation: "Respect the boundary decision before proceeding."})
+		if len(result.Diagnostics) < maxDiagnostics {
+			result.Diagnostics = append(result.Diagnostics, contracts.Diagnostic{Code: "boundary-" + decision.Outcome, Severity: severity, Message: decision.Explanation, Location: decision.SourceRef, Rationale: "Repository boundary policy applies.", Remediation: "Respect the boundary decision before proceeding."})
+		}
 	}
-	if err := r.writeLint(result); err != nil {
-		return r.outputFailure()
-	}
-	if !result.Valid {
-		return exitSemantic
-	}
-	return exitOK
+	return result
 }
 
 func readInput(ctx context.Context, stdin io.ReadCloser, path string, args []string, limit int) ([]byte, error) {

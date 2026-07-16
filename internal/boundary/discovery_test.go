@@ -32,6 +32,9 @@ func TestDiscoverNormalizedCandidates(t *testing.T) {
 		}
 	}
 	for _, candidate := range result.Candidates {
+		if candidate.Facts["category"] != candidate.Category || candidate.Facts["source_kind"] != candidate.SourceKind {
+			t.Fatalf("missing normalized facts: %+v", candidate)
+		}
 		if strings.Contains(candidate.SourceRef, "/") || strings.Contains(candidate.SourceRef, "\\") {
 			t.Fatalf("unsafe source ref: %s", candidate.SourceRef)
 		}

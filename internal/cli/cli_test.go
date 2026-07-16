@@ -111,6 +111,19 @@ func TestBoundaryDiscoveryPreservesAndNarrowsRequestScopes(t *testing.T) {
 	}
 }
 
+func TestBoundaryDiagnosticsRemainWithinResultLimit(t *testing.T) {
+	result := contracts.LintPromptResult{Valid: true, Diagnostics: make([]contracts.Diagnostic, 99)}
+	decisions := []contracts.BoundaryDecision{
+		{Outcome: "warn", Explanation: "Synthetic warning.", SourceRef: "source.a"},
+		{Outcome: "clarify", Explanation: "Synthetic clarification.", SourceRef: "source.b"},
+		{Outcome: "block", Explanation: "Synthetic block.", SourceRef: "source.c"},
+	}
+	result = addBoundaryDiagnostics(result, decisions)
+	if len(result.Diagnostics) != 100 || result.Valid {
+		t.Fatalf("diagnostics=%d valid=%t", len(result.Diagnostics), result.Valid)
+	}
+}
+
 func TestImproveRequestJSONPolicyOutcomes(t *testing.T) {
 	request := improveRequestJSON()
 	code, out, stderr := execute(

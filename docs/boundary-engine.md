@@ -22,6 +22,12 @@ so the first reported cycle is stable. A high-risk unresolved conflict or cycle
 fails closed during risk evaluation; lower-risk ambiguity requests clarification
 or emits a warning according to the execution policy.
 
+Results are bounded to 256 decisions after evaluating every candidate. Selection
+is deterministic: restrictive outcomes first, then built-ins, risk, candidate
+precedence, and lexical provenance. Extension volume therefore cannot hide a
+built-in block. Lint evaluates every selected outcome while emitting at most 100
+diagnostics.
+
 ## Privacy and bounds
 
 Discovery walks metadata only, never follows symlinks, and reads content only
