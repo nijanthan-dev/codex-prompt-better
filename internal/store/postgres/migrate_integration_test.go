@@ -100,7 +100,7 @@ func TestMigrationAndRoleBootstrap(t *testing.T) {
 		}
 	})
 	t.Run("pre-release down and forward repair", func(t *testing.T) {
-		if err := runner.DownTo(ctx, 4); err != nil {
+		if _, err := runner.provider.DownTo(ctx, 4); err != nil {
 			t.Fatal(err)
 		}
 		assertCount(t, ctx, db, `SELECT count(*) FROM information_schema.views

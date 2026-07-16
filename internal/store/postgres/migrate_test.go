@@ -5,14 +5,12 @@ import (
 	"io/fs"
 	"strings"
 	"testing"
+
+	"github.com/nijanthan-dev/codex-prompt-better/migrations"
 )
 
 func TestMigrationFSStartsWithSchemaOnly(t *testing.T) {
-	migrations, err := MigrationFS()
-	if err != nil {
-		t.Fatal(err)
-	}
-	data, err := fs.ReadFile(migrations, "00001_initialize.sql")
+	data, err := fs.ReadFile(migrations.Files, "00001_initialize.sql")
 	if err != nil {
 		t.Fatal(err)
 	}

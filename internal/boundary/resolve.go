@@ -39,15 +39,6 @@ func Resolve(candidates []Candidate) Resolution {
 	return Resolution{Candidates: ordered, Conflicted: conflicted, Cycle: firstCycle(graph)}
 }
 
-func (resolution Resolution) Winner(category string) (Candidate, bool) {
-	for _, candidate := range resolution.Candidates {
-		if candidate.Category == category {
-			return candidate, true
-		}
-	}
-	return Candidate{}, false
-}
-
 func cloneCandidates(candidates []Candidate) []Candidate {
 	result := make([]Candidate, len(candidates))
 	for index, candidate := range candidates {

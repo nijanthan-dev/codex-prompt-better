@@ -22,9 +22,9 @@ func (f fakeCollector) Run(_ context.Context, adapter adapters.Adapter) (adapter
 func TestRunOnce_IsolatesSourcesAndExcludesOverhead(t *testing.T) {
 	t.Parallel()
 	sources := []adapters.Adapter{
-		adapters.NewJSONL("git", strings.NewReader(""), nil, true, true),
-		adapters.NewJSONL("github", strings.NewReader(""), nil, true, true),
-		adapters.NewJSONL("process", strings.NewReader(""), nil, true, true),
+		adapters.NewJSONLWithIdentity("git", "git", strings.NewReader(""), nil, true, true),
+		adapters.NewJSONLWithIdentity("github", "github", strings.NewReader(""), nil, true, true),
+		adapters.NewJSONLWithIdentity("process", "process", strings.NewReader(""), nil, true, true),
 		nil,
 	}
 	collector := fakeCollector{
@@ -43,8 +43,8 @@ func TestRunOnce_IsolatesSourcesAndExcludesOverhead(t *testing.T) {
 func TestRunOnce_ReturnsAggregateFailureWithoutStoppingLaterSource(t *testing.T) {
 	t.Parallel()
 	sources := []adapters.Adapter{
-		adapters.NewJSONL("git", strings.NewReader(""), nil, true, true),
-		adapters.NewJSONL("configuration", strings.NewReader(""), nil, true, true),
+		adapters.NewJSONLWithIdentity("git", "git", strings.NewReader(""), nil, true, true),
+		adapters.NewJSONLWithIdentity("configuration", "configuration", strings.NewReader(""), nil, true, true),
 	}
 	collector := fakeCollector{results: map[string]adapters.Result{"configuration": {Records: []evidence.Record{{ID: "user"}}}}, errors: map[string]error{"git": errors.New("synthetic")}}
 	result, err := RunOnce(context.Background(), collector, sources)
