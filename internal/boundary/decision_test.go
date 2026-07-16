@@ -12,20 +12,26 @@ func TestDecisionTruthTable(t *testing.T) {
 	policies := []contracts.ExecutionPolicy{contracts.ExecutionPolicyImproveOnly, contracts.ExecutionPolicyAskBeforeExecute, contracts.ExecutionPolicyFollowUserIntent}
 	delegations := []string{"none", "user_requested_only", "bounded"}
 	hosts := []policy.HostPermission{policy.HostPermitted, policy.HostDenied, policy.HostUnknown}
+	capabilityStates := []bool{true, false}
 	for _, action := range actions {
 		for _, executionPolicy := range policies {
 			for _, delegation := range delegations {
 				for _, host := range hosts {
-					input := DecisionInput{Action: action, ExecutionPolicy: executionPolicy, DelegationPolicy: delegation, HostPermission: host, CapabilityKnown: true, ExplicitIntent: true, InScope: true}
-					decision, err := Decide(input)
-					if err != nil {
-						t.Fatalf("%s/%s/%s/%s: %v", action, executionPolicy, delegation, host, err)
-					}
-					if host == policy.HostDenied && decision.Outcome != OutcomeBlock {
-						t.Fatalf("host denial broadened: %+v", decision)
-					}
-					if requiresApproval(action) && host != policy.HostDenied && decision.Outcome != OutcomeClarify {
-						t.Fatalf("approval bypassed: %+v", decision)
+					for _, capabilityKnown := range capabilityStates {
+						input := DecisionInput{Action: action, ExecutionPolicy: executionPolicy, DelegationPolicy: delegation, HostPermission: host, CapabilityKnown: capabilityKnown, ExplicitIntent: true, InScope: true}
+						decision, err := Decide(input)
+						if err != nil {
+							t.Fatalf("%s/%s/%s/%s/known=%t: %v", action, executionPolicy, delegation, host, capabilityKnown, err)
+						}
+						if host == policy.HostDenied && decision.Outcome != OutcomeBlock {
+							t.Fatalf("host denial broadened: %+v", decision)
+						}
+						if requiresApproval(action) && host != policy.HostDenied && decision.Outcome != OutcomeClarify {
+							t.Fatalf("approval bypassed: %+v", decision)
+						}
+						if !capabilityKnown && action != ActionReadOnly && host != policy.HostDenied && !requiresApproval(action) && decision.Outcome != OutcomeClarify {
+							t.Fatalf("unknown capability continued: %+v", decision)
+						}
 					}
 				}
 			}
@@ -71,6 +77,15 @@ func TestDecisionFailsClosed(t *testing.T) {
 		if err != nil || got.Outcome != OutcomeBlock || got.PolicyOutcome != contracts.PolicyOutcomeDenied {
 			t.Fatalf("decision=%+v err=%v", got, err)
 		}
+	}
+}
+
+func TestOutOfScopeApprovalActionBlocks(t *testing.T) {
+	input := baseDecision(ActionExternalWrite)
+	input.InScope = false
+	got, err := Decide(input)
+	if err != nil || got.Outcome != OutcomeBlock || got.PolicyOutcome != contracts.PolicyOutcomeDenied {
+		t.Fatalf("decision=%+v err=%v", got, err)
 	}
 }
 

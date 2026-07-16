@@ -81,12 +81,12 @@ func Decide(input DecisionInput) (Decision, error) {
 		outcome = OutcomeBlock
 	case input.Conflicted && risk >= 50:
 		outcome = OutcomeBlock
+	case !input.InScope:
+		outcome = OutcomeBlock
 	case requiresApproval(input.Action):
 		outcome = OutcomeClarify
 	case !input.CapabilityKnown && input.Action != ActionReadOnly:
 		outcome = OutcomeClarify
-	case !input.InScope:
-		outcome = OutcomeBlock
 	case input.Ambiguous && risk >= 25:
 		outcome = OutcomeClarify
 	case input.Ambiguous:

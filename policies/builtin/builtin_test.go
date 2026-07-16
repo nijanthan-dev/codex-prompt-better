@@ -56,6 +56,32 @@ func TestRoutingAndAutonomyPolicies(t *testing.T) {
 	}
 }
 
+func TestGuidanceCoverageLedger(t *testing.T) {
+	packs, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"tool.relevant-only", "tool.order", "tool.synthesize",
+		"retrieval.first-search", "retrieval.expand-only", "retrieval.citations",
+		"ptc.eligible", "ptc.direct-exclusions",
+		"autonomy.classify", "autonomy.approval", "autonomy.layers",
+		"fallback.attempts", "stopping.supported", "stopping.checkpoint", "stopping.context-efficiency",
+		"delegation.bounded", "delegation.no-recursion",
+	}
+	available := make(map[string]struct{})
+	for _, pack := range packs {
+		for _, rule := range pack.Rules {
+			available[rule.ID] = struct{}{}
+		}
+	}
+	for _, ruleID := range want {
+		if _, ok := available[ruleID]; !ok {
+			t.Fatalf("guidance rule missing: %s", ruleID)
+		}
+	}
+}
+
 func TestBuiltinsMatchSyntheticContexts(t *testing.T) {
 	packs, err := Load()
 	if err != nil {

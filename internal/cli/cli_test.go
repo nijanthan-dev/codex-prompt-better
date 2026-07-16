@@ -54,18 +54,22 @@ func TestImprovePlainJSONIsByteStable(t *testing.T) {
 
 func TestBoundaryDiscoveryIsExplicitAndSanitized(t *testing.T) {
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("Non-goal: do not publish."), 0o600); err != nil {
+	const rawInstruction = "Non-goal: private-synthetic-directive."
+	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte(rawInstruction), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Mkdir(filepath.Join(root, ".git"), 0o700); err != nil {
+	const rawWorktreeTarget = "gitdir: /private/synthetic/worktree-target"
+	if err := os.WriteFile(filepath.Join(root, ".git"), []byte(rawWorktreeTarget), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	code, out, stderr := execute([]string{"improve_prompt", "--format", "json", "--context-root", root, "--scope", "src"}, "Change synthetic code.")
 	if code != 0 || stderr != "" {
 		t.Fatalf("code=%d stderr=%s", code, stderr)
 	}
-	if strings.Contains(out, root) || strings.Contains(out, filepath.Base(root)) {
-		t.Fatalf("root escaped: %s", out)
+	for _, sensitive := range []string{root, rawInstruction, rawWorktreeTarget, "private-synthetic-directive", "worktree-target"} {
+		if strings.Contains(out, sensitive) {
+			t.Fatalf("sensitive value escaped: %s", out)
+		}
 	}
 	var result contracts.ImprovePromptResult
 	if err := json.Unmarshal([]byte(out), &result); err != nil {
@@ -93,8 +97,17 @@ func TestBoundaryFlagsRejectUnsafeCombinations(t *testing.T) {
 
 func TestBoundaryDiscoveryPreservesAndNarrowsRequestScopes(t *testing.T) {
 	root := t.TempDir()
-	request := strings.Replace(improveRequestJSON(), `"phase_scope":"implementation"`, `"scope":["existing"],"phase_scope":"implementation"`, 1)
-	code, out, stderr := execute([]string{"improve_prompt", "--request-json", "--format", "json", "--context-root", root, "--scope", "added"}, request)
+	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("Out of scope: synthetic deployment."), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, ".github", "workflows"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".github", "workflows", "arbitrary-name.yaml"), []byte("name: Synthetic"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	request := strings.Replace(improveRequestJSON(), `"phase_scope":"implementation"`, `"scope":["existing"],"non_goals":["Keep explicit non-goal."],"gates":["Keep explicit gate."],"phase_scope":"implementation"`, 1)
+	code, out, stderr := execute([]string{"improve_prompt", "--request-json", "--format", "json", "--context-root", root, "--scope", "added", "--scope", "added"}, request)
 	if code != 0 || stderr != "" {
 		t.Fatalf("code=%d stderr=%s", code, stderr)
 	}
@@ -104,6 +117,11 @@ func TestBoundaryDiscoveryPreservesAndNarrowsRequestScopes(t *testing.T) {
 	}
 	if !strings.Contains(result.ImprovedPrompt, "Scope:\n- existing\n- added") {
 		t.Fatalf("scope lost: %s", result.ImprovedPrompt)
+	}
+	for _, preserved := range []string{"Keep explicit non-goal.", "Keep explicit gate.", "A non-goal cannot be broadened", "Preserve applicable validation gates."} {
+		if strings.Count(result.ImprovedPrompt, preserved) != 1 {
+			t.Fatalf("boundary not preserved/deduplicated: %q in %s", preserved, result.ImprovedPrompt)
+		}
 	}
 	code, out, stderr = execute([]string{"improve_prompt", "--request-json", "--format", "json", "--context-root", root}, request)
 	if code != 0 || stderr != "" || !strings.Contains(out, "Scope:\\n- existing") {

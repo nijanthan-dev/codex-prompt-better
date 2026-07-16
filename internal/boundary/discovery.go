@@ -2,8 +2,6 @@ package boundary
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -58,12 +56,15 @@ func Discover(ctx context.Context, reader Reader, scopes []string) (Context, err
 	}
 	result := Context{}
 	seen := make(map[string]struct{})
+	categoryCounts := make(map[string]int)
 	add := func(category, sourceKind, key string, confidence float64, specificity int, facts map[string]string) {
-		id := safeID(category, key)
-		if _, exists := seen[id]; exists {
+		identity := category + "\x00" + key
+		if _, exists := seen[identity]; exists {
 			return
 		}
-		seen[id] = struct{}{}
+		seen[identity] = struct{}{}
+		categoryCounts[category]++
+		id := fmt.Sprintf("%s.%04d", category, categoryCounts[category])
 		normalizedFacts := make(map[string]string, len(facts)+2)
 		for name, value := range facts {
 			normalizedFacts[name] = value
@@ -154,8 +155,30 @@ func Discover(ctx context.Context, reader Reader, scopes []string) (Context, err
 		}
 		return Context{}, err
 	}
+	linkApplicableNonGoals(result.Candidates)
 	sort.Slice(result.Candidates, func(i, j int) bool { return result.Candidates[i].ID < result.Candidates[j].ID })
 	return result, nil
+}
+
+func linkApplicableNonGoals(candidates []Candidate) {
+	scopes := candidateIndexes(candidates, "scope")
+	nonGoals := candidateIndexes(candidates, "non_goal")
+	for _, scope := range scopes {
+		for _, nonGoal := range nonGoals {
+			candidates[scope].Conflicts = append(candidates[scope].Conflicts, candidates[nonGoal].ID)
+			candidates[nonGoal].Conflicts = append(candidates[nonGoal].Conflicts, candidates[scope].ID)
+		}
+	}
+}
+
+func candidateIndexes(candidates []Candidate, category string) []int {
+	indexes := make([]int, 0)
+	for index := range candidates {
+		if candidates[index].Category == category {
+			indexes = append(indexes, index)
+		}
+	}
+	return indexes
 }
 
 func normalizeScopes(scopes []string) ([]string, error) {
@@ -222,10 +245,6 @@ func pathDepth(value string) int {
 		return 0
 	}
 	return len(strings.Split(value, "/"))
-}
-func safeID(category, value string) string {
-	sum := sha256.Sum256([]byte(category + "\x00" + value))
-	return fmt.Sprintf("%s.%s", category, hex.EncodeToString(sum[:6]))
 }
 func sanitized(message, field string) error {
 	return contracts.NewError(contracts.ErrorCodeSemanticInvalid, message, field, false)

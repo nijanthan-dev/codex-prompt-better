@@ -100,6 +100,25 @@ func TestDiscoverDeterministicAcrossPlatformSeparators(t *testing.T) {
 	}
 }
 
+func TestDiscoverSourceRefsAreCategorical(t *testing.T) {
+	left, err := Discover(context.Background(), FSReader{FS: fstest.MapFS{"private-name/AGENTS.md": {Data: []byte("Synthetic")}}}, []string{"private-name/src"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	right, err := Discover(context.Background(), FSReader{FS: fstest.MapFS{"different-name/AGENTS.md": {Data: []byte("Synthetic")}}}, []string{"different-name/src"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(left.Candidates) != len(right.Candidates) {
+		t.Fatalf("left=%+v right=%+v", left, right)
+	}
+	for index := range left.Candidates {
+		if left.Candidates[index].SourceRef != right.Candidates[index].SourceRef || strings.Contains(left.Candidates[index].SourceRef, "name") {
+			t.Fatalf("path-derived source refs: left=%+v right=%+v", left.Candidates, right.Candidates)
+		}
+	}
+}
+
 func TestDiscoverSyntheticMonorepoAndNestedWorktree(t *testing.T) {
 	fixture := fstest.MapFS{
 		".git/config":                  {Data: nil},
@@ -116,6 +135,27 @@ func TestDiscoverSyntheticMonorepoAndNestedWorktree(t *testing.T) {
 	for _, category := range []string{"repository", "worktree", "instruction", "non_goal", "generated", "scope"} {
 		if !hasCategory(result.Candidates, category) {
 			t.Fatalf("missing %s: %+v", category, result.Candidates)
+		}
+	}
+}
+
+func TestDiscoverConflictingInstructionPreservesEvidence(t *testing.T) {
+	fixture := fstest.MapFS{
+		"AGENTS.md":   {Data: []byte("Out of scope: synthetic requested area.")},
+		"src/main.go": {Data: nil},
+	}
+	result, err := Discover(context.Background(), FSReader{FS: fixture}, []string{"src"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolution := Resolve(result.Candidates)
+	if len(resolution.Cycle) == 0 {
+		t.Fatalf("conflict cycle missing: %+v", result.Candidates)
+	}
+	for _, category := range []string{"scope", "non_goal"} {
+		candidate, ok := resolution.Winner(category)
+		if !ok || len(candidate.Conflicts) == 0 {
+			t.Fatalf("%s conflict evidence missing: %+v", category, result.Candidates)
 		}
 	}
 }

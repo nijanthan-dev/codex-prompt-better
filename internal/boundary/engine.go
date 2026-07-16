@@ -16,7 +16,7 @@ func EvaluateContext(discovered Context, extensions []policypack.Pack) ([]contra
 	if err != nil {
 		return nil, err
 	}
-	if err := policypack.ValidateSet(extensions); err != nil {
+	if err := policypack.ValidateExtensions(extensions); err != nil {
 		return nil, err
 	}
 	builtinIDs := make(map[string]struct{}, len(packs))
@@ -124,6 +124,9 @@ func selectDecision(selected *decisionHeap, entry rankedDecision) {
 }
 
 func betterDecision(left, right rankedDecision) bool {
+	if left.candidateOrder != right.candidateOrder {
+		return left.candidateOrder < right.candidateOrder
+	}
 	leftPriority, rightPriority := outcomePriority(left.decision.Outcome), outcomePriority(right.decision.Outcome)
 	if leftPriority != rightPriority {
 		return leftPriority > rightPriority
@@ -133,9 +136,6 @@ func betterDecision(left, right rankedDecision) bool {
 	}
 	if left.decision.Risk != right.decision.Risk {
 		return left.decision.Risk > right.decision.Risk
-	}
-	if left.candidateOrder != right.candidateOrder {
-		return left.candidateOrder < right.candidateOrder
 	}
 	if left.decision.PackID != right.decision.PackID {
 		return left.decision.PackID < right.decision.PackID

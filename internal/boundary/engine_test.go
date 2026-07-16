@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/nijanthan-dev/codex-prompt-better/internal/policypack"
+	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
 )
 
 func TestEvaluateContextStableAndSanitized(t *testing.T) {
@@ -64,13 +65,10 @@ func TestEvaluateContextCapsDecisionsDeterministically(t *testing.T) {
 func TestEvaluateContextCapPreservesLaterBuiltinBlock(t *testing.T) {
 	rules := make([]policypack.Rule, policypack.MaxRules)
 	for index := range rules {
-		rules[index] = policypack.Rule{ID: fmt.Sprintf("scope.%03d", index), Category: "scope", Outcome: "warn", RiskScore: 20, Explanation: "Synthetic narrowing.", Conditions: []policypack.Condition{{Field: "category", Operator: "equals", Value: "scope"}}}
+		rules[index] = policypack.Rule{ID: fmt.Sprintf("privacy.%03d", index), Category: "privacy", Outcome: "warn", RiskScore: 20, Explanation: "Synthetic narrowing.", Conditions: []policypack.Condition{{Field: "category", Operator: "equals", Value: "privacy"}}}
 	}
 	extension := policypack.Pack{SchemaVersion: "1.0.0", ID: "extension.large", Version: "1.0.0", Rules: rules}
-	context := Context{Candidates: []Candidate{
-		{ID: "scope.a", Category: "scope", SourceKind: "user_request", SourceRef: "scope.a", Confidence: 1, Facts: map[string]string{"category": "scope", "source_kind": "user_request"}},
-		{ID: "privacy.z", Category: "privacy", SourceKind: "repository_metadata", SourceRef: "privacy.z", Confidence: 1, Facts: map[string]string{"category": "privacy", "source_kind": "repository_metadata"}},
-	}}
+	context := Context{Candidates: []Candidate{{ID: "privacy.z", Category: "privacy", SourceKind: "repository_metadata", SourceRef: "privacy.z", Confidence: 1, Facts: map[string]string{"category": "privacy", "source_kind": "repository_metadata"}}}}
 	decisions, err := EvaluateContext(context, []policypack.Pack{extension})
 	if err != nil || len(decisions) != MaxDecisions {
 		t.Fatalf("decisions=%d err=%v", len(decisions), err)
@@ -96,4 +94,16 @@ func TestEvaluateContextDerivesSourceKindForExtensionRules(t *testing.T) {
 		}
 	}
 	t.Fatal("source_kind extension rule did not match normalized candidate")
+}
+
+func TestDecisionSelectionRanksAuthorityBeforeOutcome(t *testing.T) {
+	higherAuthority := rankedDecision{candidateOrder: 0, decision: boundaryDecision("warn", 20)}
+	lowerAuthority := rankedDecision{candidateOrder: 1, decision: boundaryDecision("block", 100)}
+	if !betterDecision(higherAuthority, lowerAuthority) {
+		t.Fatal("lower-authority outcome outranked source authority")
+	}
+}
+
+func boundaryDecision(outcome string, risk int) contracts.BoundaryDecision {
+	return contracts.BoundaryDecision{Outcome: outcome, Risk: risk}
 }

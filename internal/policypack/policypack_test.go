@@ -30,6 +30,8 @@ func TestParseRejectsUnknownUnboundedAndIncompatibleRules(t *testing.T) {
 	tests := []string{
 		strings.Replace(validPackJSON, `"outcome":"continue"`, `"outcome":"execute"`, 1),
 		strings.Replace(validPackJSON, `"operator":"equals"`, `"operator":"regex"`, 1),
+		strings.Replace(validPackJSON, `"field":"category"`, `"field":"action_class"`, 1),
+		strings.Replace(validPackJSON, `"value":"scope"`, `"value":"unknown_action"`, 1),
 		strings.Replace(validPackJSON, `"version":"1.0.0"`, `"version":"2.0.0"`, 1),
 		strings.Replace(validPackJSON, `"rules":`, `"unknown":true,"rules":`, 1),
 	}
@@ -58,6 +60,20 @@ func TestValidateSetRejectsDuplicateAndExcessivePacks(t *testing.T) {
 	}
 	if err := ValidateSet(packs); err == nil {
 		t.Fatal("excessive pack set accepted")
+	}
+}
+
+func TestValidateExtensionsRejectsBroadeningRules(t *testing.T) {
+	pack, err := Parse([]byte(validPackJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateExtensions([]Pack{pack}); err == nil {
+		t.Fatal("broadening extension accepted")
+	}
+	pack.Rules[0].Outcome = "warn"
+	if err := ValidateExtensions([]Pack{pack}); err != nil {
+		t.Fatalf("narrowing extension rejected: %v", err)
 	}
 }
 

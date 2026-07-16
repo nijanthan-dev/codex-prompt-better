@@ -111,6 +111,21 @@ func ValidateSet(packs []Pack) error {
 	return nil
 }
 
+// ValidateExtensions enforces that external packs can only narrow behavior.
+func ValidateExtensions(packs []Pack) error {
+	if err := ValidateSet(packs); err != nil {
+		return err
+	}
+	for _, pack := range packs {
+		for _, rule := range pack.Rules {
+			if rule.Outcome == "continue" {
+				return invalid("extension policy rules cannot broaden behavior", "policy_packs")
+			}
+		}
+	}
+	return nil
+}
+
 func Evaluate(packs []Pack, facts map[string]string) ([]Match, error) {
 	if err := ValidateSet(packs); err != nil {
 		return nil, err
@@ -143,11 +158,31 @@ func validateRule(rule Rule, field string) error {
 		return invalid("policy rule must contain 1 to 16 conditions", field+".conditions")
 	}
 	for _, condition := range rule.Conditions {
-		if !contains(fields, condition.Field) || !contains(operators, condition.Operator) || len(condition.Value) > 128 {
+		if !contains(fields, condition.Field) || !contains(operators, condition.Operator) || len(condition.Value) > 128 || !validConditionValue(condition) {
 			return invalid("invalid policy condition", field+".conditions")
 		}
 	}
 	return nil
+}
+
+func validConditionValue(condition Condition) bool {
+	values := conditionValues[condition.Field]
+	switch condition.Operator {
+	case "present":
+		return condition.Value == ""
+	case "prefix":
+		if condition.Value == "" {
+			return false
+		}
+		for _, value := range values {
+			if strings.HasPrefix(value, condition.Value) {
+				return true
+			}
+		}
+		return false
+	default:
+		return contains(values, condition.Value)
+	}
 }
 
 func matchesAll(conditions []Condition, facts map[string]string) bool {
@@ -206,3 +241,13 @@ var categories = []string{"repository", "worktree", "instruction", "scope", "non
 var outcomes = []string{"continue", "warn", "clarify", "block"}
 var fields = []string{"category", "action_class", "phase", "source_kind", "capability_state", "delegation_policy", "ambiguous", "conflicted"}
 var operators = []string{"equals", "not_equals", "prefix", "present"}
+var conditionValues = map[string][]string{
+	"category":          categories,
+	"action_class":      {"read_only", "local_reversible", "local_mutation", "external_write", "costly", "permission_sensitive", "scope_expanding", "destructive"},
+	"phase":             {"research", "design", "implementation", "review", "external_coordination"},
+	"source_kind":       {"host_permission", "configuration", "instruction", "user_request", "repository_metadata", "derived_default"},
+	"capability_state":  {"supported", "unsupported", "unknown"},
+	"delegation_policy": {"none", "user_requested_only", "bounded"},
+	"ambiguous":         {"true", "false"},
+	"conflicted":        {"true", "false"},
+}
