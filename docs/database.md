@@ -66,6 +66,12 @@ status/uncertainty/exclusion, and recommendation-policy fields to the existing
 governance model. It does not duplicate #5 audit, metric, finding,
 recommendation, confounder, or overhead concepts.
 
+Migration 8 records the audit engine version on every immutable revision,
+backfills existing rows as `audit-v1`, and partitions new audit windows by engine
+version. Deploy it during a coordinated audit-writer drain because older binaries
+require schema 7 readiness. The down migration refuses to discard provenance
+after any non-v1 revision exists.
+
 Audit persistence is idempotent by deterministic window/revision/result IDs.
 Late evidence changes the revision hash and creates the next immutable revision.
 Evaluation rows preserve separate fixture, config, model, compiler, policy,

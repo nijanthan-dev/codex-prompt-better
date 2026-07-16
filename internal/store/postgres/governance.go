@@ -29,44 +29,73 @@ func (r *Repository) AuditProject(ctx context.Context, request contracts.AuditPr
 		return contracts.AuditProjectResult{}, errors.New("acquire audit revision lock")
 	}
 	defer lock.Release()
-	windowKey := fmt.Sprintf("audit-window:%s:%s:%s:%s",
-		request.Scope, request.Reference, request.StartsAt.UTC(), request.EndsAt.UTC())
+	windowKey := auditWindowKey(request)
 	if _, err := lock.Exec(ctx, `SELECT pg_advisory_lock(hashtextextended($1,0))`, windowKey); err != nil {
 		return contracts.AuditProjectResult{}, errors.New("lock audit revision")
 	}
 	defer func() {
 		_, _ = lock.Exec(context.Background(), `SELECT pg_advisory_unlock(hashtextextended($1,0))`, windowKey)
 	}()
-	engine, err := audit.New(projectAuditSource{repository: r})
+	var canonical contracts.AuditProjectResult
+	err = r.WithSerializable(ctx, func(tx pgx.Tx) error {
+		engine, err := audit.New(projectAuditSource{query: tx})
+		if err != nil {
+			return err
+		}
+		result, err := engine.Run(ctx, request)
+		if err != nil {
+			return err
+		}
+		probe := result
+		probe.Window.Revision = int(^uint(0) >> 1)
+		probe.Window.LateEvidence = true
+		if _, err := audit.BoundResult(probe); err != nil {
+			return err
+		}
+		canonical, err = persistAuditProject(ctx, tx, request, result)
+		return err
+	})
 	if err != nil {
 		return contracts.AuditProjectResult{}, err
 	}
-	result, err := engine.Run(ctx, request)
-	if err != nil {
-		return contracts.AuditProjectResult{}, err
-	}
-	if err := r.persistAuditProject(ctx, request, result); err != nil {
-		return contracts.AuditProjectResult{}, err
-	}
-	return result, nil
+	return audit.BoundResult(canonical)
 }
 
-func (r *Repository) persistAuditProject(ctx context.Context,
+func auditWindowKey(request contracts.AuditProjectRequest) string {
+	return fmt.Sprintf(
+		"audit-window:%s:%s:%s:%s:%s",
+		audit.EngineVersion,
+		request.Scope,
+		request.Reference,
+		request.StartsAt.UTC(),
+		request.EndsAt.UTC(),
+	)
+}
+
+func decodeAuditRevisionHash(value string) ([]byte, error) {
+	decoded, err := hex.DecodeString(value)
+	if err != nil || len(decoded) != sha256.Size {
+		return nil, errors.New("invalid audit revision hash")
+	}
+	return decoded, nil
+}
+
+func persistAuditProject(ctx context.Context, tx pgx.Tx,
 	request contracts.AuditProjectRequest,
 	result contracts.AuditProjectResult,
-) error {
-	revisionHash, err := hex.DecodeString(result.RevisionHash)
-	if err != nil || len(revisionHash) != sha256.Size {
-		return errors.New("invalid audit revision hash")
-	}
-	windowID := collectionBatchUUID(fmt.Sprintf("audit-window:%s:%s:%s:%s",
-		request.Scope, request.Reference, request.StartsAt.UTC(), request.EndsAt.UTC()))
-	revisionID := collectionBatchUUID("audit-revision:" + result.RevisionHash)
-	projectID, err := r.projectIDForAudit(ctx, request)
+) (contracts.AuditProjectResult, error) {
+	revisionHash, err := decodeAuditRevisionHash(result.RevisionHash)
 	if err != nil {
-		return err
+		return contracts.AuditProjectResult{}, err
 	}
-	return r.WithSerializable(ctx, func(tx pgx.Tx) error {
+	windowID := collectionBatchUUID(auditWindowKey(request))
+	revisionID := collectionBatchUUID("audit-revision:" + result.RevisionHash)
+	projectID, err := projectIDForAudit(ctx, tx, request)
+	if err != nil {
+		return contracts.AuditProjectResult{}, err
+	}
+	persisted := result
+	err = func() error {
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.audit_windows
 			(audit_window_id,project_id,window_kind,starts_at,ends_at,as_of,
 			 timezone_name,immutable_since)
@@ -78,20 +107,26 @@ func (r *Repository) persistAuditProject(ctx context.Context,
 		}
 		var revisionNumber int
 		var priorRevisionID *string
-		if err := tx.QueryRow(ctx, `SELECT COALESCE(max(revision_number),0)+1,
+		err := tx.QueryRow(ctx, `SELECT revision_number, prior_revision_id::text
+			FROM prompt_better.audit_revisions WHERE audit_revision_id=$1`,
+			revisionID).Scan(&revisionNumber, &priorRevisionID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			err = tx.QueryRow(ctx, `SELECT COALESCE(max(revision_number),0)+1,
 			(SELECT audit_revision_id::text FROM prompt_better.audit_revisions
 			 WHERE audit_window_id=$1 ORDER BY revision_number DESC LIMIT 1)
 			FROM prompt_better.audit_revisions WHERE audit_window_id=$1`,
-			windowID).Scan(&revisionNumber, &priorRevisionID); err != nil {
+				windowID).Scan(&revisionNumber, &priorRevisionID)
+		}
+		if err != nil {
 			return errors.New("read project audit revision")
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.audit_revisions
 			(audit_revision_id,audit_window_id,revision_number,source_watermark_at,
-			 coverage_state,revision_hash,created_at,prior_revision_id)
-			VALUES ($1,$2,$3,$4,$5,$6,$4,$7)
+			 coverage_state,revision_hash,created_at,prior_revision_id,engine_version)
+			VALUES ($1,$2,$3,$4,$5,$6,$4,$7,$8)
 			ON CONFLICT (audit_revision_id) DO NOTHING`,
 			revisionID, windowID, revisionNumber, request.AsOf,
-			result.Coverage, revisionHash, priorRevisionID); err != nil {
+			result.Coverage, revisionHash, priorRevisionID, audit.EngineVersion); err != nil {
 			return errors.New("persist project audit revision")
 		}
 		if err := persistMetricDefinitions(ctx, tx); err != nil {
@@ -100,7 +135,13 @@ func (r *Repository) persistAuditProject(ctx context.Context,
 		if err := persistRevisionEvidence(ctx, tx, revisionID, request); err != nil {
 			return err
 		}
-		evaluationID, err := persistEvaluationRun(ctx, tx, revisionID, request, result)
+		lateEvidence, err := hasNewRevisionEvidence(ctx, tx, revisionID, priorRevisionID)
+		if err != nil {
+			return err
+		}
+		persisted.Window.Revision = revisionNumber
+		persisted.Window.LateEvidence = lateEvidence
+		evaluationID, err := persistEvaluationRun(ctx, tx, revisionID, request, persisted)
 		if err != nil {
 			return err
 		}
@@ -181,10 +222,37 @@ func (r *Repository) persistAuditProject(ctx context.Context,
 			}
 		}
 		return nil
-	})
+	}()
+	if err != nil {
+		return contracts.AuditProjectResult{}, err
+	}
+	return persisted, nil
 }
 
-func (r *Repository) projectIDForAudit(ctx context.Context,
+func hasNewRevisionEvidence(ctx context.Context, tx pgx.Tx, revisionID string,
+	priorRevisionID *string,
+) (bool, error) {
+	if priorRevisionID == nil {
+		return false, nil
+	}
+	var lateEvidence bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS (
+		SELECT 1 FROM prompt_better.evidence_links current_link
+		WHERE current_link.target_kind='audit_revision'
+		  AND current_link.target_id=$1
+		  AND NOT EXISTS (
+			SELECT 1 FROM prompt_better.evidence_links prior_link
+			WHERE prior_link.target_kind='audit_revision'
+			  AND prior_link.target_id=$2
+			  AND prior_link.evidence_artifact_id=current_link.evidence_artifact_id))`,
+		revisionID, *priorRevisionID).Scan(&lateEvidence)
+	if err != nil {
+		return false, errors.New("compare audit revision evidence")
+	}
+	return lateEvidence, nil
+}
+
+func projectIDForAudit(ctx context.Context, db governanceQuerier,
 	request contracts.AuditProjectRequest,
 ) (*string, error) {
 	if request.Scope == contracts.AuditScopePortfolio {
@@ -203,7 +271,7 @@ func (r *Repository) projectIDForAudit(ctx context.Context,
 		LEFT JOIN prompt_better.trajectories tr ON tr.session_id=s.session_id
 		WHERE $1::timestamptz IS NOT NULL AND $2::timestamptz IS NOT NULL
 		  AND $3::timestamptz IS NOT NULL AND %s LIMIT 2`, filter)
-	rows, err := r.pool.Query(ctx, query, args...)
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, errors.New("resolve audit project lineage")
 	}
@@ -237,7 +305,7 @@ func persistEvaluationRun(ctx context.Context, tx pgx.Tx, revisionID string,
 		AsOf      time.Time
 		Sources   []string
 	}{request.Scope, request.Reference, request.StartsAt, request.EndsAt, request.AsOf,
-		append([]string{}, request.ConfiguredSources...)}
+		sortedStrings(request.ConfiguredSources)}
 	comparison := replay.Comparison{
 		CandidateHash:    result.RevisionHash,
 		Statuses:         map[string]contracts.MetricStatus{},
@@ -277,33 +345,33 @@ func persistEvaluationRun(ctx context.Context, tx pgx.Tx, revisionID string,
 }
 
 func evaluationQualityGate(result contracts.AuditProjectResult) string {
+	state := "pass"
 	for _, guardrail := range result.Guardrails {
 		if guardrail.State == "fail" {
 			return "fail"
 		}
 		if guardrail.State != "pass" {
-			return "unknown"
+			state = "unknown"
 		}
 	}
-	return "pass"
+	return state
 }
 
 func evaluationOutcome(result contracts.AuditProjectResult) string {
-	improved := false
+	outcome := "unchanged"
 	for _, metric := range result.Metrics {
 		switch metric.Status {
 		case contracts.MetricStatusWorsened:
 			return "regressed"
 		case contracts.MetricStatusMixed, contracts.MetricStatusInsufficient:
-			return "mixed"
+			outcome = "mixed"
 		case contracts.MetricStatusImproved:
-			improved = true
+			if outcome == "unchanged" {
+				outcome = "improved"
+			}
 		}
 	}
-	if improved {
-		return "improved"
-	}
-	return "unchanged"
+	return outcome
 }
 
 func persistMetricDefinitions(ctx context.Context, tx pgx.Tx) error {
@@ -405,6 +473,12 @@ func persistRevisionEvidence(ctx context.Context, tx pgx.Tx, revisionID string,
 	return nil
 }
 
+func sortedStrings(values []string) []string {
+	result := append([]string{}, values...)
+	sort.Strings(result)
+	return result
+}
+
 func confidenceValue(value string) *float64 {
 	numeric := map[string]float64{"high": 0.90, "medium": 0.65, "low": 0.35}
 	result, ok := numeric[value]
@@ -437,8 +511,13 @@ func recommendationFindingCode(code string) string {
 	}[code]
 }
 
+type governanceQuerier interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
 type projectAuditSource struct {
-	repository *Repository
+	query governanceQuerier
 }
 
 func (source projectAuditSource) Snapshot(ctx context.Context, request contracts.AuditProjectRequest) (audit.Snapshot, error) {
@@ -500,10 +579,6 @@ func (source projectAuditSource) Snapshot(ctx context.Context, request contracts
 	if err != nil {
 		return audit.Snapshot{}, err
 	}
-	revision, lateEvidence, err := source.revisionState(ctx, request)
-	if err != nil {
-		return audit.Snapshot{}, err
-	}
 	recommendationContext, err := source.recommendationContext(ctx, request)
 	if err != nil {
 		return audit.Snapshot{}, err
@@ -537,7 +612,7 @@ func (source projectAuditSource) Snapshot(ctx context.Context, request contracts
 			AsOf: request.AsOf.UTC(), Timezone: "UTC",
 			BaselineVersion: baseline.Version, CountingMode: "logical-invocation-v1",
 			WorkloadVersion: "workload-v1", SourceVersions: versions,
-			Revision: revision, LateEvidence: lateEvidence,
+			Revision: 1,
 		},
 		Contributions: contributions, ConfounderStrata: confounders,
 		Guardrails: guardrails, InvocationCounts: invocations,
@@ -613,7 +688,7 @@ func (source projectAuditSource) contributions(ctx context.Context,
 		SELECT project_id::text,workload_class,numerator,denominator,
 			sum(numerator) OVER () AS total_numerator
 		FROM project_values ORDER BY project_id`, filter, turnFilter)
-	rows, err := source.repository.pool.Query(ctx, query, args...)
+	rows, err := source.query.Query(ctx, query, args...)
 	if err != nil {
 		return nil, errors.New("query audit contributions")
 	}
@@ -663,7 +738,7 @@ func (source projectAuditSource) confounders(ctx context.Context,
 		WHERE %s AND label.observed_at >= $1 AND label.observed_at < $2
 		  AND label.observed_at <= $3::timestamptz
 		ORDER BY 1,2,3`, filter)
-	rows, err := source.repository.pool.Query(ctx, query, args...)
+	rows, err := source.query.Query(ctx, query, args...)
 	if err != nil {
 		return nil, errors.New("query audit confounders")
 	}
@@ -729,7 +804,7 @@ func (source projectAuditSource) invocationCounts(ctx context.Context, filter, t
 			(SELECT count(*) FROM selected_tools WHERE external_alias_id IS NULL)
 		FROM logical`, filter, turnFilter)
 	var result contracts.InvocationCounts
-	if err := source.repository.pool.QueryRow(ctx, query, args...).Scan(
+	if err := source.query.QueryRow(ctx, query, args...).Scan(
 		&result.HostCalls, &result.LeafCalls, &result.HostResults,
 		&result.LeafResults, &result.UnknownCalls,
 	); err != nil {
@@ -793,7 +868,7 @@ func (source projectAuditSource) workloadValues(ctx context.Context,
 		JOIN trajectory_counts total USING (trajectory_id)
 		LEFT JOIN usage_by_trajectory usage USING (trajectory_id)
 		GROUP BY class_counts.workload_class ORDER BY class_counts.workload_class`, filter, turnFilter)
-	rows, err := source.repository.pool.Query(ctx, query, args...)
+	rows, err := source.query.Query(ctx, query, args...)
 	if err != nil {
 		return nil, errors.New("query workload strata")
 	}
@@ -810,25 +885,6 @@ func (source projectAuditSource) workloadValues(ctx context.Context,
 	return result, rows.Err()
 }
 
-func (source projectAuditSource) revisionState(ctx context.Context,
-	request contracts.AuditProjectRequest,
-) (int, bool, error) {
-	windowID := collectionBatchUUID(fmt.Sprintf("audit-window:%s:%s:%s:%s",
-		request.Scope, request.Reference, request.StartsAt.UTC(), request.EndsAt.UTC()))
-	var revision int
-	var priorWatermark *time.Time
-	err := source.repository.pool.QueryRow(ctx, `SELECT count(*), max(source_watermark_at)
-		FROM prompt_better.audit_revisions WHERE audit_window_id=$1`, windowID).
-		Scan(&revision, &priorWatermark)
-	if err != nil {
-		return 0, false, errors.New("read audit revision state")
-	}
-	if priorWatermark != nil && request.AsOf.Equal(*priorWatermark) {
-		return revision, revision > 1, nil
-	}
-	return revision + 1, priorWatermark != nil && request.AsOf.After(*priorWatermark), nil
-}
-
 func (source projectAuditSource) recommendationContext(ctx context.Context,
 	request contracts.AuditProjectRequest,
 ) (recommendation.Context, error) {
@@ -840,7 +896,7 @@ func (source projectAuditSource) recommendationContext(ctx context.Context,
 	if request.Scope != contracts.AuditScopeProject {
 		return result, nil
 	}
-	rows, err := source.repository.pool.Query(ctx, `
+	rows, err := source.query.Query(ctx, `
 		SELECT finding.finding_kind,
 			coalesce((SELECT event.event_kind
 				FROM prompt_better.recommendation_events event
@@ -856,6 +912,7 @@ func (source projectAuditSource) recommendationContext(ctx context.Context,
 		FROM prompt_better.recommendations recommendation
 		JOIN prompt_better.findings finding ON finding.finding_id=recommendation.finding_id
 		WHERE recommendation.project_id=$1 AND recommendation.created_at <= $2
+		  AND coalesce(recommendation.action_code,recommendation.recommendation_kind) <> 'no_action'
 		  AND (recommendation.deleted_at IS NULL OR recommendation.deleted_at > $2)
 		GROUP BY recommendation.recommendation_id,finding.finding_kind,lifecycle_state,
 		 cooldown_until,recommendation.updated_at,recommendation.evidence_revision
@@ -1072,7 +1129,7 @@ func (source projectAuditSource) dimensionSignature(ctx context.Context,
 			AND sv.valid_from <= $3
 		WHERE t.observed_at >= $1 AND t.observed_at < $2
 		  AND t.observed_at <= $3 AND %s ORDER BY 1, 2`, filter)
-	rows, err := source.repository.pool.Query(ctx, query, args...)
+	rows, err := source.query.Query(ctx, query, args...)
 	if err != nil {
 		return "", errors.New("query audit dimension versions")
 	}
@@ -1116,7 +1173,7 @@ func (source projectAuditSource) confounderSignature(ctx context.Context,
 			AND label.observed_at >= $1 AND label.observed_at < $2
 			AND label.observed_at <= $3::timestamptz
 		WHERE %s AND label.label_kind IS NOT NULL ORDER BY 1,2,3`, filter)
-	rows, err := source.repository.pool.Query(ctx, query, args...)
+	rows, err := source.query.Query(ctx, query, args...)
 	if err != nil {
 		return "", errors.New("query audit confounder signature")
 	}
@@ -1378,7 +1435,7 @@ func (source projectAuditSource) metrics(
 		sessionLifecycle, sessionLifecycle)
 	var input metrics.Input
 	var evidenceCount, completeEvidence, completePhases int
-	if err := source.repository.pool.QueryRow(ctx, query, args...).Scan(
+	if err := source.query.QueryRow(ctx, query, args...).Scan(
 		&input.CompletedTurns,
 		&input.AttributedTurns,
 		&input.BoundaryDecisions,
@@ -1436,7 +1493,7 @@ func (source projectAuditSource) overhead(
 			AND go.observed_at <= $3::timestamptz
 		WHERE %s`, filter)
 	var input metrics.Input
-	if err := source.repository.pool.QueryRow(ctx, query, args...).Scan(
+	if err := source.query.QueryRow(ctx, query, args...).Scan(
 		&input.TotalTokens,
 		&input.CompletedTurns,
 	); err != nil {
@@ -1459,7 +1516,7 @@ func (source projectAuditSource) evidenceRefs(
 			AND e.observed_at >= $1 AND e.observed_at < $2
 			AND e.observed_at <= $3::timestamptz AND e.deleted_at IS NULL
 		WHERE %s ORDER BY 1 LIMIT 100`, filter)
-	rows, err := source.repository.pool.Query(ctx, query, args...)
+	rows, err := source.query.Query(ctx, query, args...)
 	if err != nil {
 		return nil, errors.New("query project audit evidence")
 	}
@@ -1500,7 +1557,7 @@ func (source projectAuditSource) toolRefs(
 		WHERE %s AND %s AND %s ORDER BY 1 LIMIT 100`,
 		filter, turnFilter, predicate)
 	toolArgs := append(append([]any{}, args...), kind)
-	rows, err := source.repository.pool.Query(ctx, query, toolArgs...)
+	rows, err := source.query.Query(ctx, query, toolArgs...)
 	if err != nil {
 		return nil, errors.New("query audit tool evidence")
 	}

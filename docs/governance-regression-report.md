@@ -14,7 +14,7 @@ Baseline: synthetic `metric-v1` / `detector-v1` / `recommendation-v1` /
 | Privacy | rare cohorts suppressed; content-free references; unknown never fabricated pass |
 | Recommendations | preview-only; guardrail-gated; cooldown and new-evidence semantics |
 | Replay/eval | deterministic hashes; source immutability; one controlled change |
-| Persistence | migration 7 up/down, FK/retention propagation, idempotent revisions |
+| Persistence | migrations 7-8 up/down, engine provenance, FK/retention propagation, idempotent revisions |
 
 Acceptance is zero failing deterministic tests, contract fixtures, database
 integrations, local workflow jobs, or secret scans. External efficiency ranges
