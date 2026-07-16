@@ -340,6 +340,12 @@ func TestRepositoryIntegration(t *testing.T) {
 		alias := "31000000-0000-0000-0000-000000000011"
 		sessionID := "31000000-0000-0000-0000-000000000031"
 		turnOrdinal := int64(0)
+		outputSize := int64(2048)
+		usageValue := 100.0
+		cacheValue := 20.0
+		cacheTTL := int64(300)
+		stateHash := sha256.Sum256([]byte("synthetic-state-epoch"))
+		callHash := sha256.Sum256([]byte("synthetic-redacted-call"))
 		item := Evidence{
 			ID: "31000000-0000-0000-0000-000000000021", SourceID: atomicSource.ID,
 			ProjectID: &project.ID, SessionID: &sessionID, ExternalAliasID: &alias, SchemaVersion: "1.0.0", ContentHash: hash[:],
@@ -348,9 +354,25 @@ func TestRepositoryIntegration(t *testing.T) {
 			ProductSurface: "local", ObservedAt: base,
 			Lineage: EvidenceLineage{
 				SessionID: sessionID, TrajectoryID: "31000000-0000-0000-0000-000000000032",
+				TaskID: "31000000-0000-0000-0000-000000000036",
 				TurnID: "31000000-0000-0000-0000-000000000033", TurnOrdinal: &turnOrdinal,
 				ResponseID: "31000000-0000-0000-0000-000000000034",
 				ToolCallID: "31000000-0000-0000-0000-000000000035", ToolKind: "synthetic", CallPath: "direct",
+			},
+			Runtime: RuntimeObservation{
+				Phase: "commentary", PhaseEvent: "completed", ResponseEvent: "completed",
+				ModelVariant: "synthetic", ReasoningEffort: "medium",
+				ToolOutcome: "success", ResultState: "complete",
+				CanonicalCallHash: callHash[:],
+				StateEpochID:      "31000000-0000-0000-0000-000000000037",
+				StateEpochHash:    stateHash[:], MutationState: "unchanged",
+				OutputModality: "text", OutputSizeBytes: &outputSize,
+				UsageKind: "total_tokens", UsageValue: &usageValue, UsageUnit: "tokens",
+				AccountingRegime: "native", CacheKind: "cached_input",
+				CacheValue: &cacheValue, CacheMode: "ephemeral", CacheTTLSeconds: &cacheTTL,
+				CheckpointEvent: "checkpointed", BoundaryEvent: "allowed",
+				DelegationEvent: "none", StopEvent: "completed",
+				CompactionEvent: "none",
 			},
 		}
 		batch := CollectionBatch{
@@ -374,8 +396,19 @@ func TestRepositoryIntegration(t *testing.T) {
 			JOIN prompt_better.turns t ON t.trajectory_id=tr.trajectory_id
 			JOIN prompt_better.responses r ON r.turn_id=t.turn_id
 			JOIN prompt_better.tool_calls c ON c.response_id=r.response_id
+			JOIN prompt_better.tasks task ON task.task_id=t.task_id
+			JOIN prompt_better.state_epochs epoch ON epoch.state_epoch_id=c.state_epoch_id
+			JOIN prompt_better.items i ON i.response_id=r.response_id
+			JOIN prompt_better.phases p ON p.response_id=r.response_id
+			JOIN prompt_better.usage_observations u ON u.evidence_artifact_id=e.evidence_artifact_id
+			JOIN prompt_better.cache_observations cache ON cache.evidence_artifact_id=e.evidence_artifact_id
+			JOIN prompt_better.checkpoints checkpoint ON checkpoint.session_id=s.session_id
+			JOIN prompt_better.boundaries boundary ON boundary.session_id=s.session_id
+			JOIN prompt_better.delegation_events delegation ON delegation.trajectory_id=tr.trajectory_id
+			JOIN prompt_better.compaction_events compaction ON compaction.trajectory_id=tr.trajectory_id
+			JOIN prompt_better.stop_events stop ON stop.trajectory_id=tr.trajectory_id
 			WHERE e.evidence_artifact_id=$1`, item.ID).Scan(&normalizedCount); err != nil || normalizedCount != 1 {
-			t.Fatalf("normalized lineage count=%d error=%v", normalizedCount, err)
+			t.Fatalf("normalized governance handoff count=%d error=%v", normalizedCount, err)
 		}
 		currentAudit, provenance, err := repo.AuditSession(ctx, sessionID, []string{atomicSource.Kind}, nil)
 		if err != nil || currentAudit.Coverage != contracts.CoverageStateComplete || len(currentAudit.EvidenceRefs) != 1 || len(provenance) != 1 {

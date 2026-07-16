@@ -257,6 +257,26 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
 			apply.Plan.ProjectID); err != nil {
 			return errors.New("delete unreferenced keyed aliases")
 		}
+		if _, err := tx.Exec(ctx, `DELETE FROM prompt_better.tasks task
+			WHERE task.project_id=$1 AND NOT EXISTS (
+				SELECT 1 FROM prompt_better.evidence_artifacts evidence
+				WHERE evidence.project_id=task.project_id AND evidence.deleted_at IS NULL)`,
+			apply.Plan.ProjectID); err != nil {
+			return errors.New("delete retained task identities")
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM prompt_better.state_epochs epoch
+			USING prompt_better.trajectories trajectory,
+				prompt_better.sessions session
+			WHERE epoch.trajectory_id=trajectory.trajectory_id
+			  AND trajectory.session_id=session.session_id
+			  AND session.project_id=$1
+			  AND NOT EXISTS (
+				SELECT 1 FROM prompt_better.evidence_artifacts evidence
+				WHERE evidence.project_id=session.project_id
+				  AND evidence.deleted_at IS NULL)`,
+			apply.Plan.ProjectID); err != nil {
+			return errors.New("delete retained state epochs")
+		}
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.deletion_audits
             (deletion_audit_id, retention_action_id, entity_kind, deleted_count,
              result_hash, recorded_at) VALUES ($1,$2,'evidence_artifact',$3,$4,statement_timestamp())`,

@@ -38,6 +38,7 @@ type sourceConfig struct {
 	SourceID  string `json:"source_id"`
 	VersionID string `json:"version_id"`
 	CursorID  string `json:"cursor_id"`
+	ProjectID string `json:"project_id,omitempty"`
 	Enabled   bool   `json:"enabled"`
 	Supported bool   `json:"supported"`
 	Purpose   string `json:"purpose,omitempty"`
@@ -121,7 +122,7 @@ func collect(ctx context.Context, configPath string, output io.Writer, now func(
 			return err
 		}
 		sources = append(sources, adapter)
-		mappings[item.Kind] = collector.PersistentSource{SourceID: item.SourceID, CursorID: item.CursorID}
+		mappings[item.Kind] = persistentSource(item)
 	}
 	backend, err := collector.NewPostgresBackend(repository, mappings)
 	if err != nil {
@@ -139,6 +140,12 @@ func collect(ctx context.Context, configPath string, output io.Writer, now func(
 		return err
 	}
 	return json.NewEncoder(output).Encode(summary)
+}
+
+func persistentSource(config sourceConfig) collector.PersistentSource {
+	return collector.PersistentSource{
+		SourceID: config.SourceID, CursorID: config.CursorID, ProjectID: config.ProjectID,
+	}
 }
 
 func validateConfig(config fileConfig) error {

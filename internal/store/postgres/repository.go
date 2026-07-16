@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const latestSchemaVersion = 5
+const latestSchemaVersion = 6
 
 var (
 	// ErrNotFound reports an absent normalized entity without exposing query data.
@@ -419,6 +419,7 @@ type Evidence struct {
 	ObservedAt      time.Time
 	RetainedUntil   *time.Time
 	Lineage         EvidenceLineage
+	Runtime         RuntimeObservation
 }
 
 // EvidenceLineage contains normalized opaque UUIDs derived before persistence.
@@ -426,6 +427,7 @@ type EvidenceLineage struct {
 	SessionID          string
 	TrajectoryID       string
 	ParentTrajectoryID string
+	TaskID             string
 	TurnID             string
 	TurnOrdinal        *int64
 	ResponseID         string
@@ -434,6 +436,43 @@ type EvidenceLineage struct {
 	CallerToolCallID   string
 	ToolKind           string
 	CallPath           string
+}
+
+// RuntimeObservation contains bounded typed fields parsed before persistence.
+type RuntimeObservation struct {
+	Phase              string
+	PhaseEvent         string
+	ResponseEvent      string
+	TaskAttribution    string
+	ModelVariant       string
+	ReasoningEffort    string
+	ReasoningMode      string
+	Verbosity          string
+	ServiceMode        string
+	SafeguardOutcome   string
+	ToolOutcome        string
+	ResultState        string
+	CanonicalCallHash  []byte
+	StateEpochID       string
+	StateEpochHash     []byte
+	MutationState      string
+	OutputModality     string
+	OutputSizeBytes    *int64
+	WaitState          string
+	UsageKind          string
+	UsageValue         *float64
+	UsageUnit          string
+	AccountingRegime   string
+	CacheKind          string
+	CacheValue         *float64
+	CacheMode          string
+	CacheTTLSeconds    *int64
+	CheckpointEvent    string
+	BoundaryEvent      string
+	DelegationEvent    string
+	StopEvent          string
+	CompactionEvent    string
+	GovernanceOverhead bool
 }
 
 // CollectionBatch atomically persists bounded evidence and its next cursor.
@@ -566,6 +605,9 @@ func (r *Repository) CommitCollection(ctx context.Context, batch CollectionBatch
 			if tag.RowsAffected() == 0 {
 				return ErrSourceConflict
 			}
+			if err := persistRuntimeObservations(ctx, tx, item); err != nil {
+				return err
+			}
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.source_assertions
 			(source_assertion_id, source_id, assertion_kind, knowledge_state,
@@ -638,12 +680,37 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 		}
 	}
 
+	if lineage.TaskID != "" {
+		attributionState := defaultString(item.Runtime.TaskAttribution, "unknown")
+		if attributionState != "attributed" && attributionState != "ambiguous" &&
+			attributionState != "multi_project" && attributionState != "unattributed" {
+			attributionState = "unknown"
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.tasks
+			(task_id,project_id,source_id,external_alias_id,task_kind,
+			 attribution_state,confidence,algorithm_version,observed_at,knowledge_state)
+			VALUES ($1,$2,$3,$1,'codex_task',$4,
+			 CASE WHEN $4='attributed' THEN 1 ELSE NULL END,
+			 'attribution-v1',$5,'observed')
+			ON CONFLICT (task_id) DO UPDATE SET
+				project_id=COALESCE(prompt_better.tasks.project_id,EXCLUDED.project_id),
+				attribution_state=EXCLUDED.attribution_state,
+				confidence=EXCLUDED.confidence`,
+			lineage.TaskID, item.ProjectID, item.SourceID,
+			attributionState, item.ObservedAt); err != nil {
+			return errors.New("persist collection task")
+		}
+	}
+
 	if lineage.TurnID != "" && lineage.TrajectoryID != "" && lineage.TurnOrdinal != nil {
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.turns
-			(turn_id, trajectory_id, source_id, external_alias_id, ordinal, observed_at, knowledge_state)
-			VALUES ($1,$2,$3,$1,$4,$5,'observed')
-			ON CONFLICT (turn_id) DO NOTHING`, lineage.TurnID, lineage.TrajectoryID,
-			item.SourceID, *lineage.TurnOrdinal, item.ObservedAt); err != nil {
+			(turn_id, trajectory_id, source_id, external_alias_id, task_id,
+			 ordinal, observed_at, knowledge_state)
+			VALUES ($1,$2,$3,$1,$4,$5,$6,'observed')
+			ON CONFLICT (turn_id) DO UPDATE SET
+				task_id=COALESCE(prompt_better.turns.task_id,EXCLUDED.task_id)`,
+			lineage.TurnID, lineage.TrajectoryID, item.SourceID,
+			nullableString(lineage.TaskID), *lineage.TurnOrdinal, item.ObservedAt); err != nil {
 			return errors.New("persist collection turn")
 		}
 	}
@@ -655,15 +722,86 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 		return err
 	}
 	if lineage.ResponseID != "" && lineage.TurnID != "" {
+		completedAt := (*time.Time)(nil)
+		if item.Runtime.ResponseEvent == "completed" {
+			value := item.ObservedAt
+			completedAt = &value
+		}
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.responses
 			(response_id, turn_id, source_id, external_alias_id, parent_response_id,
-			 started_at, knowledge_state)
-			VALUES ($1,$2,$3,$1,$4,$5,'observed')
+			 model_variant,reasoning_effort,reasoning_mode,verbosity,service_mode,
+			 safeguard_outcome,started_at,completed_at,knowledge_state)
+			VALUES ($1,$2,$3,$1,$4,$5,$6,$7,$8,$9,$10,$11,$12,'observed')
 			ON CONFLICT (response_id) DO UPDATE SET
 				parent_response_id=COALESCE(prompt_better.responses.parent_response_id,
-				EXCLUDED.parent_response_id)`, lineage.ResponseID, lineage.TurnID,
-			item.SourceID, parentResponseID, item.ObservedAt); err != nil {
+				EXCLUDED.parent_response_id),
+				model_variant=COALESCE(EXCLUDED.model_variant,prompt_better.responses.model_variant),
+				reasoning_effort=COALESCE(EXCLUDED.reasoning_effort,prompt_better.responses.reasoning_effort),
+				reasoning_mode=COALESCE(EXCLUDED.reasoning_mode,prompt_better.responses.reasoning_mode),
+				verbosity=COALESCE(EXCLUDED.verbosity,prompt_better.responses.verbosity),
+				service_mode=COALESCE(EXCLUDED.service_mode,prompt_better.responses.service_mode),
+				safeguard_outcome=COALESCE(EXCLUDED.safeguard_outcome,prompt_better.responses.safeguard_outcome),
+				completed_at=COALESCE(EXCLUDED.completed_at,prompt_better.responses.completed_at)`,
+			lineage.ResponseID, lineage.TurnID, item.SourceID, parentResponseID,
+			nullableString(item.Runtime.ModelVariant), nullableString(item.Runtime.ReasoningEffort),
+			nullableString(item.Runtime.ReasoningMode), nullableString(item.Runtime.Verbosity),
+			nullableString(item.Runtime.ServiceMode), nullableString(item.Runtime.SafeguardOutcome),
+			item.ObservedAt, completedAt); err != nil {
 			return errors.New("persist collection response")
+		}
+	}
+
+	if item.Runtime.Phase != "" && lineage.TrajectoryID != "" {
+		phaseID := collectionBatchUUID(item.ID + ":phase:" + item.Runtime.Phase)
+		endedAt := (*time.Time)(nil)
+		if item.Runtime.PhaseEvent == "completed" {
+			value := item.ObservedAt
+			endedAt = &value
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.phases
+			(phase_id,trajectory_id,response_id,phase_kind,ordinal,started_at,ended_at,knowledge_state)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,'observed')
+			ON CONFLICT (phase_id) DO UPDATE SET
+				ended_at=COALESCE(EXCLUDED.ended_at,prompt_better.phases.ended_at)`,
+			phaseID, lineage.TrajectoryID, nullableString(lineage.ResponseID),
+			item.Runtime.Phase, normalizedOrdinal(item.ID+":phase:"+item.Runtime.Phase),
+			item.ObservedAt, endedAt); err != nil {
+			return errors.New("persist collection phase")
+		}
+	}
+
+	if lineage.ResponseID != "" && item.Runtime.OutputModality != "" {
+		itemID := collectionBatchUUID(item.ID + ":item")
+		itemKind := "assistant_output"
+		if item.Runtime.ResultState != "" {
+			itemKind = "tool_result"
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.items
+			(item_id,response_id,source_id,external_alias_id,item_kind,
+			 assistant_phase,ordinal,image_detail,content_hash,content_length,
+			 observed_at,knowledge_state)
+			VALUES ($1,$2,$3,$1,$4,$5,$6,$7,$8,$9,$10,'observed')
+			ON CONFLICT (item_id) DO UPDATE SET
+				content_length=COALESCE(EXCLUDED.content_length,prompt_better.items.content_length)`,
+			itemID, lineage.ResponseID, item.SourceID, itemKind,
+			nullableString(item.Runtime.Phase), normalizedOrdinal(item.ID+":item"),
+			nullableString(item.Runtime.OutputModality), item.ContentHash,
+			item.Runtime.OutputSizeBytes, item.ObservedAt); err != nil {
+			return errors.New("persist collection item")
+		}
+	}
+
+	if item.Runtime.StateEpochID != "" && lineage.TrajectoryID != "" {
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.state_epochs
+			(state_epoch_id,trajectory_id,source_id,state_hash,mutation_state,
+			 started_at,knowledge_state)
+			VALUES ($1,$2,$3,$4,$5,$6,'observed')
+			ON CONFLICT (state_epoch_id) DO UPDATE SET
+				mutation_state=EXCLUDED.mutation_state`,
+			item.Runtime.StateEpochID, lineage.TrajectoryID, item.SourceID,
+			item.Runtime.StateEpochHash, defaultString(item.Runtime.MutationState, "unknown"),
+			item.ObservedAt); err != nil {
+			return errors.New("persist collection state epoch")
 		}
 	}
 
@@ -678,15 +816,143 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.tool_calls
 			(tool_call_id, response_id, source_id, external_alias_id, caller_alias_id,
-			 call_path, tool_kind, started_at, knowledge_state)
-			VALUES ($1,$2,$3,$1,$4,$5,$6,$7,'observed')
-			ON CONFLICT (tool_call_id) DO NOTHING`, lineage.ToolCallID, lineage.ResponseID,
+			 call_path, tool_kind, started_at, outcome, knowledge_state,
+			 state_epoch_id,canonical_call_hash,result_state,output_modality,
+			 output_size_bytes,wait_state)
+			VALUES ($1,$2,$3,$1,$4,$5,$6,$7,$8,'observed',$9,$10,$11,$12,$13,$14)
+			ON CONFLICT (tool_call_id) DO UPDATE SET
+				outcome=COALESCE(EXCLUDED.outcome,prompt_better.tool_calls.outcome),
+				state_epoch_id=COALESCE(EXCLUDED.state_epoch_id,prompt_better.tool_calls.state_epoch_id),
+				canonical_call_hash=COALESCE(EXCLUDED.canonical_call_hash,prompt_better.tool_calls.canonical_call_hash),
+				result_state=COALESCE(EXCLUDED.result_state,prompt_better.tool_calls.result_state),
+				output_modality=COALESCE(EXCLUDED.output_modality,prompt_better.tool_calls.output_modality),
+				output_size_bytes=COALESCE(EXCLUDED.output_size_bytes,prompt_better.tool_calls.output_size_bytes),
+				wait_state=COALESCE(EXCLUDED.wait_state,prompt_better.tool_calls.wait_state)`,
+			lineage.ToolCallID, lineage.ResponseID,
 			item.SourceID, nullableString(lineage.CallerToolCallID), callPath,
-			toolKind, item.ObservedAt); err != nil {
+			toolKind, item.ObservedAt, nullableString(item.Runtime.ToolOutcome),
+			nullableString(item.Runtime.StateEpochID), item.Runtime.CanonicalCallHash,
+			nullableString(item.Runtime.ResultState), nullableString(item.Runtime.OutputModality),
+			item.Runtime.OutputSizeBytes, nullableString(item.Runtime.WaitState)); err != nil {
 			return errors.New("persist collection tool call")
 		}
 	}
+	if item.Runtime.DelegationEvent != "" && lineage.TrajectoryID != "" {
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.delegation_events
+			(delegation_event_id,trajectory_id,parent_trajectory_id,source_id,
+			 external_alias_id,event_kind,observed_at,knowledge_state)
+			VALUES ($1,$2,$3,$4,$1,$5,$6,'observed')
+			ON CONFLICT (delegation_event_id) DO NOTHING`,
+			collectionBatchUUID(item.ID+":delegation"), lineage.TrajectoryID,
+			nullableString(lineage.ParentTrajectoryID), item.SourceID,
+			item.Runtime.DelegationEvent, item.ObservedAt); err != nil {
+			return errors.New("persist delegation event")
+		}
+	}
+	if item.Runtime.CompactionEvent != "" && lineage.TrajectoryID != "" {
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.compaction_events
+			(compaction_event_id,trajectory_id,response_id,source_id,external_alias_id,
+			 compaction_mode,observed_at,knowledge_state)
+			VALUES ($1,$2,$3,$4,$1,$5,$6,'observed')
+			ON CONFLICT (compaction_event_id) DO NOTHING`,
+			collectionBatchUUID(item.ID+":compaction"), lineage.TrajectoryID,
+			nullableString(lineage.ResponseID), item.SourceID,
+			item.Runtime.CompactionEvent, item.ObservedAt); err != nil {
+			return errors.New("persist compaction event")
+		}
+	}
+	if item.Runtime.StopEvent != "" && lineage.TrajectoryID != "" {
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.stop_events
+			(stop_event_id,trajectory_id,event_kind,outcome,observed_at,knowledge_state)
+			VALUES ($1,$2,$3,'observed',$4,'observed')
+			ON CONFLICT (stop_event_id) DO NOTHING`,
+			collectionBatchUUID(item.ID+":stop"), lineage.TrajectoryID,
+			item.Runtime.StopEvent, item.ObservedAt); err != nil {
+			return errors.New("persist stop event")
+		}
+	}
+	if item.Runtime.CheckpointEvent != "" && lineage.SessionID != "" {
+		hash := sha256.Sum256([]byte(item.Runtime.CheckpointEvent))
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.checkpoints
+			(checkpoint_id,session_id,checkpoint_hash,completed_count,blocker_count,
+			 next_action_count,gate_count,created_at)
+			VALUES ($1,$2,$3,0,0,0,0,$4)
+			ON CONFLICT (checkpoint_id) DO NOTHING`,
+			collectionBatchUUID(item.ID+":checkpoint"), lineage.SessionID,
+			hash[:], item.ObservedAt); err != nil {
+			return errors.New("persist checkpoint event")
+		}
+	}
+	if item.Runtime.BoundaryEvent != "" {
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.boundaries
+			(boundary_id,project_id,session_id,category,outcome,observed_at)
+			VALUES ($1,$2,$3,'runtime',$4,$5)
+			ON CONFLICT (boundary_id) DO NOTHING`,
+			collectionBatchUUID(item.ID+":boundary"), item.ProjectID,
+			nullableString(lineage.SessionID), item.Runtime.BoundaryEvent,
+			item.ObservedAt); err != nil {
+			return errors.New("persist boundary event")
+		}
+	}
 	return nil
+}
+
+func persistRuntimeObservations(ctx context.Context, tx pgx.Tx, item Evidence) error {
+	runtime := item.Runtime
+	if runtime.UsageKind != "" && runtime.UsageValue != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.usage_observations
+			(usage_observation_id,trajectory_id,response_id,evidence_artifact_id,
+			 metric_kind,value_numeric,usage_unit,product_surface,accounting_regime,
+			 provenance,source_adapter,source_version,observed_at,knowledge_state)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'collector',NULL,$11,'observed')
+			ON CONFLICT (usage_observation_id) DO NOTHING`,
+			collectionBatchUUID(item.ID+":usage:"+runtime.UsageKind),
+			nullableString(item.Lineage.TrajectoryID), nullableString(item.Lineage.ResponseID),
+			item.ID, runtime.UsageKind, *runtime.UsageValue,
+			defaultString(runtime.UsageUnit, "unknown"), item.ProductSurface,
+			defaultString(runtime.AccountingRegime, "unknown"), item.Provenance,
+			item.ObservedAt); err != nil {
+			return errors.New("persist collection usage")
+		}
+	}
+	if runtime.CacheKind != "" && runtime.CacheValue != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.cache_observations
+			(cache_observation_id,trajectory_id,response_id,evidence_artifact_id,
+			 cache_kind,value_numeric,usage_unit,cache_mode,cache_ttl_seconds,
+			 provenance,observed_at,knowledge_state)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'observed')
+			ON CONFLICT (cache_observation_id) DO NOTHING`,
+			collectionBatchUUID(item.ID+":cache:"+runtime.CacheKind),
+			nullableString(item.Lineage.TrajectoryID), nullableString(item.Lineage.ResponseID),
+			item.ID, runtime.CacheKind, *runtime.CacheValue,
+			defaultString(runtime.UsageUnit, "unknown"),
+			nullableString(runtime.CacheMode), runtime.CacheTTLSeconds,
+			item.Provenance, item.ObservedAt); err != nil {
+			return errors.New("persist collection cache")
+		}
+	}
+	if runtime.GovernanceOverhead && item.Lineage.TrajectoryID != "" {
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.governance_overhead
+			(governance_overhead_id,audit_revision_id,trajectory_id,overhead_kind,
+			 native_value,native_unit,required_state,observed_at)
+			SELECT $1,ar.audit_revision_id,$2,'collector',NULL,'events','necessary',$3
+			FROM prompt_better.audit_revisions ar
+			JOIN prompt_better.audit_windows aw ON aw.audit_window_id=ar.audit_window_id
+			WHERE aw.project_id=$4 ORDER BY ar.created_at DESC LIMIT 1
+			ON CONFLICT (governance_overhead_id) DO NOTHING`,
+			collectionBatchUUID(item.ID+":governance"), item.Lineage.TrajectoryID,
+			item.ObservedAt, item.ProjectID); err != nil {
+			return errors.New("persist governance overhead")
+		}
+	}
+	return nil
+}
+
+func defaultString(value, fallback string) string {
+	if value == "" {
+		return fallback
+	}
+	return value
 }
 
 func existingLineageID(ctx context.Context, tx pgx.Tx, query, id string) (*string, error) {
@@ -783,6 +1049,11 @@ func collectionBatchUUID(batchID string) string {
 	digest[8] = (digest[8] & 0x3f) | 0x80
 	text := hex.EncodeToString(digest[:16])
 	return fmt.Sprintf("%s-%s-%s-%s-%s", text[:8], text[8:12], text[12:16], text[16:20], text[20:])
+}
+
+func normalizedOrdinal(identity string) int64 {
+	digest := sha256.Sum256([]byte(identity))
+	return int64(binary.BigEndian.Uint64(digest[:8]) & uint64(^uint64(0)>>1))
 }
 
 func (r *Repository) ReleaseCollectionLease(ctx context.Context, sourceID, fence string) error {

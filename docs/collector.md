@@ -1,5 +1,8 @@
 # Collector
 
+The complete content-free repository handoff is documented in
+[normalized-evidence-handoff.md](normalized-evidence-handoff.md).
+
 The collector is a separate, scheduled process. It never starts from MCP and
 never mutates a source. Every adapter is disabled by default, reads a configured
 bounded source, and emits evidence-envelope `1.0.0` metadata without raw content.
@@ -44,6 +47,10 @@ rollout/Chronicle, and targeted process evidence are separate versioned
 adapters. Source sequence/cursor and monotonic observation time outrank ambiguous
 wall-clock order. Conflicts remain visible. GitHub is explicit and optional;
 offline local collection continues.
+
+Set a source's optional `project_id` when its project boundary is known. The
+collector persists that attribution with normalized evidence; omit it when
+attribution is unknown.
 
 Targeted process collection requires both enablement and a non-empty purpose.
 It is bounded to that purpose and is off by default. Collector/audit/report/
