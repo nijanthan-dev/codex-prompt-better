@@ -21,6 +21,7 @@ import (
 	"github.com/nijanthan-dev/codex-prompt-better/internal/lint"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/policy"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/policypack"
+	"github.com/nijanthan-dev/codex-prompt-better/internal/setup"
 	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
 )
 
@@ -109,6 +110,12 @@ func Run(parent context.Context, args []string, streams Streams) int {
 	command := args[0]
 	if command == "help" || command == "--help" || command == "-h" {
 		return writeUsage(streams.Output)
+	}
+	if command == "doctor" {
+		return setup.RunDoctor(parent, args[1:], setup.Streams{Output: streams.Output, Error: streams.Error})
+	}
+	if command == "init" {
+		return setup.RunInit(parent, args[1:], setup.Streams{Output: streams.Output, Error: streams.Error})
 	}
 	if !validCommand(command) {
 		err := contracts.NewError(contracts.ErrorCodeInvalidSchema, "unknown command", "command", false)
@@ -825,7 +832,7 @@ func validCommand(command string) bool {
 func writeUsage(output io.Writer) int {
 	_, err := fmt.Fprintln(
 		output,
-		"usage: prompt-better <improve_prompt|create_goal_prompt|create_review_fix_prompt|lint_prompt> [flags] [text]",
+		"usage: prompt-better <improve_prompt|create_goal_prompt|create_review_fix_prompt|lint_prompt|doctor|init> [flags] [text]",
 	)
 	if err != nil {
 		return exitInternal

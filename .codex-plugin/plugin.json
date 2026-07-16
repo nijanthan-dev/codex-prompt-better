@@ -1,0 +1,18 @@
+{
+  "name": "prompt-better",
+  "version": "0.2.0-dev",
+  "description": "Local deterministic prompt compilation and bounded governance inspection for Codex.",
+  "author": {
+    "name": "Prompt Better contributors"
+  },
+  "homepage": "https://github.com/nijanthan-dev/codex-prompt-better",
+  "repository": "https://github.com/nijanthan-dev/codex-prompt-better",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "mcp",
+    "prompt"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}

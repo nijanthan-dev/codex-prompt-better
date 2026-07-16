@@ -168,6 +168,105 @@ type LintPromptResult struct {
 	BoundaryDecisions []BoundaryDecision `json:"boundary_decisions,omitempty"`
 }
 
+// GetCheckpointRequest is the get_checkpoint v1 request.
+type GetCheckpointRequest struct {
+	SchemaVersion string `json:"schema_version"`
+	Kind          string `json:"kind"`
+	Reference     string `json:"reference"`
+}
+
+// GetCheckpointResult is the get_checkpoint v1 result.
+type GetCheckpointResult struct {
+	SchemaVersion     string   `json:"schema_version"`
+	Kind              string   `json:"kind"`
+	Objective         string   `json:"objective"`
+	AcceptedDecisions []string `json:"accepted_decisions"`
+	Constraints       []string `json:"constraints"`
+	EvidenceRefs      []string `json:"evidence_refs"`
+	Completed         []string `json:"completed"`
+	Validation        []string `json:"validation"`
+	Blockers          []string `json:"blockers"`
+	NextAction        string   `json:"next_action"`
+	RemainingGates    []string `json:"remaining_gates"`
+}
+
+// AuditConsent is the explicit local audit authorization state.
+type AuditConsent string
+
+const (
+	AuditConsentGranted AuditConsent = "granted"
+	AuditConsentDenied  AuditConsent = "denied"
+	AuditConsentUnknown AuditConsent = "unknown"
+)
+
+// CoverageState is the bounded evidence coverage state.
+type CoverageState string
+
+const (
+	CoverageStateComplete CoverageState = "complete"
+	CoverageStatePartial  CoverageState = "partial"
+	CoverageStateMissing  CoverageState = "missing"
+	CoverageStateUnknown  CoverageState = "unknown"
+)
+
+// AuditSessionRequest is the audit_session v1 request.
+type AuditSessionRequest struct {
+	SchemaVersion     string       `json:"schema_version"`
+	Kind              string       `json:"kind"`
+	Reference         string       `json:"reference"`
+	Consent           AuditConsent `json:"consent"`
+	ConfiguredSources []string     `json:"configured_sources"`
+}
+
+// AuditSessionResult is the audit_session v1 result.
+type AuditSessionResult struct {
+	SchemaVersion    string        `json:"schema_version"`
+	Kind             string        `json:"kind"`
+	Coverage         CoverageState `json:"coverage"`
+	EvidenceRefs     []string      `json:"evidence_refs"`
+	Findings         []string      `json:"findings"`
+	RedactionApplied bool          `json:"redaction_applied"`
+}
+
+// ReportFormat is a supported governance report rendering.
+type ReportFormat string
+
+const (
+	ReportFormatChat     ReportFormat = "chat"
+	ReportFormatMarkdown ReportFormat = "markdown"
+	ReportFormatTable    ReportFormat = "table"
+)
+
+// ProvenanceLabel is a bounded report provenance classification.
+type ProvenanceLabel string
+
+const (
+	ProvenanceOfficialCurrent        ProvenanceLabel = "official_current"
+	ProvenanceStaffClarification     ProvenanceLabel = "staff_clarification"
+	ProvenancePractitionerHypothesis ProvenanceLabel = "practitioner_hypothesis"
+	ProvenanceRuntimeObserved        ProvenanceLabel = "runtime_observed"
+	ProvenanceDerived                ProvenanceLabel = "derived"
+	ProvenanceUnknown                ProvenanceLabel = "unknown"
+)
+
+// RenderGovernanceReportRequest is the render_governance_report v1 request.
+type RenderGovernanceReportRequest struct {
+	SchemaVersion  string       `json:"schema_version"`
+	Kind           string       `json:"kind"`
+	AuditReference string       `json:"audit_reference"`
+	Format         ReportFormat `json:"format"`
+}
+
+// RenderGovernanceReportResult is the render_governance_report v1 result.
+type RenderGovernanceReportResult struct {
+	SchemaVersion    string            `json:"schema_version"`
+	Kind             string            `json:"kind"`
+	Format           ReportFormat      `json:"format"`
+	Rendered         string            `json:"rendered"`
+	Coverage         CoverageState     `json:"coverage"`
+	ProvenanceLabels []ProvenanceLabel `json:"provenance_labels"`
+}
+
 // ErrorCode is a stable, sanitized v1 error classification.
 type ErrorCode string
 

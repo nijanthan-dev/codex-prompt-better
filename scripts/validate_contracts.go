@@ -98,6 +98,7 @@ func (v *validator) run() stats {
 	v.validateSourceLedger()
 	v.validateDocumentation()
 	v.validateCIRunners()
+	v.validateIntegrationAssets()
 
 	return stats{schemas: len(v.schemas), fixtures: len(v.fixtures), cases: cases, tools: tools}
 }
@@ -679,13 +680,16 @@ func (v *validator) validateSensitiveContent() {
 			v.fail("sensitive-pattern regression: %s", first(sample, 8))
 		}
 	}
-	for _, root := range []string{filepath.Join(v.root, "docs"), filepath.Join(v.root, "schemas", "v1"), filepath.Join(v.root, "testdata")} {
+	for _, root := range []string{filepath.Join(v.root, "docs"), filepath.Join(v.root, "schemas", "v1"), filepath.Join(v.root, "testdata"), filepath.Join(v.root, "skills"), filepath.Join(v.root, ".codex-plugin")} {
 		for _, path := range walkFiles(root, "", &v.failures, v.root) {
 			data, err := os.ReadFile(path)
 			if err == nil && pattern.Match(data) {
 				v.fail("%s: sensitive-pattern match", relative(v.root, path))
 			}
 		}
+	}
+	if data, err := os.ReadFile(filepath.Join(v.root, ".mcp.json")); err != nil || pattern.Match(data) {
+		v.fail(".mcp.json: unavailable or sensitive-pattern match")
 	}
 }
 
@@ -796,6 +800,58 @@ func (v *validator) validateDocumentation() {
 		if strings.Contains(combined.String(), contradiction) {
 			v.fail("contradictory lifecycle/privacy claim: %s", contradiction)
 		}
+	}
+}
+
+func (v *validator) validateIntegrationAssets() {
+	pluginValue, err := loadJSON(filepath.Join(v.root, ".codex-plugin", "plugin.json"))
+	if err != nil {
+		v.fail("plugin manifest invalid")
+	} else {
+		plugin, _ := pluginValue.(document)
+		if plugin["name"] != "prompt-better" || plugin["version"] != "0.2.0-dev" || plugin["skills"] != "./skills/" || plugin["mcpServers"] != "./.mcp.json" {
+			v.fail("plugin manifest inconsistent")
+		}
+	}
+	mcpValue, err := loadJSON(filepath.Join(v.root, ".mcp.json"))
+	if err != nil {
+		v.fail("MCP manifest invalid")
+	} else {
+		mcpDocument, _ := mcpValue.(document)
+		servers, _ := mcpDocument["mcpServers"].(document)
+		server, _ := servers["promptBetter"].(document)
+		if server["command"] != "go" || server["cwd"] != "." || !sameStringSet(stringsValue(server["args"]), []string{"run", "./cmd/prompt-better-mcp"}) {
+			v.fail("MCP manifest inconsistent")
+		}
+	}
+	skill := v.read(filepath.Join(v.root, "skills", "prompt-better", "SKILL.md"))
+	for _, required := range []string{"smallest applicable tool", "explicit consent", "stop at the requested boundary", "audit_session", "render_governance_report"} {
+		if !strings.Contains(skill, required) {
+			v.fail("PromptBetter skill missing invariant: %s", required)
+		}
+	}
+	for _, forbidden := range []string{"api.openai.com", "http://localhost", "permissions =", "model ="} {
+		if strings.Contains(strings.ToLower(skill), forbidden) {
+			v.fail("PromptBetter skill contains forbidden behavior")
+		}
+	}
+	service := v.read(filepath.Join(v.root, "internal", "tools", "service.go"))
+	previous := -1
+	for _, name := range []string{"improve_prompt", "create_goal_prompt", "create_review_fix_prompt", "lint_prompt", "get_checkpoint", "audit_session", "render_governance_report"} {
+		index := strings.Index(service, `"`+name+`"`)
+		if index <= previous {
+			v.fail("MCP tool registration order invalid: %s", name)
+		}
+		previous = index
+	}
+	serverSource := v.read(filepath.Join(v.root, "internal", "mcpserver", "server.go"))
+	for _, bound := range []string{"DefaultMaxInputBytes = 64 * 1024", "DefaultMaxConcurrent = 4", "DefaultTimeout       = 2 * time.Second"} {
+		if !strings.Contains(serverSource, bound) {
+			v.fail("MCP server bound missing: %s", bound)
+		}
+	}
+	if !strings.Contains(service, "const maxResultBytes = 50_000") {
+		v.fail("MCP result bound missing")
 	}
 }
 

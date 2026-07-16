@@ -5,9 +5,10 @@ governance toolkit for OpenAI Codex. Its cross-platform Go CLI/core, thin Codex
 skill, and local MCP server are designed to turn rough intent into bounded,
 reviewable instructions while measuring whether execution stayed in scope.
 
-> **Status:** pre-alpha. The v0.1.0 contract-preview source release and a
-> deterministic Go compiler/linter CLI exist. MCP, collection, database,
-> reports, installable artifacts, packages, and installers do not.
+> **Status:** pre-alpha. The v0.1.0 contract-preview source release exists.
+> Source now includes the deterministic CLI, PostgreSQL migrations and
+> collectors, seven-tool stdio MCP server, thin Codex skill, doctor, and safe
+> init. Installable artifacts and packages do not exist.
 
 ## Vision
 
@@ -23,14 +24,15 @@ reviewable instructions while measuring whether execution stayed in scope.
 ## Architecture
 
 The cross-platform Go CLI/core serves macOS without making the design
-macOS-specific. A short-lived MCP process will handle interactive tools. A
-separate scheduled collector will incrementally ingest configured local
-evidence. Reports render in Codex chat when supported, fall back to compact
-Markdown/tables, and may gain an optional local dashboard later.
+macOS-specific. A short-lived MCP process handles interactive tools. A separate
+collector incrementally ingests explicitly configured local evidence. Reports
+render in Codex chat, compact Markdown, or a compact table. A dashboard remains
+future work.
 
-Implemented CLI commands: `improve_prompt`, `create_goal_prompt`,
-`create_review_fix_prompt`, and `lint_prompt`. Planned integration tools:
-`get_checkpoint`, `audit_session`, and `render_governance_report`.
+Implemented MCP tools: `improve_prompt`, `create_goal_prompt`,
+`create_review_fix_prompt`, `lint_prompt`, `get_checkpoint`, `audit_session`,
+and `render_governance_report`. Checkpoints and rendered audits are ephemeral
+and isolated to one MCP client session.
 
 See [architecture](docs/architecture.md), [data model](docs/data-model.md), and
 the [implementation roadmap](https://github.com/nijanthan-dev/codex-prompt-better/issues/1).
@@ -44,12 +46,10 @@ default. Synthetic fixtures are required in the public repository.
 ## Installation and usage
 
 No installable artifact or package is published yet. Developers can run the
-source CLI with a supported Go toolchain; see [the CLI contract](docs/cli.md).
-The existing v0.1.0 GitHub release freezes the source contracts only. The
-intended public installation order is a signed release artifact,
-Homebrew/install script, then WinGet and Linux packages. Planned first-run
-commands are `prompt-better doctor` and `prompt-better init`; names and behavior
-remain design contracts until implemented. See [installation](docs/installation.md).
+CLI and MCP server from a checkout with Go 1.25+. `prompt-better init` previews
+the source integration by default and requires `--apply` to mutate owned Codex
+files or the named MCP registration. See [installation](docs/installation.md),
+[CLI contract](docs/cli.md), and [MCP integration](docs/mcp.md).
 
 ## Local validation
 
