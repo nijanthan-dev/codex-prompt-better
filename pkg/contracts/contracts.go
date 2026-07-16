@@ -54,6 +54,24 @@ type PromptPlan struct {
 	ArtifactPriorities   []string `json:"artifact_priorities,omitempty"`
 	StablePrefix         *string  `json:"stable_prefix,omitempty"`
 	DynamicTail          *string  `json:"dynamic_tail,omitempty"`
+	Scope                []string `json:"scope,omitempty"`
+	NonGoals             []string `json:"non_goals,omitempty"`
+	Gates                []string `json:"gates,omitempty"`
+}
+
+// BoundaryDecision is one sanitized, provenance-backed policy decision.
+type BoundaryDecision struct {
+	Category     string   `json:"category"`
+	Outcome      string   `json:"outcome"`
+	Risk         int      `json:"risk"`
+	RiskLevel    string   `json:"risk_level"`
+	Confidence   float64  `json:"confidence"`
+	SourceRef    string   `json:"source_ref"`
+	PackID       string   `json:"pack_id"`
+	RuleID       string   `json:"rule_id"`
+	Version      string   `json:"version"`
+	Explanation  string   `json:"explanation"`
+	ConflictRefs []string `json:"conflict_refs"`
 }
 
 // ExecutionBudget describes advisory or host-enforced execution bounds.
@@ -83,11 +101,12 @@ type ImprovePromptRequest struct {
 
 // ImprovePromptResult is the improve_prompt v1 result.
 type ImprovePromptResult struct {
-	SchemaVersion  string        `json:"schema_version"`
-	Kind           string        `json:"kind"`
-	ImprovedPrompt string        `json:"improved_prompt"`
-	PolicyOutcome  PolicyOutcome `json:"policy_outcome"`
-	Diagnostics    []string      `json:"diagnostics"`
+	SchemaVersion     string             `json:"schema_version"`
+	Kind              string             `json:"kind"`
+	ImprovedPrompt    string             `json:"improved_prompt"`
+	PolicyOutcome     PolicyOutcome      `json:"policy_outcome"`
+	Diagnostics       []string           `json:"diagnostics"`
+	BoundaryDecisions []BoundaryDecision `json:"boundary_decisions,omitempty"`
 }
 
 // CreateGoalPromptRequest is the create_goal_prompt v1 request.
@@ -142,10 +161,11 @@ type Diagnostic struct {
 
 // LintPromptResult is the lint_prompt v1 result.
 type LintPromptResult struct {
-	SchemaVersion string       `json:"schema_version"`
-	Kind          string       `json:"kind"`
-	Valid         bool         `json:"valid"`
-	Diagnostics   []Diagnostic `json:"diagnostics"`
+	SchemaVersion     string             `json:"schema_version"`
+	Kind              string             `json:"kind"`
+	Valid             bool               `json:"valid"`
+	Diagnostics       []Diagnostic       `json:"diagnostics"`
+	BoundaryDecisions []BoundaryDecision `json:"boundary_decisions,omitempty"`
 }
 
 // ErrorCode is a stable, sanitized v1 error classification.

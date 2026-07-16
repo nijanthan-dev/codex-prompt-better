@@ -9,14 +9,18 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"unicode/utf8"
 
+	"github.com/nijanthan-dev/codex-prompt-better/internal/boundary"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/compiler"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/config"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/lint"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/policy"
+	"github.com/nijanthan-dev/codex-prompt-better/internal/policypack"
 	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
 )
 
@@ -68,6 +72,17 @@ type options struct {
 	isTimeoutSet     bool
 	isMaxInputSet    bool
 	isPhaseSet       bool
+	contextRoot      string
+	scopes           stringList
+	policyPacks      stringList
+}
+
+type stringList []string
+
+func (values *stringList) String() string { return strings.Join(*values, ",") }
+func (values *stringList) Set(value string) error {
+	*values = append(*values, value)
+	return nil
 }
 
 type runner struct {
@@ -157,6 +172,9 @@ func parseOptions(command string, args []string) (options, error) {
 	fs.IntVar(&opt.maxInputBytes, "max-input-bytes", 0, "input byte limit")
 	fs.BoolVar(&opt.isRequestJSON, "request-json", false, "parse frozen v1 request JSON")
 	fs.BoolVar(&opt.isShowProvenance, "show-provenance", false, "print configuration source names")
+	fs.StringVar(&opt.contextRoot, "context-root", "", "explicit discovery root")
+	fs.Var(&opt.scopes, "scope", "relative requested scope; repeatable")
+	fs.Var(&opt.policyPacks, "policy-pack", "extension policy pack; repeatable")
 	parseErr := fs.Parse(args)
 	fs.Visit(func(item *flag.Flag) {
 		switch item.Name {
@@ -183,6 +201,13 @@ func parseOptions(command string, args []string) (options, error) {
 		)
 	}
 	opt.positional = append([]string{}, fs.Args()...)
+	discovery := opt.contextRoot != "" || len(opt.scopes) > 0 || len(opt.policyPacks) > 0
+	if discovery && command != "improve_prompt" && command != "lint_prompt" {
+		return opt, contracts.NewError(contracts.ErrorCodeInvalidSchema, "boundary flags unsupported for command", "flags", false)
+	}
+	if discovery && opt.contextRoot == "" {
+		return opt, contracts.NewError(contracts.ErrorCodeInvalidSchema, "context root required for boundary discovery", "context_root", false)
+	}
 	return opt, nil
 }
 
@@ -261,6 +286,27 @@ func (r runner) runImprove() int {
 			ExecutionPolicy: r.config.ExecutionPolicy,
 		}
 	}
+	decisions, discoveryErr := r.boundaryDecisions()
+	if discoveryErr != nil {
+		return r.emitError(discoveryErr)
+	}
+	if r.options.contextRoot != "" {
+		if request.PromptPlan == nil {
+			plan := compiler.NewPlan(request.Intent)
+			request.PromptPlan = &plan
+		}
+		for _, scope := range r.options.scopes {
+			request.PromptPlan.Scope = appendUnique(request.PromptPlan.Scope, scope)
+		}
+		for _, decision := range decisions {
+			switch decision.Category {
+			case "non_goal":
+				request.PromptPlan.NonGoals = appendUnique(request.PromptPlan.NonGoals, decision.Explanation)
+			case "validation", "release":
+				request.PromptPlan.Gates = appendUnique(request.PromptPlan.Gates, decision.Explanation)
+			}
+		}
+	}
 	var result contracts.ImprovePromptResult
 	var err error
 	if r.options.isPhaseSet {
@@ -273,6 +319,7 @@ func (r runner) runImprove() int {
 	if err != nil {
 		return r.emitError(err)
 	}
+	result.BoundaryDecisions = decisions
 	return r.emitResult(result, result.ImprovedPrompt)
 }
 
@@ -337,6 +384,12 @@ func (r runner) runLint() int {
 	if err != nil {
 		return r.emitError(err)
 	}
+	decisions, discoveryErr := r.boundaryDecisions()
+	if discoveryErr != nil {
+		return r.emitError(discoveryErr)
+	}
+	result.BoundaryDecisions = decisions
+	result = addBoundaryDiagnostics(result, decisions)
 	if err := r.writeLint(result); err != nil {
 		return r.outputFailure()
 	}
@@ -344,6 +397,24 @@ func (r runner) runLint() int {
 		return exitSemantic
 	}
 	return exitOK
+}
+
+func addBoundaryDiagnostics(result contracts.LintPromptResult, decisions []contracts.BoundaryDecision) contracts.LintPromptResult {
+	const maxDiagnostics = 100
+	for _, decision := range decisions {
+		if decision.Outcome == "continue" {
+			continue
+		}
+		severity := "warning"
+		if decision.Outcome == "block" {
+			severity = "error"
+			result.Valid = false
+		}
+		if len(result.Diagnostics) < maxDiagnostics {
+			result.Diagnostics = append(result.Diagnostics, contracts.Diagnostic{Code: "boundary-" + decision.Outcome, Severity: severity, Message: decision.Explanation, Location: decision.SourceRef, Rationale: "Repository boundary policy applies.", Remediation: "Respect the boundary decision before proceeding."})
+		}
+	}
+	return result
 }
 
 func readInput(ctx context.Context, stdin io.ReadCloser, path string, args []string, limit int) ([]byte, error) {
@@ -621,6 +692,125 @@ func nonEmptyLines(value string) []string {
 		}
 	}
 	return values
+}
+
+func (r runner) boundaryDecisions() ([]contracts.BoundaryDecision, error) {
+	if r.options.contextRoot == "" {
+		return nil, nil
+	}
+	root := filepath.Clean(r.options.contextRoot)
+	info, err := os.Lstat(root)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return nil, contracts.NewError(contracts.ErrorCodeSemanticInvalid, "context root must be a real directory", "context_root", false)
+	}
+	extensions := make([]policypack.Pack, 0, len(r.options.policyPacks))
+	if len(r.options.policyPacks) > policypack.MaxPacks {
+		return nil, contracts.NewError(contracts.ErrorCodeInvalidSchema, "too many extension policy packs", "policy_pack", false)
+	}
+	for _, name := range r.options.policyPacks {
+		packInfo, statErr := os.Lstat(name)
+		if statErr != nil || !packInfo.Mode().IsRegular() || packInfo.Mode()&os.ModeSymlink != 0 || packInfo.Size() > policypack.MaxPackBytes {
+			return nil, contracts.NewError(contracts.ErrorCodeInvalidSchema, "policy pack must be a bounded regular file", "policy_pack", false)
+		}
+		data, readErr := os.ReadFile(name)
+		if readErr != nil {
+			return nil, contracts.NewError(contracts.ErrorCodeNotFound, "policy pack unavailable", "policy_pack", false)
+		}
+		pack, parseErr := policypack.Parse(data)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		extensions = append(extensions, pack)
+	}
+	ignored, err := ignoredRepositoryPaths(r.ctx, root)
+	if err != nil {
+		return nil, err
+	}
+	discovered, err := boundary.Discover(r.ctx, boundary.FSReader{FS: os.DirFS(root), IgnoredPaths: ignored}, r.options.scopes)
+	if err != nil {
+		return nil, err
+	}
+	return boundary.EvaluateContext(discovered, extensions)
+}
+
+const maxIgnoredMetadataBytes = 1 << 20
+
+type boundedOutput struct {
+	bytes.Buffer
+	overflow bool
+}
+
+func (output *boundedOutput) Write(data []byte) (int, error) {
+	remaining := maxIgnoredMetadataBytes - output.Len()
+	if len(data) > remaining {
+		output.overflow = true
+		return 0, errors.New("ignored metadata limit exceeded")
+	}
+	return output.Buffer.Write(data)
+}
+
+func ignoredRepositoryPaths(ctx context.Context, root string) (map[string]struct{}, error) {
+	if !hasGitMarker(root) {
+		return map[string]struct{}{}, nil
+	}
+	output := &boundedOutput{}
+	command := exec.CommandContext(ctx, "git", "-c", "core.fsmonitor=false", "-C", root, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z")
+	command.Env = append(os.Environ(), "GIT_OPTIONAL_LOCKS=0")
+	command.Stdout = output
+	command.Stderr = io.Discard
+	if err := command.Run(); err != nil {
+		if ctx.Err() != nil {
+			return nil, contracts.NewError(contracts.ErrorCodeBudgetExhausted, "ignore discovery cancelled or timed out", "context_root", true)
+		}
+		if output.overflow {
+			return nil, contracts.NewError(contracts.ErrorCodeSemanticInvalid, "ignored metadata exceeds bounded limit", "context_root", false)
+		}
+		return nil, contracts.NewError(contracts.ErrorCodeSemanticInvalid, "repository ignore metadata unavailable", "context_root", false)
+	}
+	return parseIgnoredPaths(output.Bytes())
+}
+
+func hasGitMarker(root string) bool {
+	current := filepath.Clean(root)
+	for depth := 0; depth < boundary.MaxScopeDepth; depth++ {
+		if _, err := os.Lstat(filepath.Join(current, ".git")); err == nil {
+			return true
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+		current = parent
+	}
+	return false
+}
+
+func parseIgnoredPaths(data []byte) (map[string]struct{}, error) {
+	ignored := make(map[string]struct{})
+	for _, raw := range bytes.Split(data, []byte{0}) {
+		if len(raw) == 0 {
+			continue
+		}
+		name := strings.TrimSuffix(filepath.ToSlash(string(raw)), "/")
+		clean := filepath.ToSlash(filepath.Clean(name))
+		if clean == "." || filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, "../") {
+			return nil, contracts.NewError(contracts.ErrorCodeSemanticInvalid, "invalid ignored metadata", "context_root", false)
+		}
+		ignored[clean] = struct{}{}
+		if len(ignored) > boundary.MaxMetadataEntries {
+			return nil, contracts.NewError(contracts.ErrorCodeSemanticInvalid, "ignored metadata exceeds entry limit", "context_root", false)
+		}
+	}
+	return ignored, nil
+}
+
+func appendUnique(values []string, value string) []string {
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func validCommand(command string) bool {

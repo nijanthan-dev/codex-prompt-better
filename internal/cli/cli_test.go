@@ -52,6 +52,148 @@ func TestImprovePlainJSONIsByteStable(t *testing.T) {
 	}
 }
 
+func TestBoundaryDiscoveryIsExplicitAndSanitized(t *testing.T) {
+	root := t.TempDir()
+	const rawInstruction = "Non-goal: private-synthetic-directive."
+	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte(rawInstruction), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, out, stderr := execute([]string{"improve_prompt", "--format", "json", "--context-root", root, "--scope", "src"}, "Change synthetic code.")
+	if code != 0 || stderr != "" {
+		t.Fatalf("code=%d stderr=%s", code, stderr)
+	}
+	for _, sensitive := range []string{root, rawInstruction, "private-synthetic-directive"} {
+		if strings.Contains(out, sensitive) {
+			t.Fatalf("sensitive value escaped: %s", out)
+		}
+	}
+	var result contracts.ImprovePromptResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.BoundaryDecisions) == 0 || !strings.Contains(result.ImprovedPrompt, "Scope:\n- src") || !strings.Contains(result.ImprovedPrompt, "Non-goals:") {
+		t.Fatalf("missing boundary integration: %+v", result)
+	}
+}
+
+func TestLintContextRootAllowsPublicSecurityPolicy(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "SECURITY.md"), []byte("Public vulnerability reporting policy."), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, prompt, stderr := execute([]string{"improve_prompt"}, "Return synthetic output.")
+	if code != exitOK || stderr != "" {
+		t.Fatalf("compile code=%d stderr=%s", code, stderr)
+	}
+	code, out, stderr := execute([]string{"lint_prompt", "--format", "json", "--context-root", root}, prompt)
+	if code != exitOK || stderr != "" {
+		t.Fatalf("lint code=%d out=%s stderr=%s", code, out, stderr)
+	}
+	var result contracts.LintPromptResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatal(err)
+	}
+	for _, decision := range result.BoundaryDecisions {
+		if decision.Outcome == "block" {
+			t.Fatalf("public security policy blocked lint: %+v", decision)
+		}
+	}
+}
+
+func TestBoundaryFlagsRejectUnsafeCombinations(t *testing.T) {
+	root := t.TempDir()
+	tests := [][]string{
+		{"create_goal_prompt", "--context-root", root},
+		{"lint_prompt", "--scope", "src"},
+		{"improve_prompt", "--context-root", root, "--scope", "../outside"},
+	}
+	for _, args := range tests {
+		code, _, _ := execute(args, "Synthetic prompt.")
+		if code == 0 {
+			t.Fatalf("unsafe flags accepted: %v", args)
+		}
+	}
+}
+
+func TestParseIgnoredPathsIsBoundedAndNormalized(t *testing.T) {
+	ignored, err := parseIgnoredPaths([]byte("dist/\x00nested/file.txt\x00"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"dist", "nested/file.txt"} {
+		if _, ok := ignored[path]; !ok {
+			t.Fatalf("ignored path missing: %s in %v", path, ignored)
+		}
+	}
+	if _, err := parseIgnoredPaths([]byte("../outside\x00")); err == nil {
+		t.Fatal("unsafe ignored path accepted")
+	}
+}
+
+func TestHasGitMarkerUsesBoundedAncestry(t *testing.T) {
+	root := t.TempDir()
+	if hasGitMarker(root) {
+		t.Fatal("non-repository detected")
+	}
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	nested := filepath.Join(root, "apps", "api")
+	if err := os.MkdirAll(nested, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if !hasGitMarker(nested) {
+		t.Fatal("linked repository ancestry missed")
+	}
+}
+
+func TestBoundaryDiscoveryPreservesAndNarrowsRequestScopes(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("Out of scope: synthetic deployment."), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, ".github", "workflows"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".github", "workflows", "arbitrary-name.yaml"), []byte("name: Synthetic"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	request := strings.Replace(improveRequestJSON(), `"phase_scope":"implementation"`, `"scope":["existing"],"non_goals":["Keep explicit non-goal."],"gates":["Keep explicit gate."],"phase_scope":"implementation"`, 1)
+	code, out, stderr := execute([]string{"improve_prompt", "--request-json", "--format", "json", "--context-root", root, "--scope", "added", "--scope", "added"}, request)
+	if code != 0 || stderr != "" {
+		t.Fatalf("code=%d stderr=%s", code, stderr)
+	}
+	var result contracts.ImprovePromptResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(result.ImprovedPrompt, "Scope:\n- existing\n- added") {
+		t.Fatalf("scope lost: %s", result.ImprovedPrompt)
+	}
+	for _, preserved := range []string{"Keep explicit non-goal.", "Keep explicit gate.", "Preserve the discovered non-goal", "Preserve applicable validation gates."} {
+		if strings.Count(result.ImprovedPrompt, preserved) != 1 {
+			t.Fatalf("boundary not preserved/deduplicated: %q in %s", preserved, result.ImprovedPrompt)
+		}
+	}
+	code, out, stderr = execute([]string{"improve_prompt", "--request-json", "--format", "json", "--context-root", root}, request)
+	if code != 0 || stderr != "" || !strings.Contains(out, "Scope:\\n- existing") {
+		t.Fatalf("scope lost without CLI scope: code=%d out=%s stderr=%s", code, out, stderr)
+	}
+}
+
+func TestBoundaryDiagnosticsRemainWithinResultLimit(t *testing.T) {
+	result := contracts.LintPromptResult{Valid: true, Diagnostics: make([]contracts.Diagnostic, 99)}
+	decisions := []contracts.BoundaryDecision{
+		{Outcome: "warn", Explanation: "Synthetic warning.", SourceRef: "source.a"},
+		{Outcome: "clarify", Explanation: "Synthetic clarification.", SourceRef: "source.b"},
+		{Outcome: "block", Explanation: "Synthetic block.", SourceRef: "source.c"},
+	}
+	result = addBoundaryDiagnostics(result, decisions)
+	if len(result.Diagnostics) != 100 || result.Valid {
+		t.Fatalf("diagnostics=%d valid=%t", len(result.Diagnostics), result.Valid)
+	}
+}
+
 func TestImproveRequestJSONPolicyOutcomes(t *testing.T) {
 	request := improveRequestJSON()
 	code, out, stderr := execute(

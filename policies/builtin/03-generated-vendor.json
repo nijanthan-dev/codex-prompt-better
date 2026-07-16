@@ -1,0 +1,4 @@
+{"schema_version":"1.0.0","id":"builtin.generated-vendor","version":"1.0.0","rules":[
+  {"id":"generated.protected","category":"generated","outcome":"clarify","risk_score":50,"explanation":"Generated areas require explicit inclusion.","conditions":[{"field":"category","operator":"equals","value":"generated"}]},
+  {"id":"vendor.protected","category":"vendor","outcome":"clarify","risk_score":50,"explanation":"Vendored areas require explicit inclusion.","conditions":[{"field":"category","operator":"equals","value":"vendor"}]}
+]}

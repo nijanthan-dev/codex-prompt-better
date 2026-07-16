@@ -293,6 +293,16 @@ func validatePlan(plan contracts.PromptPlan) error {
 			return invalid("invalid artifact priorities", "prompt_plan.artifact_priorities")
 		}
 	}
+	for _, field := range []struct {
+		name   string
+		values []string
+	}{{"scope", plan.Scope}, {"non_goals", plan.NonGoals}, {"gates", plan.Gates}} {
+		if len(field.values) > 0 {
+			if err := validateList(field.values, false); err != nil {
+				return invalid("invalid "+field.name, "prompt_plan."+field.name)
+			}
+		}
+	}
 	if !validText(plan.OutputContract, 2000, true) || !validText(plan.ApprovalBoundary, 1000, true) {
 		return invalid("output, approval, and phase contracts are required", "prompt_plan")
 	}
@@ -432,6 +442,8 @@ func RenderPlan(plan contracts.PromptPlan, includeGoal bool) string {
 	}
 	addList("Success criteria", plan.SuccessCriteria)
 	addList("Constraints", plan.Invariants)
+	addList("Scope", plan.Scope)
+	addList("Non-goals", plan.NonGoals)
 	addList("Decision rules", plan.DecisionRules)
 	addList("Evidence", plan.EvidenceRequirements)
 	addList("Tools", plan.Tools)
@@ -441,6 +453,7 @@ func RenderPlan(plan contracts.PromptPlan, includeGoal bool) string {
 		addText("Dynamic context", *plan.DynamicTail)
 	}
 	addList("Validation", plan.ValidationBar)
+	addList("Gates", plan.Gates)
 	addText("Output", plan.OutputContract)
 	addText("Output language", plan.OutputLanguage)
 	addList("Artifact priorities", plan.ArtifactPriorities)

@@ -99,6 +99,11 @@
               }
             }
           }
+        },
+        "boundary_decisions": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {"$ref": "../boundary-decision.schema.json"}
         }
       }
     }

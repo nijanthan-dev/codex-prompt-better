@@ -1,0 +1,4 @@
+{"schema_version":"1.0.0","id":"builtin.validation-release","version":"1.0.0","rules":[
+  {"id":"validation.required","category":"validation","outcome":"continue","risk_score":25,"explanation":"Preserve applicable validation gates.","conditions":[{"field":"category","operator":"equals","value":"validation"}]},
+  {"id":"release.external","category":"release","outcome":"clarify","risk_score":70,"explanation":"Publishing a release requires explicit approval and closeout evidence.","conditions":[{"field":"category","operator":"equals","value":"release"}]}
+]}

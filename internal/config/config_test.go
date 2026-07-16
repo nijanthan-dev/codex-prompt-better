@@ -68,3 +68,18 @@ func TestLoadFileRejectsOversizedInput(t *testing.T) {
 		t.Fatal("oversized config accepted")
 	}
 }
+
+func FuzzLoadFile(f *testing.F) {
+	f.Add([]byte(`{"execution_policy":"improve_only"}`))
+	f.Add([]byte(`{"unknown":true}`))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		if len(data) > maxConfigBytes+1 {
+			return
+		}
+		path := filepath.Join(t.TempDir(), "config.json")
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = LoadFile(context.Background(), path)
+	})
+}

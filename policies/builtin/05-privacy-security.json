@@ -1,0 +1,5 @@
+{"schema_version":"1.0.0","id":"builtin.privacy-security","version":"1.0.0","rules":[
+  {"id":"privacy.sensitive","category":"privacy","outcome":"block","risk_score":100,"explanation":"Sensitive content must not escape the discovery boundary.","conditions":[{"field":"category","operator":"equals","value":"privacy"}]},
+  {"id":"security.unsafe-link","category":"security","outcome":"block","risk_score":100,"explanation":"Unsafe links are not followed or trusted.","conditions":[{"field":"category","operator":"equals","value":"security"}]},
+  {"id":"security.permission","category":"security","outcome":"clarify","risk_score":75,"explanation":"Permission-sensitive behavior requires known host authority.","conditions":[{"field":"action_class","operator":"equals","value":"permission_sensitive"}]}
+]}

@@ -14,6 +14,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/nijanthan-dev/codex-prompt-better/internal/policypack"
 )
 
 const metaSchema = "https://json-schema.org/draft/2020-12/schema"
@@ -24,6 +26,7 @@ type validator struct {
 	root     string
 	schemas  map[string]document
 	fixtures map[string]document
+	packs    map[string]document
 	failures []string
 }
 
@@ -79,11 +82,13 @@ func isDir(path string) bool {
 func (v *validator) run() stats {
 	v.schemas = v.loadJSONTree(filepath.Join(v.root, "schemas", "v1"))
 	v.fixtures = v.loadJSONTree(filepath.Join(v.root, "testdata", "golden"))
-	if len(v.schemas) != 14 {
-		v.fail("expected 14 schemas, found %d", len(v.schemas))
+	v.packs = v.loadJSONTree(filepath.Join(v.root, "policies", "builtin"))
+	if len(v.schemas) != 16 {
+		v.fail("expected 16 schemas, found %d", len(v.schemas))
 	}
 
 	v.validateEvidence()
+	v.validatePolicyPacks()
 	v.validateCapabilities()
 	v.validateRuntimeObservations()
 	v.validateSchemaMetadata()
@@ -95,6 +100,36 @@ func (v *validator) run() stats {
 	v.validateCIRunners()
 
 	return stats{schemas: len(v.schemas), fixtures: len(v.fixtures), cases: cases, tools: tools}
+}
+
+func (v *validator) validatePolicyPacks() {
+	if len(v.packs) != 7 {
+		v.fail("expected 7 built-in policy packs, found %d", len(v.packs))
+	}
+	schemaPath := v.schemaPath("policy-pack.schema.json")
+	schema := v.schemas[schemaPath]
+	seen := make(map[string]struct{}, len(v.packs))
+	for path, pack := range v.packs {
+		if !v.schemaValid(pack, schema, schemaPath) {
+			v.fail("%s: policy pack fails schema", relative(v.root, path))
+			continue
+		}
+		data, err := json.Marshal(pack)
+		if err != nil {
+			v.fail("%s: policy pack cannot encode", relative(v.root, path))
+			continue
+		}
+		parsed, err := policypack.Parse(data)
+		if err != nil {
+			v.fail("%s: policy pack fails semantics", relative(v.root, path))
+			continue
+		}
+		key := parsed.ID + "@" + parsed.Version
+		if _, exists := seen[key]; exists {
+			v.fail("%s: duplicate policy pack identity", relative(v.root, path))
+		}
+		seen[key] = struct{}{}
+	}
 }
 
 func (v *validator) loadJSONTree(root string) map[string]document {

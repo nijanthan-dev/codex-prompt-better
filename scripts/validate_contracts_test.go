@@ -18,7 +18,7 @@ func TestContracts(t *testing.T) {
 	if len(v.failures) != 0 {
 		t.Fatalf("contract validation failed:\n%s", strings.Join(v.failures, "\n"))
 	}
-	if result != (stats{schemas: 14, fixtures: 4, cases: 20, tools: 7}) {
+	if result != (stats{schemas: 16, fixtures: 4, cases: 20, tools: 7}) {
 		t.Fatalf("unexpected validation stats: %+v", result)
 	}
 }
@@ -53,5 +53,26 @@ func TestSchemaValidRejectsNonFiniteNumber(t *testing.T) {
 	schema := document{"type": "number", "minimum": float64(0), "maximum": float64(1)}
 	if v.schemaValid(math.NaN(), schema, "") {
 		t.Fatal("non-finite number accepted")
+	}
+}
+
+func TestPolicyPackSchemaRejectsUnknownAction(t *testing.T) {
+	root, err := findRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := loadJSON(filepath.Join(root, "schemas", "v1", "policy-pack.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema := value.(document)["$defs"].(document)["condition"].(document)
+	v := &validator{}
+	valid := document{"field": "action_class", "operator": "equals", "value": "read_only"}
+	if !v.schemaValid(valid, schema, "") {
+		t.Fatal("known action rejected")
+	}
+	invalid := document{"field": "action_class", "operator": "equals", "value": "unknown_action"}
+	if v.schemaValid(invalid, schema, "") {
+		t.Fatal("unknown action accepted")
 	}
 }
