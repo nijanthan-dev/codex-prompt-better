@@ -51,6 +51,20 @@ Homebrew/install script, then WinGet and Linux packages. Planned first-run
 commands are `prompt-better doctor` and `prompt-better init`; names and behavior
 remain design contracts until implemented. See [installation](docs/installation.md).
 
+## Local validation
+
+Hosted GitHub CI is disabled. Run the complete project gate locally with Docker
+Desktop and [`act`](https://github.com/nektos/act):
+
+```sh
+./scripts/run-local-ci.sh
+```
+
+The script builds the project-specific `prompt-better-act:local` image, then
+runs formatting, tests, vet, race detection, integration tests, contract
+validation, a native smoke test, secret scanning, and cross-platform builds.
+The jobs run without network access after the image is built.
+
 ## Non-goals
 
 - Replacing Codex reasoning, permissions, or user intent.

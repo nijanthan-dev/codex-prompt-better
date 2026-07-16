@@ -4,8 +4,9 @@ Release Please manages versions, changelog entries, tags, and GitHub Releases.
 
 ## Flow
 
-1. Merge conventional commits into `main`.
-2. The `Release Please` workflow opens or updates one release PR.
+1. Run `./scripts/run-local-ci.sh`, then merge conventional commits into `main`.
+2. The hosted `Release Please` workflow opens or updates one release PR. It has
+   no hosted CI dependency; project tests run only through local `act`.
 3. Review that PR like any other current-head change.
 4. Squash-merge the release PR when its version and changelog are correct.
 5. The next workflow run creates the matching `vX.Y.Z` tag and GitHub Release.
@@ -19,7 +20,7 @@ releases by themselves.
 
 ## Boundaries
 
-- Release PRs never bypass branch protection, checks, review, or secret scans.
+- Release PRs never bypass branch protection, review, local `act`, or secret scans.
 - The workflow uses the repository `GITHUB_TOKEN`; no long-lived release token is stored.
 - The action is pinned to a full commit SHA.
 - No package or binary is published yet. Future artifact publishing must use the
