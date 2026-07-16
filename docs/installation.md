@@ -60,7 +60,7 @@ go run ./cmd/prompt-better doctor --format json
 It reports sanitized readiness states for platform, strict integration config,
 owned skill hashes, MCP registration, PostgreSQL, configured collectors, and
 unknown host capabilities. Server readiness verifies Go 1.25+, an offline
-read-only module build, MCP initialize, and all seven discovered tools. Collector
+read-only module build, MCP initialize, and all eight discovered tools. Collector
 readiness requires enabled current database source dimensions for every configured
 source kind. It never prints paths, connection strings, usernames, prompts,
 session data, or secret values.

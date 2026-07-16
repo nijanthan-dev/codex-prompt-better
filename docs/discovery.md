@@ -14,7 +14,7 @@ aligned with it.
 ## GitHub About
 
 > Pre-alpha local-first prompt compiler and linter for OpenAI Codex; v0.1.0
-> contract-preview source release, Go CLI, and seven-tool source MCP integration available; not packaged.
+> contract-preview source release, Go CLI, and eight-tool source MCP integration available; not packaged.
 
 ## Topics
 

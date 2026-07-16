@@ -131,10 +131,19 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
 		  ON trajectory.trajectory_id=epoch.trajectory_id
 		JOIN prompt_better.sessions session ON session.session_id=trajectory.session_id
 		WHERE session.project_id=$1`, projectID, 1)
-	for _, table := range []string{"audit_revisions", "metric_results", "findings", "recommendations"} {
-		assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.`+table+
-			` WHERE $1::uuid IS NOT NULL`, projectID, 0)
-	}
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.audit_revisions revision
+		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
+		WHERE audit_window.project_id=$1`, projectID, 0)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.metric_results result
+		JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
+		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
+		WHERE audit_window.project_id=$1`, projectID, 0)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.findings finding
+		JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
+		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
+		WHERE audit_window.project_id=$1`, projectID, 0)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.recommendations
+		WHERE project_id=$1`, projectID, 0)
 
 	if err := repo.PutRetentionPolicy(ctx, store.RetentionPolicy{
 		ID: policyID, ProjectID: projectID, Version: "1.0.1", Classification: "internal",

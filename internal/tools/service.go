@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/nijanthan-dev/codex-prompt-better/internal/audit"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/checkpoint"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/compiler"
 	promptlint "github.com/nijanthan-dev/codex-prompt-better/internal/lint"
@@ -49,9 +50,14 @@ type AuditStore interface {
 	AuditSession(context.Context, string, []string, *time.Time) (contracts.AuditSessionResult, []contracts.ProvenanceLabel, error)
 }
 
+type ProjectAuditStore interface {
+	AuditProject(context.Context, contracts.AuditProjectRequest) (contracts.AuditProjectResult, error)
+}
+
 type Service struct {
 	server          *mcpserver.Server
 	audits          AuditStore
+	projectAudits   ProjectAuditStore
 	executionPolicy contracts.ExecutionPolicy
 	allowedSources  map[string]bool
 	processEnabled  bool
@@ -82,6 +88,9 @@ func RegisterWithConfig(server *mcpserver.Server, audits AuditStore, config Conf
 		server: server, audits: audits, executionPolicy: config.ExecutionPolicy,
 		allowedSources: allowed, processEnabled: config.ProcessPurposeConfigured, state: map[string]*sessionState{},
 	}
+	if projectAudits, ok := audits.(ProjectAuditStore); ok {
+		service.projectAudits = projectAudits
+	}
 	if err := register(service, "improve_prompt", improveDescription, service.improvePrompt); err != nil {
 		return nil, err
 	}
@@ -98,6 +107,9 @@ func RegisterWithConfig(server *mcpserver.Server, audits AuditStore, config Conf
 		return nil, err
 	}
 	if err := register(service, "audit_session", auditDescription, service.auditSession); err != nil {
+		return nil, err
+	}
+	if err := register(service, "audit_project", projectAuditDescription, service.auditProject); err != nil {
 		return nil, err
 	}
 	if err := register(service, "render_governance_report", reportDescription, service.renderGovernanceReport); err != nil {
@@ -377,6 +389,35 @@ func (service *Service) auditSession(ctx context.Context, session string, reques
 	return result, nil
 }
 
+func (service *Service) auditProject(ctx context.Context, _ string, request contracts.AuditProjectRequest) (contracts.AuditProjectResult, error) {
+	if err := audit.ValidateRequest(request); err != nil {
+		return contracts.AuditProjectResult{}, err
+	}
+	if service.allowedSources != nil {
+		for _, source := range request.ConfiguredSources {
+			if !service.allowedSources[source] {
+				return contracts.AuditProjectResult{}, contracts.NewError(
+					contracts.ErrorCodePermissionDenied, "audit source is not configured",
+					"configured_sources", false)
+			}
+			if source == "process" && !service.processEnabled {
+				return contracts.AuditProjectResult{}, contracts.NewError(
+					contracts.ErrorCodePermissionDenied, "process audit purpose is not configured",
+					"configured_sources", false)
+			}
+		}
+	}
+	if service.projectAudits == nil {
+		return contracts.AuditProjectResult{}, contracts.NewError(
+			contracts.ErrorCodeCoverageIncomplete,
+			"project audit store unavailable",
+			"reference",
+			true,
+		)
+	}
+	return service.projectAudits.AuditProject(ctx, request)
+}
+
 func validateSources(sources []string) error {
 	if len(sources) == 0 || len(sources) > 20 {
 		return contracts.NewError(contracts.ErrorCodeInvalidSchema, "configured_sources must contain 1 to 20 items", "configured_sources", false)
@@ -535,5 +576,7 @@ const lintDescription = "Deterministically lints one bounded prompt candidate fo
 const checkpointDescription = "Returns the latest bounded checkpoint created by a compiler or lint tool in this MCP session. Use for user-controlled continuation after a major milestone; it never retrieves another client or a persisted raw prompt. Input is the frozen v1 get_checkpoint request with reference exactly latest; output includes objective, decisions, constraints, evidence, completed work, validation, blockers, next action, and remaining gates. Lists are capped by the schema. Missing, invalid, canceled, timed-out, or overloaded calls return a sanitized stable error."
 
 const auditDescription = "Reads bounded normalized evidence for one explicitly referenced local session. Use only after explicit consent and with the configured source-kind allowlist; it never starts collection or reads raw prompts. Input is the frozen v1 audit_session request; references are a session UUID, current:UUID, or as-of:RFC3339@UUID. Output includes coverage, safe evidence_refs, bounded findings, and redaction_applied. Missing dimensions, denied consent, unavailable sources, cancellation, timeout, and overload return sanitized stable errors."
+
+const projectAuditDescription = "Audits one explicitly consented local portfolio, project, task, or trajectory window from normalized evidence. It never starts collection, executes recommendations, or changes host state. Output is bounded, versioned, redacted, and preserves unknown coverage."
 
 const reportDescription = "Renders the audit cached under the exact same reference in this MCP session as chat, Markdown, or a compact table. Use after audit_session when the user wants a bounded human-readable coverage report; it does not calculate #8 metrics or persist a #9 artifact. Input is the frozen v1 render_governance_report request; output includes format, rendered, coverage, and provenance_labels. Rendered output is capped at 50000 bytes. Missing audit state, invalid format, cancellation, timeout, and overload return sanitized stable errors."

@@ -21,6 +21,20 @@ type fakeAuditStore struct {
 	asOf      *time.Time
 }
 
+func (store *fakeAuditStore) AuditProject(_ context.Context, request contracts.AuditProjectRequest) (contracts.AuditProjectResult, error) {
+	return contracts.AuditProjectResult{
+		SchemaVersion: contracts.SchemaVersion, Kind: "result",
+		AuditReference: request.Reference, Scope: request.Scope, AsOf: request.AsOf,
+		RevisionHash: strings.Repeat("a", 64), Coverage: contracts.CoverageStateComplete,
+		Metrics: []contracts.MetricResult{}, Findings: []contracts.AuditFinding{},
+		Recommendations: []contracts.AuditRecommendation{{
+			Code: "no_action", Action: "Keep the current workflow.",
+			Verification: "Re-audit comparable evidence.", EvidenceRefs: []string{},
+		}},
+		GovernanceOverhead: []contracts.MetricResult{},
+	}, nil
+}
+
 func TestAllTools_TimeoutAndOverloadAreStable(t *testing.T) {
 	requests := validToolRequests()
 	for _, mode := range []string{"timeout", "overload"} {
@@ -85,9 +99,39 @@ func validToolRequests() map[string]map[string]any {
 			"schema_version": contracts.SchemaVersion, "kind": "request", "reference": reference,
 			"consent": "granted", "configured_sources": []string{"git"},
 		},
+		"audit_project": {
+			"schema_version": contracts.SchemaVersion, "kind": "request",
+			"scope": "project", "reference": reference,
+			"configured_sources": []string{"git"},
+			"starts_at":          "2026-01-01T00:00:00Z", "ends_at": "2026-01-02T00:00:00Z",
+			"as_of": "2026-01-02T00:00:00Z", "consent": "granted",
+		},
 		"render_governance_report": {
 			"schema_version": contracts.SchemaVersion, "kind": "request", "audit_reference": reference, "format": "chat",
 		},
+	}
+}
+
+func TestAuditProjectRejectsSourceOutsideServerAllowlist(t *testing.T) {
+	server := newTestServer(t)
+	service, err := RegisterWithConfig(server, &fakeAuditStore{}, Configuration{
+		ExecutionPolicy: contracts.ExecutionPolicyFollowUserIntent,
+		SourceKinds:     []string{"git"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.auditProject(context.Background(), "synthetic",
+		contracts.AuditProjectRequest{
+			SchemaVersion: contracts.SchemaVersion, Kind: "request",
+			Scope: contracts.AuditScopeProject, Reference: "00000000-0000-0000-0000-000000000001",
+			ConfiguredSources: []string{"process"},
+			StartsAt:          time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			EndsAt:            time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
+			AsOf:              time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
+			Consent:           contracts.AuditConsentGranted,
+		}); err == nil {
+		t.Fatal("unconfigured project audit source accepted")
 	}
 }
 
@@ -204,19 +248,19 @@ func TestRenderGovernanceReport_SameReferenceFormatsAndIsolation(t *testing.T) {
 	}
 }
 
-func TestRegisterAll_AdvertisesSevenFrozenTools(t *testing.T) {
+func TestRegisterAll_PreservesSevenFrozenToolsAndAddsProjectAudit(t *testing.T) {
 	server := newTestServer(t)
 	if _, err := RegisterAll(server, &fakeAuditStore{}); err != nil {
 		t.Fatal(err)
 	}
 	ctx, session := connectTestClient(t, server)
 	listed, err := session.ListTools(ctx, nil)
-	if err != nil || len(listed.Tools) != 7 {
+	if err != nil || len(listed.Tools) != 8 {
 		t.Fatalf("tool list=%#v error=%v", listed, err)
 	}
 	expected := []string{
 		"improve_prompt", "create_goal_prompt", "create_review_fix_prompt", "lint_prompt",
-		"get_checkpoint", "audit_session", "render_governance_report",
+		"get_checkpoint", "audit_session", "audit_project", "render_governance_report",
 	}
 	for _, name := range expected {
 		if !hasTool(listed.Tools, name) {

@@ -1,7 +1,7 @@
-# Data model plan
+# Data model
 
-PostgreSQL 16+ is the planned operational and analytics store. This document is
-a contract, not an implemented schema.
+PostgreSQL 16+ is the implemented operational and governance store. Migrations
+and `docs/database.md` are authoritative for exact physical names.
 
 ## Migration discipline
 
@@ -34,11 +34,10 @@ unmatched evidence rather than invent relationships.
 | `tool_invocations` | Sanitized tool/event metadata. | `session_id`; external source reference. |
 | `evidence_artifacts` | Normalized envelope and classification. | `source_id`; optional project/session. |
 | `evidence_links` | Typed many-to-many provenance links. | artifact to target entity, with confidence. |
-| `token_observations` | Source-native cumulative/delta counters. | `session_id`, artifact, metric definition. |
-| `token_deltas` | Derived, versioned comparable deltas. | observation pair and normalization version. |
-| `governance_metrics` | Metric definition/version and result. | audit/report; supporting evidence links. |
-| `audits` | Bounded audit request, coverage, and outcome. | project/session/policy snapshot. |
-| `reports` | Rendered-report metadata, not raw sensitive output. | `audit_id`, renderer/version. |
+| `usage_observations` / `cache_observations` | Source-native measurements. | trajectory/response, artifact, product/accounting regime. |
+| `metric_definitions` / `metric_results` | Versioned formulas and transparent results. | audit revision/evaluation; evidence through typed links. |
+| `audit_windows` / `audit_revisions` | Bounded immutable audit window and revision. | project/policy/watermark. |
+| `findings` / `recommendations` | Evidence-backed diagnosis and preview-only action lifecycle. | audit/evaluation/project. |
 | `retention_actions` | Auditable deletion/compaction outcome. | policy snapshot and affected source/entity class. |
 
 ## Sensitive content

@@ -9,6 +9,8 @@ execute an improved prompt, inspect Codex data, or access the network.
 - `create_goal_prompt`: render the `Take this as a new goal:` house format.
 - `create_review_fix_prompt`: render bounded review remediation instructions.
 - `lint_prompt`: return deterministic prompt diagnostics.
+- `audit`: read one explicitly consented bounded governance window from the
+  configured local PostgreSQL store.
 - `doctor`: report sanitized integration readiness; read-only.
 - `init`: preview/apply/uninstall the owned Codex integration.
 
@@ -21,7 +23,20 @@ Source examples:
 ```sh
 go run ./cmd/prompt-better improve_prompt 'Return a synthetic result.'
 go run ./cmd/prompt-better lint_prompt --format json < synthetic-prompt.txt
+PROMPT_BETTER_DATABASE_URL='postgres://...' go run ./cmd/prompt-better audit \
+  --scope project \
+  --reference 00000000-0000-4000-8000-000000000001 \
+  --source codex_jsonl \
+  --starts-at 2026-01-01T00:00:00Z \
+  --ends-at 2026-01-02T00:00:00Z \
+  --as-of 2026-01-02T00:00:00Z \
+  --consent \
+  --format json
 ```
+
+`audit` never starts collection or applies recommendations. Missing consent,
+database access, coverage, or scope capability returns a stable error. It uses a
+two-second database timeout and enforces the 50 KB result budget.
 
 ## Configuration
 
@@ -55,5 +70,5 @@ checked between compilation stages.
 The v1 lint schema gained optional `location`, `rationale`, and `remediation`
 fields additively. This implementation emits all three for every diagnostic.
 
-`doctor` and `init` use their own explicit flags and do not read prompt input.
+`audit`, `doctor`, and `init` use their own explicit flags and do not read prompt input.
 See [installation](installation.md) and [MCP integration](mcp.md).
