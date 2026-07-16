@@ -16,6 +16,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/nijanthan-dev/codex-prompt-better/internal/audit"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/boundary"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/compiler"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/config"
@@ -835,7 +836,6 @@ func validCommand(command string) bool {
 }
 
 func runAudit(ctx context.Context, args []string, streams Streams) int {
-	const maxAuditResultBytes = 50_000
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	fs := flag.NewFlagSet("audit", flag.ContinueOnError)
@@ -909,7 +909,7 @@ func runAudit(ctx context.Context, args []string, streams Streams) int {
 		if err != nil {
 			return exitInternal
 		}
-		if len(encoded)+1 > maxAuditResultBytes {
+		if len(encoded)+1 > audit.MaxResultBytes {
 			return emitError(streams.Error, format, contracts.NewError(
 				contracts.ErrorCodeBudgetExhausted, "audit result exceeds output budget",
 				"result", false))

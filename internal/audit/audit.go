@@ -19,7 +19,10 @@ import (
 	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
 )
 
-const EngineVersion = "audit-v1"
+const (
+	EngineVersion  = "audit-v2"
+	MaxResultBytes = 50_000
+)
 
 var uuidReference = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
@@ -108,6 +111,73 @@ func (engine *Engine) Run(ctx context.Context, request contracts.AuditProjectReq
 		DerivationMethod: "normalized_sql+metric-v1+baseline-v1",
 		OmittedCount:     snapshot.OmittedCount,
 	}, nil
+}
+
+// BoundResult enforces the encoded audit result budget without removing
+// finding or recommendation evidence used by lifecycle decisions.
+func BoundResult(result contracts.AuditProjectResult) (contracts.AuditProjectResult, error) {
+	return boundResult(result, MaxResultBytes)
+}
+
+func boundResult(result contracts.AuditProjectResult, limit int) (contracts.AuditProjectResult, error) {
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		return contracts.AuditProjectResult{}, errors.New("encode bounded audit result")
+	}
+	var bounded contracts.AuditProjectResult
+	if err := json.Unmarshal(encoded, &bounded); err != nil {
+		return contracts.AuditProjectResult{}, errors.New("clone bounded audit result")
+	}
+	for {
+		encoded, err = json.Marshal(bounded)
+		if err != nil {
+			return contracts.AuditProjectResult{}, errors.New("encode bounded audit result")
+		}
+		if len(encoded) <= limit {
+			return bounded, nil
+		}
+		if omitOneEvidenceReference(&bounded) ||
+			omitLast(&bounded.Contributions, &bounded.OmittedCount) ||
+			omitLast(&bounded.Confounders, &bounded.OmittedCount) ||
+			omitLast(&bounded.WorkloadEffects, &bounded.OmittedCount) ||
+			omitLast(&bounded.Outliers, &bounded.OmittedCount) {
+			continue
+		}
+		return contracts.AuditProjectResult{}, contracts.NewError(
+			contracts.ErrorCodeBudgetExhausted,
+			"audit result exceeds output budget",
+			"result",
+			false,
+		)
+	}
+}
+
+func omitOneEvidenceReference(result *contracts.AuditProjectResult) bool {
+	for index := len(result.Metrics) - 1; index >= 0; index-- {
+		if omitLast(&result.Metrics[index].EvidenceRefs, &result.OmittedCount) {
+			return true
+		}
+	}
+	for index := len(result.Findings) - 1; index >= 0; index-- {
+		if omitLast(&result.Findings[index].Counterevidence, &result.OmittedCount) {
+			return true
+		}
+	}
+	for index := len(result.Guardrails) - 1; index >= 0; index-- {
+		if omitLast(&result.Guardrails[index].EvidenceRefs, &result.OmittedCount) {
+			return true
+		}
+	}
+	return false
+}
+
+func omitLast[T any](values *[]T, omitted *int) bool {
+	if len(*values) == 0 {
+		return false
+	}
+	*values = (*values)[:len(*values)-1]
+	(*omitted)++
+	return true
 }
 
 func findingEvidenceRevisions(findings []contracts.AuditFinding) map[string]string {
@@ -315,6 +385,8 @@ func guardrailsPass(guardrails []contracts.GuardrailResult) bool {
 }
 
 func hash(snapshot Snapshot, results []contracts.MetricResult, findings []contracts.AuditFinding, recommendations []contracts.AuditRecommendation) (string, error) {
+	snapshot.Window.Revision = 0
+	snapshot.Window.LateEvidence = false
 	payload := struct {
 		Version         string
 		Snapshot        Snapshot

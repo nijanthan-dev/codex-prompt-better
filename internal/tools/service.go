@@ -168,7 +168,12 @@ func decodeStrict(data []byte, target any) error {
 func successResult(output any) *mcp.CallToolResult {
 	data, err := json.Marshal(output)
 	if err != nil || len(data) > maxResultBytes {
-		return errorResult(contracts.NewError(contracts.ErrorCodeInternal, "tool result exceeded its bound", "result", false))
+		return errorResult(contracts.NewError(
+			contracts.ErrorCodeBudgetExhausted,
+			"tool result exceeded its bound",
+			"result",
+			false,
+		))
 	}
 	return &mcp.CallToolResult{
 		Content:           []mcp.Content{&mcp.TextContent{Text: string(data)}},

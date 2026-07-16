@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nijanthan-dev/codex-prompt-better/internal/audit"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/metrics"
 	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
 )
@@ -29,14 +30,17 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	insertGovernanceFixture(t, ctx, repo, start)
-	result, err := repo.AuditProject(ctx, contracts.AuditProjectRequest{
-		SchemaVersion: contracts.SchemaVersion, Kind: "request",
-		Scope:             contracts.AuditScopeProject,
-		Reference:         "f1000000-0000-0000-0000-000000000001",
-		ConfiguredSources: []string{"codex_jsonl"},
-		StartsAt:          start, EndsAt: start.Add(time.Hour), AsOf: start.Add(time.Hour),
-		Consent: contracts.AuditConsentGranted,
-	})
+	projectRequest := func(asOf time.Time) contracts.AuditProjectRequest {
+		return contracts.AuditProjectRequest{
+			SchemaVersion: contracts.SchemaVersion, Kind: "request",
+			Scope:             contracts.AuditScopeProject,
+			Reference:         "f1000000-0000-0000-0000-000000000001",
+			ConfiguredSources: []string{"codex_jsonl"},
+			StartsAt:          start, EndsAt: start.Add(2 * time.Hour), AsOf: asOf,
+			Consent: contracts.AuditConsentGranted,
+		}
+	}
+	result, err := repo.AuditProject(ctx, projectRequest(start.Add(time.Hour)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,49 +82,109 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 		taskResult.Coverage != contracts.CoverageStatePartial {
 		t.Fatalf("task audit unavailable: %#v error=%v", taskResult, err)
 	}
-	if _, err := repo.AuditProject(ctx, contracts.AuditProjectRequest{
-		SchemaVersion: contracts.SchemaVersion, Kind: "request",
-		Scope:             contracts.AuditScopeProject,
-		Reference:         "f1000000-0000-0000-0000-000000000001",
-		ConfiguredSources: []string{"codex_jsonl"},
-		StartsAt:          start, EndsAt: start.Add(time.Hour), AsOf: start.Add(time.Hour),
-		Consent: contracts.AuditConsentGranted,
-	}); err != nil {
+	if _, err := repo.AuditProject(ctx, projectRequest(start.Add(time.Hour))); err != nil {
 		t.Fatalf("idempotent project re-audit failed: %v", err)
 	}
 	if _, err := repo.pool.Exec(ctx, `UPDATE prompt_better.recommendations
-		SET lifecycle_state='dismissed',cooldown_until=$1
-		WHERE action_code='wait_on_state_change'`, start.Add(24*time.Hour)); err != nil {
+		SET lifecycle_state='dismissed',cooldown_until=$1,updated_at=$2
+		WHERE action_code='wait_on_state_change'`,
+		start.Add(24*time.Hour), start.Add(2*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
-	late, err := repo.AuditProject(ctx, contracts.AuditProjectRequest{
-		SchemaVersion: contracts.SchemaVersion, Kind: "request",
-		Scope:             contracts.AuditScopeProject,
-		Reference:         "f1000000-0000-0000-0000-000000000001",
-		ConfiguredSources: []string{"codex_jsonl"},
-		StartsAt:          start, EndsAt: start.Add(time.Hour), AsOf: start.Add(2 * time.Hour),
-		Consent: contracts.AuditConsentGranted,
-	})
+	if _, err := repo.pool.Exec(ctx, `INSERT INTO prompt_better.evidence_artifacts
+		(evidence_artifact_id,source_id,project_id,session_id,schema_version,
+		 content_hash,content_length,classification,redaction_state,coverage_state,
+		 provenance,product_surface,observed_at)
+		VALUES ('f9000000-0000-0000-0000-000000000002',
+		 'f2000000-0000-0000-0000-000000000001',
+		 'f1000000-0000-0000-0000-000000000001',
+		 'f3000000-0000-0000-0000-000000000001',
+		 '1.0.0',decode(repeat('34',32),'hex'),10,'internal','not_needed',
+		 'complete','runtime_observed','local',$1)`,
+		start.Add(90*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	late, err := repo.AuditProject(ctx, projectRequest(start.Add(2*time.Hour)))
 	if err != nil || !late.Window.LateEvidence || late.Window.Revision != 2 {
 		t.Fatalf("late revision=%#v error=%v", late.Window, err)
 	}
-	for _, item := range late.Recommendations {
-		if item.Code == "wait_on_state_change" {
-			t.Fatalf("dismissed recommendation reactivated without new evidence: %#v", late.Recommendations)
-		}
+	if !hasRecommendation(late.Recommendations, "wait_on_state_change") {
+		t.Fatalf("dismissed recommendation not reactivated by new evidence: %#v", late.Recommendations)
+	}
+	noNewEvidence, err := repo.AuditProject(ctx, projectRequest(start.Add(3*time.Hour)))
+	if err != nil || noNewEvidence.Window.LateEvidence {
+		t.Fatalf("watermark-only revision marked late=%#v error=%v", noNewEvidence.Window, err)
+	}
+	historicalRequest := projectRequest(start.Add(time.Hour))
+	historical, err := repo.AuditProject(ctx, historicalRequest)
+	if err != nil ||
+		historical.Window.Revision != result.Window.Revision ||
+		historical.RevisionHash != result.RevisionHash ||
+		historical.Window.LateEvidence {
+		t.Fatalf("historical replay revision=%#v error=%v", historical.Window, err)
+	}
+	repeatedHistorical, err := repo.AuditProject(ctx, historicalRequest)
+	if err != nil ||
+		repeatedHistorical.Window.Revision != historical.Window.Revision ||
+		repeatedHistorical.Window.LateEvidence ||
+		repeatedHistorical.RevisionHash != historical.RevisionHash {
+		t.Fatalf("repeated historical revision=%#v error=%v", repeatedHistorical.Window, err)
+	}
+	var persistedIdentity int
+	if err := repo.pool.QueryRow(ctx, `SELECT count(*) FROM prompt_better.audit_revisions
+		WHERE audit_window_id=$1 AND revision_number=$2 AND encode(revision_hash,'hex')=$3
+		  AND engine_version=$4`,
+		collectionBatchUUID(auditWindowKey(historicalRequest)),
+		historical.Window.Revision,
+		historical.RevisionHash,
+		audit.EngineVersion,
+	).Scan(&persistedIdentity); err != nil || persistedIdentity != 1 {
+		t.Fatalf("persisted historical identity=%d error=%v", persistedIdentity, err)
 	}
 	var linkedPrior int
 	if err := repo.pool.QueryRow(ctx, `SELECT count(*) FROM prompt_better.audit_revisions
-		WHERE prior_revision_id IS NOT NULL`).Scan(&linkedPrior); err != nil || linkedPrior != 1 {
+		WHERE prior_revision_id IS NOT NULL`).Scan(&linkedPrior); err != nil || linkedPrior != 2 {
 		t.Fatalf("late revision linkage=%d error=%v", linkedPrior, err)
 	}
 	assertGovernanceCount(t, ctx, repo, "metric_definitions", len(metrics.Definitions()))
 	assertGovernanceMinimumCount(t, ctx, repo, "audit_windows", 3)
-	assertGovernanceCount(t, ctx, repo, "audit_revisions", 4)
-	assertGovernanceCount(t, ctx, repo, "metric_results", len(metrics.Definitions())*3)
-	assertGovernanceCount(t, ctx, repo, "evaluation_runs", 3)
-	assertGovernanceCount(t, ctx, repo, "findings", 6)
-	assertGovernanceCount(t, ctx, repo, "recommendations", 4)
+	assertGovernanceCount(t, ctx, repo, "audit_revisions", 5)
+	assertGovernanceCount(t, ctx, repo, "metric_results", len(metrics.Definitions())*4)
+	assertGovernanceCount(t, ctx, repo, "evaluation_runs", 4)
+	assertGovernanceCount(t, ctx, repo, "findings", 8)
+	assertGovernanceCount(t, ctx, repo, "recommendations", 7)
+	var noActionCount int
+	if err := repo.pool.QueryRow(ctx, `SELECT count(*) FROM prompt_better.recommendations
+		WHERE action_code='no_action'`).Scan(&noActionCount); err != nil || noActionCount == 0 {
+		t.Fatalf("persisted no_action recommendations=%d error=%v", noActionCount, err)
+	}
+	if _, err := repo.pool.Exec(ctx, `DELETE FROM prompt_better.recommendations
+		WHERE action_code<>'no_action'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.pool.Exec(ctx, `UPDATE prompt_better.recommendations
+		SET action_code=NULL WHERE recommendation_kind='no_action'`); err != nil {
+		t.Fatal(err)
+	}
+	feedback, err := (projectAuditSource{query: repo.pool}).recommendationContext(
+		ctx,
+		projectRequest(start.Add(2*time.Hour)),
+	)
+	if err != nil || len(feedback.Feedback) != 0 || len(feedback.ExistingRuleCoverage) != 0 {
+		t.Fatalf("no_action leaked into feedback: %#v error=%v", feedback, err)
+	}
+	if _, err := repo.pool.Exec(ctx, `UPDATE prompt_better.recommendations
+		SET recommendation_kind='wait_on_state_change'
+		WHERE recommendation_kind='no_action'`); err != nil {
+		t.Fatal(err)
+	}
+	feedback, err = (projectAuditSource{query: repo.pool}).recommendationContext(
+		ctx,
+		projectRequest(start.Add(2*time.Hour)),
+	)
+	if err != nil || len(feedback.Feedback) != 1 {
+		t.Fatalf("legacy actionable feedback missing: %#v error=%v", feedback, err)
+	}
 }
 
 func TestPersistenceStateRequiresConsecutiveMovement(t *testing.T) {
@@ -241,6 +305,15 @@ func metricByName(t *testing.T, metrics []contracts.MetricResult, name string) c
 	}
 	t.Fatalf("metric %q missing", name)
 	return contracts.MetricResult{}
+}
+
+func hasRecommendation(recommendations []contracts.AuditRecommendation, code string) bool {
+	for _, recommendation := range recommendations {
+		if recommendation.Code == code {
+			return true
+		}
+	}
+	return false
 }
 
 func assertGovernanceCount(t *testing.T, ctx context.Context, repo *Repository,

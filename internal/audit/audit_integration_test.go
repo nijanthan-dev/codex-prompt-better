@@ -2,6 +2,9 @@ package audit
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -14,6 +17,76 @@ import (
 
 type syntheticSource struct {
 	snapshot Snapshot
+}
+
+func TestBoundResultBoundsRepeatedEvidenceReferences(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 1, 8, 0, 0, 0, 0, time.UTC)
+	refs := make([]string, 100)
+	for index := range refs {
+		refs[index] = fmt.Sprintf("%08d-0000-4000-8000-000000000001", index)
+	}
+	request := contracts.AuditProjectRequest{
+		SchemaVersion: contracts.SchemaVersion, Kind: "request",
+		Scope: contracts.AuditScopeProject, Reference: "00000000-0000-4000-8000-000000000001",
+		ConfiguredSources: []string{"synthetic"},
+		StartsAt:          at.Add(-24 * time.Hour), EndsAt: at, AsOf: at,
+		Consent: contracts.AuditConsentGranted,
+	}
+	result := runSynthetic(t, request, Snapshot{
+		Reference: request.Reference, Scope: request.Scope,
+		StartsAt: request.StartsAt, EndsAt: request.EndsAt, AsOf: request.AsOf,
+		Coverage: contracts.CoverageStateComplete,
+		Metrics: metrics.Input{
+			CompletedTurns: 10, AttributedTurns: 5, ToolCalls: 10,
+			PassiveWaitCalls: 5, EvidenceRefs: refs,
+			Coverage: contracts.CoverageStateComplete,
+		},
+		GovernanceOverhead: metrics.Input{Coverage: contracts.CoverageStateComplete},
+		Comparisons:        map[string]baseline.Comparison{},
+		Guardrails:         passingGuardrails(),
+	})
+	bounded, err := BoundResult(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(bounded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(encoded) > MaxResultBytes {
+		t.Fatalf("bounded result bytes=%d limit=%d", len(encoded), MaxResultBytes)
+	}
+	if bounded.OmittedCount == 0 {
+		t.Fatal("bounded result did not report omissions")
+	}
+	if len(bounded.Metrics) != len(metrics.Definitions()) {
+		t.Fatalf("bounded result dropped metrics: got=%d want=%d", len(bounded.Metrics), len(metrics.Definitions()))
+	}
+	if len(result.Metrics[0].EvidenceRefs) != len(refs) {
+		t.Fatalf("bounding mutated canonical result: %#v", result.Metrics[0].EvidenceRefs)
+	}
+	if len(bounded.Findings) == 0 || len(bounded.Findings[0].EvidenceRefs) != len(refs) {
+		t.Fatalf("bounded result changed finding evidence identity: %#v", bounded.Findings)
+	}
+	for _, recommendation := range bounded.Recommendations {
+		if recommendation.Code != "no_action" && len(recommendation.EvidenceRefs) != len(refs) {
+			t.Fatalf("bounded result changed recommendation evidence identity: %#v", recommendation)
+		}
+	}
+}
+
+func TestBoundResultReturnsStableBudgetError(t *testing.T) {
+	t.Parallel()
+	_, err := boundResult(contracts.AuditProjectResult{}, 1)
+	var stable *contracts.StableError
+	if !errors.As(err, &stable) {
+		t.Fatalf("bound result error=%T want stable error", err)
+	}
+	if stable.Code != contracts.ErrorCodeBudgetExhausted ||
+		stable.FieldPath == nil || *stable.FieldPath != "result" || stable.Retryable {
+		t.Fatalf("bound result error=%#v", stable)
+	}
 }
 
 func (source syntheticSource) Snapshot(_ context.Context, _ contracts.AuditProjectRequest) (Snapshot, error) {

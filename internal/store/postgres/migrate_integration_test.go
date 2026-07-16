@@ -43,8 +43,16 @@ func TestMigrationAndRoleBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version != 7 {
-		t.Fatalf("version = %d, want 7", version)
+	if version != latestSchemaVersion {
+		t.Fatalf("version = %d, want %d", version, latestSchemaVersion)
+	}
+	var engineDefault string
+	if err := db.QueryRowContext(ctx, `SELECT column_default
+		FROM information_schema.columns
+		WHERE table_schema='prompt_better' AND table_name='audit_revisions'
+		  AND column_name='engine_version'`).Scan(&engineDefault); err != nil ||
+		engineDefault != "'audit-v1'::text" {
+		t.Fatalf("engine version default=%q error=%v", engineDefault, err)
 	}
 	assertExists(t, ctx, db, "SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'prompt_better')")
 	assertExists(t, ctx, db, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'prompt_better_runtime')")
@@ -100,6 +108,15 @@ func TestMigrationAndRoleBootstrap(t *testing.T) {
 		}
 	})
 	t.Run("pre-release down and forward repair", func(t *testing.T) {
+		if _, err := runner.provider.DownTo(ctx, 4); err == nil {
+			t.Fatal("migration 8 down accepted non-v1 audit history")
+		}
+		if _, err := db.ExecContext(ctx, `DELETE FROM prompt_better.audit_windows
+			WHERE audit_window_id IN (
+				SELECT audit_window_id FROM prompt_better.audit_revisions
+				WHERE engine_version <> 'audit-v1')`); err != nil {
+			t.Fatal(err)
+		}
 		if _, err := runner.provider.DownTo(ctx, 4); err != nil {
 			t.Fatal(err)
 		}

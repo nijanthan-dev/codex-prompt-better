@@ -85,4 +85,4 @@ recommend model/reasoning downgrade from resource use alone.
 | 7 | Deterministic immutable historical replay | complete |
 | 8 | Controlled GPT-5.6 migration matrix | complete |
 | 9 | False-positive, bias, misuse, resource, and lifecycle review | complete |
-| 10 | Contract/docs/evidence reconciliation and final gates | in progress |
+| 10 | Contract/docs/evidence reconciliation and final gates | complete |

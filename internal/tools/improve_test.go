@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -245,8 +246,13 @@ func TestSuccessResult_EncodesOversizeAsStableToolError(t *testing.T) {
 		t.Fatalf("oversize result=%#v", result)
 	}
 	text := result.Content[0].(*mcp.TextContent).Text
-	if !strings.Contains(text, string(contracts.ErrorCodeInternal)) {
-		t.Fatalf("unstable result error=%s", text)
+	var stable contracts.StableError
+	if err := json.Unmarshal([]byte(text), &stable); err != nil {
+		t.Fatalf("decode result error: %v", err)
+	}
+	if stable.Code != contracts.ErrorCodeBudgetExhausted ||
+		stable.FieldPath == nil || *stable.FieldPath != "result" || stable.Retryable {
+		t.Fatalf("unstable result error=%#v", stable)
 	}
 }
 
