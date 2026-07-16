@@ -16,13 +16,22 @@ func TestResolvePrecedenceAndDoesNotMutateInput(t *testing.T) {
 	}
 	original := cloneCandidates(input)
 	resolution := Resolve(input)
-	winner, ok := resolution.Winner("scope")
+	winner, ok := winner(resolution, "scope")
 	if !ok || winner.ID != "scope.host" {
 		t.Fatalf("winner=%+v", winner)
 	}
 	if !reflect.DeepEqual(input, original) {
 		t.Fatal("resolution mutated input")
 	}
+}
+
+func winner(resolution Resolution, category string) (Candidate, bool) {
+	for _, candidate := range resolution.Candidates {
+		if candidate.Category == category {
+			return candidate, true
+		}
+	}
+	return Candidate{}, false
 }
 
 func TestResolveDeterministicForShuffledInputs(t *testing.T) {

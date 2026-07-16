@@ -56,12 +56,12 @@ func TestJSONL_CoverageAndFailureIsolation(t *testing.T) {
 		wantErr error
 		want    evidence.Coverage
 	}{
-		{name: "disabled", adapter: NewJSONL("git", strings.NewReader(""), fixtureKey, false, true), wantErr: ErrDisabled, want: evidence.CoverageMissing},
-		{name: "unsupported", adapter: NewJSONL("git", strings.NewReader(""), fixtureKey, true, false), wantErr: ErrUnsupported, want: evidence.CoverageUnknown},
-		{name: "missing", adapter: NewJSONL("git", nil, fixtureKey, true, true), want: evidence.CoverageMissing},
+		{name: "disabled", adapter: NewJSONLWithIdentity("git", "git", strings.NewReader(""), fixtureKey, false, true), wantErr: ErrDisabled, want: evidence.CoverageMissing},
+		{name: "unsupported", adapter: NewJSONLWithIdentity("git", "git", strings.NewReader(""), fixtureKey, true, false), wantErr: ErrUnsupported, want: evidence.CoverageUnknown},
+		{name: "missing", adapter: NewJSONLWithIdentity("git", "git", nil, fixtureKey, true, true), want: evidence.CoverageMissing},
 		{name: "malformed", adapter: Git(options(t, "malformed.jsonl")), wantErr: ErrMalformed, want: evidence.CoveragePartial},
 		{name: "sensitive redacted", adapter: Git(options(t, "sensitive.jsonl")), want: evidence.CoverageComplete},
-		{name: "truncated", adapter: NewJSONL("git", strings.NewReader("{\"attributes\":{\"x\":\""+strings.Repeat("x", DefaultMaxRecordBytes)+"\"}}"), fixtureKey, true, true), wantErr: ErrTruncated, want: evidence.CoveragePartial},
+		{name: "truncated", adapter: NewJSONLWithIdentity("git", "git", strings.NewReader("{\"attributes\":{\"x\":\""+strings.Repeat("x", DefaultMaxRecordBytes)+"\"}}"), fixtureKey, true, true), wantErr: ErrTruncated, want: evidence.CoveragePartial},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -113,7 +113,7 @@ func TestJSONL_RotationAndReplay(t *testing.T) {
 func TestJSONL_ReusedAdapterDoesNotSkipBoundedBatches(t *testing.T) {
 	t.Parallel()
 	data := sourceLines(5)
-	adapter := NewJSONL("git", strings.NewReader(data), fixtureKey, true, true)
+	adapter := NewJSONLWithIdentity("git", "git", strings.NewReader(data), fixtureKey, true, true)
 	first, err := adapter.Collect(context.Background(), Request{Limit: 2, ObservedAt: time.Now()})
 	if err != nil {
 		t.Fatal(err)
@@ -179,7 +179,7 @@ func TestSyntheticFixtures_ContainNoLocalOrSecretData(t *testing.T) {
 func FuzzJSONL(f *testing.F) {
 	f.Add([]byte("{\"version\":\"1\",\"observed_at\":\"2026-01-01T00:00:00Z\",\"attributes\":{}}\n"))
 	f.Fuzz(func(t *testing.T, data []byte) {
-		adapter := NewJSONL("git", strings.NewReader(string(data)), fixtureKey, true, true)
+		adapter := NewJSONLWithIdentity("git", "git", strings.NewReader(string(data)), fixtureKey, true, true)
 		_, _ = adapter.Collect(context.Background(), request())
 	})
 }

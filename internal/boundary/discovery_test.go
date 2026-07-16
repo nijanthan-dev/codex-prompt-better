@@ -193,7 +193,7 @@ func TestDiscoverConflictingInstructionPreservesEvidence(t *testing.T) {
 		t.Fatalf("conflict cycle missing: %+v", result.Candidates)
 	}
 	for _, category := range []string{"scope", "non_goal"} {
-		candidate, ok := resolution.Winner(category)
+		candidate, ok := winner(resolution, category)
 		if !ok || len(candidate.Conflicts) == 0 {
 			t.Fatalf("%s conflict evidence missing: %+v", category, result.Candidates)
 		}

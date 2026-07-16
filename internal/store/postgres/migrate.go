@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"io/fs"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/nijanthan-dev/codex-prompt-better/migrations"
@@ -69,21 +68,6 @@ func (r *Runner) Up(ctx context.Context) error {
 	return nil
 }
 
-// DownTo rolls back to a prior version for pre-release validation only. Shipped
-// databases use forward repair as documented in the recovery runbook.
-func (r *Runner) DownTo(ctx context.Context, version int64) error {
-	if version < 0 {
-		return errors.New("invalid migration target")
-	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if _, err := r.provider.DownTo(ctx, version); err != nil {
-		return fmt.Errorf("roll back database migrations: %w", err)
-	}
-	return nil
-}
-
 // Version returns the latest applied migration version.
 func (r *Runner) Version(ctx context.Context) (int64, error) {
 	if err := ctx.Err(); err != nil {
@@ -94,9 +78,4 @@ func (r *Runner) Version(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("read schema version: %w", err)
 	}
 	return version, nil
-}
-
-// MigrationFS returns a read-only view used by deterministic migration audits.
-func MigrationFS() (fs.FS, error) {
-	return migrations.Files, nil
 }

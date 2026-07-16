@@ -69,10 +69,6 @@ type parsedRecord struct {
 	redacted   []string
 }
 
-func NewJSONL(kind string, reader io.Reader, key []byte, enabled, supported bool) *JSONL {
-	return NewJSONLWithIdentity(kind, kind, reader, key, enabled, supported)
-}
-
 func NewJSONLWithIdentity(kind, identity string, reader io.Reader, key []byte, enabled, supported bool) *JSONL {
 	data := []byte{}
 	if reader != nil {
