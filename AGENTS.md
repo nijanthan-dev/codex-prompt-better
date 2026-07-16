@@ -19,9 +19,10 @@
 - Pin third-party Actions to immutable SHAs. Add dependencies only when needed.
 - Recheck PR head, latest reviews, threads, and checks before acting or merging.
 - Eyes/ack reactions are not approval. Resolve review threads after fixes.
-- After requesting review or receiving eyes, do not run short-interval polling loops or request review again. End the turn and wait for a review event or user wake; then check head, latest review body, unresolved threads, and checks once.
-- Scan the full bug class before re-requesting one current-head review.
-- For each new review finding, state the invariant, scan directly analogous paths, add the smallest focused regression proof, make one commit/push, reply and resolve, then request review once. Run full validation only after changes or at the final gate.
+- Keep Codex auto-review disabled. Never request Codex review or tag `@Codex` in PRs.
+- If Codex review lands unsolicited, do not request another. Check current review state once when needed.
+- Scan the full bug class before resolving a review finding.
+- For each new review finding, state the invariant, scan directly analogous paths, add the smallest focused regression proof, make one commit/push, then reply and resolve. Run full validation only after changes or at the final gate.
 - Squash merge only after clean review, checks, threads, merge state, and scans.
 - Version persisted changes. Tables precede indexes, FKs, and views in migrations.
 - Keep README and GitHub About/topics aligned with `docs/discovery.md`.
