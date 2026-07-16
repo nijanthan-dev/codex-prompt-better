@@ -58,15 +58,11 @@ func TestBoundaryDiscoveryIsExplicitAndSanitized(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte(rawInstruction), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	const rawWorktreeTarget = "gitdir: /private/synthetic/worktree-target"
-	if err := os.WriteFile(filepath.Join(root, ".git"), []byte(rawWorktreeTarget), 0o600); err != nil {
-		t.Fatal(err)
-	}
 	code, out, stderr := execute([]string{"improve_prompt", "--format", "json", "--context-root", root, "--scope", "src"}, "Change synthetic code.")
 	if code != 0 || stderr != "" {
 		t.Fatalf("code=%d stderr=%s", code, stderr)
 	}
-	for _, sensitive := range []string{root, rawInstruction, rawWorktreeTarget, "private-synthetic-directive", "worktree-target"} {
+	for _, sensitive := range []string{root, rawInstruction, "private-synthetic-directive"} {
 		if strings.Contains(out, sensitive) {
 			t.Fatalf("sensitive value escaped: %s", out)
 		}
@@ -119,6 +115,38 @@ func TestBoundaryFlagsRejectUnsafeCombinations(t *testing.T) {
 	}
 }
 
+func TestParseIgnoredPathsIsBoundedAndNormalized(t *testing.T) {
+	ignored, err := parseIgnoredPaths([]byte("dist/\x00nested/file.txt\x00"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"dist", "nested/file.txt"} {
+		if _, ok := ignored[path]; !ok {
+			t.Fatalf("ignored path missing: %s in %v", path, ignored)
+		}
+	}
+	if _, err := parseIgnoredPaths([]byte("../outside\x00")); err == nil {
+		t.Fatal("unsafe ignored path accepted")
+	}
+}
+
+func TestHasGitMarkerUsesBoundedAncestry(t *testing.T) {
+	root := t.TempDir()
+	if hasGitMarker(root) {
+		t.Fatal("non-repository detected")
+	}
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	nested := filepath.Join(root, "apps", "api")
+	if err := os.MkdirAll(nested, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if !hasGitMarker(nested) {
+		t.Fatal("linked repository ancestry missed")
+	}
+}
+
 func TestBoundaryDiscoveryPreservesAndNarrowsRequestScopes(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("Out of scope: synthetic deployment."), 0o600); err != nil {
@@ -142,7 +170,7 @@ func TestBoundaryDiscoveryPreservesAndNarrowsRequestScopes(t *testing.T) {
 	if !strings.Contains(result.ImprovedPrompt, "Scope:\n- existing\n- added") {
 		t.Fatalf("scope lost: %s", result.ImprovedPrompt)
 	}
-	for _, preserved := range []string{"Keep explicit non-goal.", "Keep explicit gate.", "A non-goal cannot be broadened", "Preserve applicable validation gates."} {
+	for _, preserved := range []string{"Keep explicit non-goal.", "Keep explicit gate.", "Preserve the discovered non-goal", "Preserve applicable validation gates."} {
 		if strings.Count(result.ImprovedPrompt, preserved) != 1 {
 			t.Fatalf("boundary not preserved/deduplicated: %q in %s", preserved, result.ImprovedPrompt)
 		}

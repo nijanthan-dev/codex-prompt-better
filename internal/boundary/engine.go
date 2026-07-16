@@ -56,8 +56,7 @@ func EvaluateContext(discovered Context, extensions []policypack.Pack) ([]contra
 				SourceRef: candidate.SourceRef, PackID: match.PackID, RuleID: match.Rule.ID,
 				Version: match.PackVersion, Explanation: match.Rule.Explanation, ConflictRefs: conflicts,
 			}
-			_, isBuiltin := builtinIDs[match.PackID+"@"+match.PackVersion]
-			entry := rankedDecision{decision: decision, builtin: isBuiltin, candidateOrder: candidateOrder}
+			entry := rankedDecision{decision: decision, authority: authority(candidate.SourceKind), candidateOrder: candidateOrder}
 			selectDecision(selected, entry)
 		}
 	}
@@ -93,7 +92,7 @@ func normalizedCandidateFacts(candidate Candidate, conflicted bool) map[string]s
 
 type rankedDecision struct {
 	decision       contracts.BoundaryDecision
-	builtin        bool
+	authority      int
 	candidateOrder int
 }
 
@@ -124,18 +123,18 @@ func selectDecision(selected *decisionHeap, entry rankedDecision) {
 }
 
 func betterDecision(left, right rankedDecision) bool {
-	if left.candidateOrder != right.candidateOrder {
-		return left.candidateOrder < right.candidateOrder
+	if left.authority != right.authority {
+		return left.authority > right.authority
 	}
 	leftPriority, rightPriority := outcomePriority(left.decision.Outcome), outcomePriority(right.decision.Outcome)
 	if leftPriority != rightPriority {
 		return leftPriority > rightPriority
 	}
-	if left.builtin != right.builtin {
-		return left.builtin
-	}
 	if left.decision.Risk != right.decision.Risk {
 		return left.decision.Risk > right.decision.Risk
+	}
+	if left.candidateOrder != right.candidateOrder {
+		return left.candidateOrder < right.candidateOrder
 	}
 	if left.decision.PackID != right.decision.PackID {
 		return left.decision.PackID < right.decision.PackID

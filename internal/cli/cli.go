@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -721,11 +722,86 @@ func (r runner) boundaryDecisions() ([]contracts.BoundaryDecision, error) {
 		}
 		extensions = append(extensions, pack)
 	}
-	discovered, err := boundary.Discover(r.ctx, boundary.FSReader{FS: os.DirFS(root)}, r.options.scopes)
+	ignored, err := ignoredRepositoryPaths(r.ctx, root)
+	if err != nil {
+		return nil, err
+	}
+	discovered, err := boundary.Discover(r.ctx, boundary.FSReader{FS: os.DirFS(root), IgnoredPaths: ignored}, r.options.scopes)
 	if err != nil {
 		return nil, err
 	}
 	return boundary.EvaluateContext(discovered, extensions)
+}
+
+const maxIgnoredMetadataBytes = 1 << 20
+
+type boundedOutput struct {
+	bytes.Buffer
+	overflow bool
+}
+
+func (output *boundedOutput) Write(data []byte) (int, error) {
+	remaining := maxIgnoredMetadataBytes - output.Len()
+	if len(data) > remaining {
+		output.overflow = true
+		return 0, errors.New("ignored metadata limit exceeded")
+	}
+	return output.Buffer.Write(data)
+}
+
+func ignoredRepositoryPaths(ctx context.Context, root string) (map[string]struct{}, error) {
+	if !hasGitMarker(root) {
+		return map[string]struct{}{}, nil
+	}
+	output := &boundedOutput{}
+	command := exec.CommandContext(ctx, "git", "-c", "core.fsmonitor=false", "-C", root, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z")
+	command.Env = append(os.Environ(), "GIT_OPTIONAL_LOCKS=0")
+	command.Stdout = output
+	command.Stderr = io.Discard
+	if err := command.Run(); err != nil {
+		if ctx.Err() != nil {
+			return nil, contracts.NewError(contracts.ErrorCodeBudgetExhausted, "ignore discovery cancelled or timed out", "context_root", true)
+		}
+		if output.overflow {
+			return nil, contracts.NewError(contracts.ErrorCodeSemanticInvalid, "ignored metadata exceeds bounded limit", "context_root", false)
+		}
+		return nil, contracts.NewError(contracts.ErrorCodeSemanticInvalid, "repository ignore metadata unavailable", "context_root", false)
+	}
+	return parseIgnoredPaths(output.Bytes())
+}
+
+func hasGitMarker(root string) bool {
+	current := filepath.Clean(root)
+	for depth := 0; depth < boundary.MaxScopeDepth; depth++ {
+		if _, err := os.Lstat(filepath.Join(current, ".git")); err == nil {
+			return true
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+		current = parent
+	}
+	return false
+}
+
+func parseIgnoredPaths(data []byte) (map[string]struct{}, error) {
+	ignored := make(map[string]struct{})
+	for _, raw := range bytes.Split(data, []byte{0}) {
+		if len(raw) == 0 {
+			continue
+		}
+		name := strings.TrimSuffix(filepath.ToSlash(string(raw)), "/")
+		clean := filepath.ToSlash(filepath.Clean(name))
+		if clean == "." || filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, "../") {
+			return nil, contracts.NewError(contracts.ErrorCodeSemanticInvalid, "invalid ignored metadata", "context_root", false)
+		}
+		ignored[clean] = struct{}{}
+		if len(ignored) > boundary.MaxMetadataEntries {
+			return nil, contracts.NewError(contracts.ErrorCodeSemanticInvalid, "ignored metadata exceeds entry limit", "context_root", false)
+		}
+	}
+	return ignored, nil
 }
 
 func appendUnique(values []string, value string) []string {

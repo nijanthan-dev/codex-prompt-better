@@ -41,12 +41,19 @@ type Reader interface {
 	Walk(root string, fn fs.WalkDirFunc) error
 }
 
-type FSReader struct{ FS fs.FS }
+type FSReader struct {
+	FS           fs.FS
+	IgnoredPaths map[string]struct{}
+}
 
 func (reader FSReader) ReadFile(name string) ([]byte, error)  { return fs.ReadFile(reader.FS, name) }
 func (reader FSReader) Stat(name string) (fs.FileInfo, error) { return fs.Stat(reader.FS, name) }
 func (reader FSReader) Walk(root string, fn fs.WalkDirFunc) error {
 	return fs.WalkDir(reader.FS, root, fn)
+}
+func (reader FSReader) IsIgnored(name string) bool {
+	_, ignored := reader.IgnoredPaths[name]
+	return ignored
 }
 
 func Discover(ctx context.Context, reader Reader, scopes []string) (Context, error) {
@@ -99,6 +106,12 @@ func Discover(ctx context.Context, reader Reader, scopes []string) (Context, err
 		if clean == "." {
 			clean = ""
 		}
+		if ignoredReader, ok := reader.(interface{ IsIgnored(string) bool }); ok && ignoredReader.IsIgnored(clean) {
+			if entry.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
 		if entry.Type()&fs.ModeSymlink != 0 {
 			add("security", "repository_metadata", clean+":symlink", 1, pathDepth(clean), map[string]string{"category": "security", "ambiguous": "true"})
 			if entry.IsDir() {
@@ -144,7 +157,11 @@ func Discover(ctx context.Context, reader Reader, scopes []string) (Context, err
 			add("instruction", "instruction", clean, 1, pathDepth(clean), map[string]string{"category": "instruction"})
 			lower := strings.ToLower(string(content))
 			if strings.Contains(lower, "non-goal") || strings.Contains(lower, "out of scope") {
-				add("non_goal", "instruction", clean+":non-goal", 0.9, pathDepth(clean), map[string]string{"category": "non_goal"})
+				facts := map[string]string{"category": "non_goal"}
+				if mentionsScope(lower, normalizedScopes) {
+					facts["conflicted"] = "true"
+				}
+				add("non_goal", "instruction", clean+":non-goal", 0.9, pathDepth(clean), facts)
 			}
 		}
 		return nil
@@ -165,10 +182,42 @@ func linkApplicableNonGoals(candidates []Candidate) {
 	nonGoals := candidateIndexes(candidates, "non_goal")
 	for _, scope := range scopes {
 		for _, nonGoal := range nonGoals {
+			if candidates[nonGoal].Facts["conflicted"] != "true" {
+				continue
+			}
 			candidates[scope].Conflicts = append(candidates[scope].Conflicts, candidates[nonGoal].ID)
 			candidates[nonGoal].Conflicts = append(candidates[nonGoal].Conflicts, candidates[scope].ID)
 		}
 	}
+}
+
+func mentionsScope(content string, scopes []string) bool {
+	content = strings.ReplaceAll(strings.ToLower(content), "\\", "/")
+	for _, scope := range scopes {
+		scope = strings.ToLower(scope)
+		if scope == "" {
+			continue
+		}
+		for offset := 0; offset <= len(content)-len(scope); {
+			index := strings.Index(content[offset:], scope)
+			if index < 0 {
+				break
+			}
+			start := offset + index
+			end := start + len(scope)
+			beforeOK := start == 0 || !scopeTokenByte(content[start-1])
+			afterOK := end == len(content) || !scopeTokenByte(content[end]) || content[end] == '/'
+			if beforeOK && afterOK {
+				return true
+			}
+			offset = start + 1
+		}
+	}
+	return false
+}
+
+func scopeTokenByte(value byte) bool {
+	return value >= 'a' && value <= 'z' || value >= '0' && value <= '9' || value == '_' || value == '-'
 }
 
 func candidateIndexes(candidates []Candidate, category string) []int {

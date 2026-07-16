@@ -44,7 +44,19 @@
       "properties": {
         "field": {"enum": ["category", "action_class", "phase", "source_kind", "capability_state", "delegation_policy", "ambiguous", "conflicted"]},
         "operator": {"enum": ["equals", "not_equals", "prefix", "present"]},
-        "value": {"type": "string", "maxLength": 128}
+        "value": {
+          "enum": [
+            "", "repository", "worktree", "instruction", "scope", "non_goal",
+            "generated", "vendor", "validation", "release", "privacy", "security",
+            "tool_routing", "retrieval", "ptc", "autonomy", "fallback", "stopping",
+            "delegation", "read_only", "local_reversible", "local_mutation",
+            "external_write", "costly", "permission_sensitive", "scope_expanding",
+            "destructive", "research", "design", "implementation", "review",
+            "external_coordination", "host_permission", "configuration", "user_request",
+            "repository_metadata", "derived_default", "supported", "unsupported", "unknown",
+            "none", "user_requested_only", "bounded", "true", "false"
+          ]
+        }
       }
     }
   }

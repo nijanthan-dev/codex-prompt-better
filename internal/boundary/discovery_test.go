@@ -74,6 +74,22 @@ func TestDiscoverMetadataAndReadBudgets(t *testing.T) {
 	}
 }
 
+func TestDiscoverHonorsIgnoredPaths(t *testing.T) {
+	fixture := fstest.MapFS{
+		"AGENTS.md":         {Data: []byte("Root instruction")},
+		"ignored/AGENTS.md": {Data: []byte("Out of scope: src")},
+		"ignored/file.go":   {Data: nil},
+		"src/main.go":       {Data: nil},
+	}
+	result, err := Discover(context.Background(), FSReader{FS: fixture, IgnoredPaths: map[string]struct{}{"ignored": {}}}, []string{"src"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasCategory(result.Candidates, "non_goal") || result.TargetedReads != 1 {
+		t.Fatalf("ignored content discovered: %+v", result)
+	}
+}
+
 func BenchmarkDiscoverTenThousandEntries(b *testing.B) {
 	fixture := make(fstest.MapFS, MaxMetadataEntries-2)
 	for index := 0; index < MaxMetadataEntries-2; index++ {
@@ -138,10 +154,11 @@ func TestDiscoverSourceRefsAreCategorical(t *testing.T) {
 }
 
 func TestDiscoverSyntheticMonorepoAndNestedWorktree(t *testing.T) {
+	const rawWorktreeTarget = "gitdir: /private/synthetic/worktree-target"
 	fixture := fstest.MapFS{
 		".git/config":                  {Data: nil},
 		"AGENTS.md":                    {Data: []byte("Root rules")},
-		"apps/api/.git":                {Data: []byte("gitdir: synthetic-target")},
+		"apps/api/.git":                {Data: []byte(rawWorktreeTarget)},
 		"apps/api/AGENTS.md":           {Data: []byte("Out of scope: deployment")},
 		"apps/api/src/main.go":         {Data: nil},
 		"apps/web/generated/bundle.js": {Data: nil},
@@ -155,11 +172,16 @@ func TestDiscoverSyntheticMonorepoAndNestedWorktree(t *testing.T) {
 			t.Fatalf("missing %s: %+v", category, result.Candidates)
 		}
 	}
+	for _, candidate := range result.Candidates {
+		if strings.Contains(candidate.SourceRef, rawWorktreeTarget) || strings.Contains(candidate.SourceRef, "worktree-target") {
+			t.Fatalf("worktree target escaped: %+v", candidate)
+		}
+	}
 }
 
 func TestDiscoverConflictingInstructionPreservesEvidence(t *testing.T) {
 	fixture := fstest.MapFS{
-		"AGENTS.md":   {Data: []byte("Out of scope: synthetic requested area.")},
+		"AGENTS.md":   {Data: []byte("Out of scope: src.")},
 		"src/main.go": {Data: nil},
 	}
 	result, err := Discover(context.Background(), FSReader{FS: fixture}, []string{"src"})
@@ -175,6 +197,17 @@ func TestDiscoverConflictingInstructionPreservesEvidence(t *testing.T) {
 		if !ok || len(candidate.Conflicts) == 0 {
 			t.Fatalf("%s conflict evidence missing: %+v", category, result.Candidates)
 		}
+	}
+}
+
+func TestDiscoverUnrelatedNonGoalDoesNotConflict(t *testing.T) {
+	fixture := fstest.MapFS{"AGENTS.md": {Data: []byte("Out of scope: deployment.")}, "src/main.go": {Data: nil}}
+	result, err := Discover(context.Background(), FSReader{FS: fixture}, []string{"src"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cycle := Resolve(result.Candidates).Cycle; len(cycle) != 0 {
+		t.Fatalf("unrelated non-goal conflicted: %v", cycle)
 	}
 }
 

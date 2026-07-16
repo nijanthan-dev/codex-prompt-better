@@ -55,3 +55,24 @@ func TestSchemaValidRejectsNonFiniteNumber(t *testing.T) {
 		t.Fatal("non-finite number accepted")
 	}
 }
+
+func TestPolicyPackSchemaRejectsUnknownAction(t *testing.T) {
+	root, err := findRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := loadJSON(filepath.Join(root, "schemas", "v1", "policy-pack.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema := value.(document)["$defs"].(document)["condition"].(document)
+	v := &validator{}
+	valid := document{"field": "action_class", "operator": "equals", "value": "read_only"}
+	if !v.schemaValid(valid, schema, "") {
+		t.Fatal("known action rejected")
+	}
+	invalid := document{"field": "action_class", "operator": "equals", "value": "unknown_action"}
+	if v.schemaValid(invalid, schema, "") {
+		t.Fatal("unknown action accepted")
+	}
+}

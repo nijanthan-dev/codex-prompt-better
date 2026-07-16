@@ -1,5 +1,6 @@
 {"schema_version":"1.0.0","id":"builtin.instructions-scope-non-goals","version":"1.0.0","rules":[
   {"id":"instruction.applicable","category":"instruction","outcome":"continue","risk_score":10,"explanation":"Apply recognized instructions at their sanitized scope.","conditions":[{"field":"category","operator":"equals","value":"instruction"}]},
   {"id":"scope.expansion","category":"scope","outcome":"clarify","risk_score":80,"explanation":"Scope expansion requires explicit approval.","conditions":[{"field":"action_class","operator":"equals","value":"scope_expanding"}]},
-  {"id":"non-goal.enforced","category":"non_goal","outcome":"block","risk_score":80,"explanation":"A non-goal cannot be broadened by lower-authority evidence.","conditions":[{"field":"category","operator":"equals","value":"non_goal"}]}
+  {"id":"non-goal.discovered","category":"non_goal","outcome":"warn","risk_score":20,"explanation":"Preserve the discovered non-goal without exposing its raw instruction text.","conditions":[{"field":"category","operator":"equals","value":"non_goal"}]},
+  {"id":"non-goal.enforced","category":"non_goal","outcome":"block","risk_score":80,"explanation":"A conflicting non-goal cannot be broadened by lower-authority evidence.","conditions":[{"field":"category","operator":"equals","value":"non_goal"},{"field":"conflicted","operator":"equals","value":"true"}]}
 ]}

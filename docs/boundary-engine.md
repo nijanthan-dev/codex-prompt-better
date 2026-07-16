@@ -24,10 +24,10 @@ fails closed during risk evaluation; lower-risk ambiguity requests clarification
 or emits a warning according to the execution policy.
 
 Results are bounded to 256 decisions after evaluating every candidate. Selection
-is deterministic: candidate authority first, then restrictive outcome, risk,
-built-in provenance, and lexical identity. Extension volume cannot hide a more
-restrictive built-in decision for the same candidate. Lint evaluates every selected
-outcome while emitting at most 100 diagnostics.
+is deterministic: source authority first, then restrictive outcome, risk, candidate
+specificity/confidence order, and lexical provenance. Extension volume cannot hide
+a more restrictive built-in decision for the same candidate. Lint evaluates every
+selected outcome while emitting at most 100 diagnostics.
 
 ## Privacy and bounds
 

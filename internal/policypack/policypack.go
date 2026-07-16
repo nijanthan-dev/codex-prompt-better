@@ -171,15 +171,7 @@ func validConditionValue(condition Condition) bool {
 	case "present":
 		return condition.Value == ""
 	case "prefix":
-		if condition.Value == "" {
-			return false
-		}
-		for _, value := range values {
-			if strings.HasPrefix(value, condition.Value) {
-				return true
-			}
-		}
-		return false
+		return contains(values, condition.Value)
 	default:
 		return contains(values, condition.Value)
 	}

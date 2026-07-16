@@ -97,10 +97,14 @@ func TestEvaluateContextDerivesSourceKindForExtensionRules(t *testing.T) {
 }
 
 func TestDecisionSelectionRanksAuthorityBeforeOutcome(t *testing.T) {
-	higherAuthority := rankedDecision{candidateOrder: 0, decision: boundaryDecision("warn", 20)}
-	lowerAuthority := rankedDecision{candidateOrder: 1, decision: boundaryDecision("block", 100)}
+	higherAuthority := rankedDecision{authority: 3, candidateOrder: 1, decision: boundaryDecision("warn", 20)}
+	lowerAuthority := rankedDecision{authority: 2, candidateOrder: 0, decision: boundaryDecision("block", 100)}
 	if !betterDecision(higherAuthority, lowerAuthority) {
 		t.Fatal("lower-authority outcome outranked source authority")
+	}
+	moreRestrictive := rankedDecision{authority: 3, candidateOrder: 1, decision: boundaryDecision("block", 80)}
+	if !betterDecision(moreRestrictive, higherAuthority) {
+		t.Fatal("candidate tie-breaker outranked restrictive outcome")
 	}
 }
 
