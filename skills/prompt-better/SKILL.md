@@ -15,6 +15,8 @@ Use the smallest applicable tool:
 - `lint_prompt`: inspect one candidate without rewriting or executing it.
 - `get_checkpoint`: retrieve `latest` only from this MCP session.
 - `audit_session`: require explicit consent and configured local source kinds.
+- `audit_project`: require explicit consent for one bounded local
+  portfolio/project/task/trajectory window; never apply its recommendations.
 - `render_governance_report`: render the exact audit reference from this session.
 
 Preserve commentary/final phases and user authorization boundaries. Treat compacted state as opaque. Never paste broad conversation history, start collectors, retain raw prompts, enable telemetry, call a second model/API, spawn subagents without explicit delegation, or change Codex model, reasoning effort, verbosity, fast mode, permissions, approvals, global instructions, configuration, hidden flags, or feature gates.

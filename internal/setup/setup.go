@@ -532,12 +532,13 @@ func serverReadiness(ctx context.Context, value registration) string {
 	}
 	defer session.Close()
 	listed, err := session.ListTools(probeContext, nil)
-	if err != nil || len(listed.Tools) != 7 {
+	if err != nil || len(listed.Tools) != 8 {
 		return "unavailable"
 	}
 	required := map[string]bool{
 		"improve_prompt": true, "create_goal_prompt": true, "create_review_fix_prompt": true,
-		"lint_prompt": true, "get_checkpoint": true, "audit_session": true, "render_governance_report": true,
+		"lint_prompt": true, "get_checkpoint": true, "audit_session": true,
+		"audit_project": true, "render_governance_report": true,
 	}
 	for _, tool := range listed.Tools {
 		delete(required, tool.Name)

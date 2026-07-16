@@ -61,6 +61,18 @@ outcome/modality/size fields. These complete the collector-to-governance handoff
 they do not compute metrics or retain raw content. Runtime/collector roles write
 them; the reporter role is read-only.
 
+Migration 7 adds versioned `metric_definitions` and reproducibility,
+status/uncertainty/exclusion, and recommendation-policy fields to the existing
+governance model. It does not duplicate #5 audit, metric, finding,
+recommendation, confounder, or overhead concepts.
+
+Audit persistence is idempotent by deterministic window/revision/result IDs.
+Late evidence changes the revision hash and creates the next immutable revision.
+Evaluation rows preserve separate fixture, config, model, compiler, policy,
+metric, and run hashes. Portfolio windows and recommendation previews may have
+no single project identity; project/task/trajectory results retain their
+project lineage. Evidence links reference retained evidence artifacts only.
+
 ## SCD2 dimensions
 
 `projects` and `sources` hold stable UUID identity only. Mutable classification,
@@ -142,6 +154,9 @@ allowed operations, unknown-state views, rare-cohort suppression, and documented
 query-plan budgets. Plans use `EXPLAIN (FORMAT JSON)` with synthetic high-volume
 fixtures; timing is diagnostic, while stable node/index/row-budget assertions are
 the gate.
+
+Migration 7's down path fails safely when nullable portfolio governance rows
+exist; it never silently deletes them. Export/repair first or use forward repair.
 
 Recovery tests create an encrypted archive, prove plaintext is absent, restore
 into a newly created isolated database, then compare schema version, normalized

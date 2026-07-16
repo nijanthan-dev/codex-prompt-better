@@ -1,6 +1,9 @@
 package contracts
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // SchemaVersion is the frozen v1 schema version.
 const SchemaVersion = "1.0.0"
@@ -226,6 +229,185 @@ type AuditSessionResult struct {
 	EvidenceRefs     []string      `json:"evidence_refs"`
 	Findings         []string      `json:"findings"`
 	RedactionApplied bool          `json:"redaction_applied"`
+}
+
+// AuditScope is a bounded governance aggregation level.
+type AuditScope string
+
+const (
+	AuditScopePortfolio  AuditScope = "portfolio"
+	AuditScopeProject    AuditScope = "project"
+	AuditScopeTask       AuditScope = "task"
+	AuditScopeTrajectory AuditScope = "trajectory"
+)
+
+// MetricStatus is a coverage- and guardrail-aware comparison outcome.
+type MetricStatus string
+
+const (
+	MetricStatusImproved     MetricStatus = "improved"
+	MetricStatusWorsened     MetricStatus = "worsened"
+	MetricStatusFlat         MetricStatus = "flat"
+	MetricStatusMixed        MetricStatus = "mixed"
+	MetricStatusInsufficient MetricStatus = "insufficient"
+)
+
+// AuditProjectRequest is the additive project governance request.
+type AuditProjectRequest struct {
+	SchemaVersion     string       `json:"schema_version"`
+	Kind              string       `json:"kind"`
+	Scope             AuditScope   `json:"scope"`
+	Reference         string       `json:"reference"`
+	ConfiguredSources []string     `json:"configured_sources"`
+	StartsAt          time.Time    `json:"starts_at"`
+	EndsAt            time.Time    `json:"ends_at"`
+	AsOf              time.Time    `json:"as_of"`
+	Consent           AuditConsent `json:"consent"`
+}
+
+// MetricResult is one transparent native-unit governance calculation.
+type MetricResult struct {
+	Name                     string        `json:"name"`
+	Version                  string        `json:"version"`
+	NativeValue              *float64      `json:"native_value"`
+	NativeUnit               string        `json:"native_unit"`
+	Numerator                *float64      `json:"numerator"`
+	Denominator              *float64      `json:"denominator"`
+	SampleCount              int           `json:"sample_count"`
+	PreviousValue            *float64      `json:"previous_value"`
+	RollingMedian            *float64      `json:"rolling_median"`
+	RollingMAD               *float64      `json:"rolling_mad"`
+	BaselineSampleCount      int           `json:"baseline_sample_count"`
+	AbsoluteChangePrevious   *float64      `json:"absolute_change_previous"`
+	PercentageChangePrevious *float64      `json:"percentage_change_previous"`
+	AbsoluteChangeRolling    *float64      `json:"absolute_change_rolling"`
+	PercentageChangeRolling  *float64      `json:"percentage_change_rolling"`
+	WorkloadAdjustedResidual *float64      `json:"workload_adjusted_residual"`
+	PracticalThreshold       float64       `json:"practical_threshold"`
+	Coverage                 CoverageState `json:"coverage"`
+	Status                   MetricStatus  `json:"status"`
+	StatusReason             string        `json:"status_reason"`
+	Confidence               string        `json:"confidence"`
+	Uncertainty              string        `json:"uncertainty"`
+	Exclusions               []string      `json:"exclusions"`
+	EvidenceRefs             []string      `json:"evidence_refs"`
+}
+
+// AuditFinding is an evidence-backed, non-causal governance observation.
+type AuditFinding struct {
+	Code            string   `json:"code"`
+	Detector        string   `json:"detector"`
+	DetectorVersion string   `json:"detector_version"`
+	Cause           string   `json:"cause"`
+	ExceptionCheck  string   `json:"exception_check"`
+	Classification  string   `json:"classification"`
+	Confidence      string   `json:"confidence"`
+	EvidenceRefs    []string `json:"evidence_refs"`
+	Counterevidence []string `json:"counterevidence"`
+}
+
+// AuditRecommendation is preview-only guidance with an explicit verification.
+type AuditRecommendation struct {
+	Code                string   `json:"code"`
+	PolicyVersion       string   `json:"policy_version"`
+	LifecycleState      string   `json:"lifecycle_state"`
+	TargetSurface       string   `json:"target_surface"`
+	Action              string   `json:"action"`
+	ExpectedMovement    string   `json:"expected_movement"`
+	ProtectedGuardrails []string `json:"protected_guardrails"`
+	ApprovalRequired    bool     `json:"approval_required"`
+	Verification        string   `json:"verification"`
+	Risks               []string `json:"risks"`
+	EvidenceRefs        []string `json:"evidence_refs"`
+}
+
+type AuditWindowProvenance struct {
+	StartsAt        time.Time `json:"starts_at"`
+	EndsAt          time.Time `json:"ends_at"`
+	AsOf            time.Time `json:"as_of"`
+	Timezone        string    `json:"timezone"`
+	BaselineVersion string    `json:"baseline_version"`
+	CountingMode    string    `json:"counting_mode"`
+	WorkloadVersion string    `json:"workload_version"`
+	SourceVersions  []string  `json:"source_versions"`
+	Revision        int       `json:"revision"`
+	LateEvidence    bool      `json:"late_evidence"`
+}
+
+type ScopeContribution struct {
+	Scope            AuditScope    `json:"scope"`
+	Reference        string        `json:"reference"`
+	WorkloadClass    string        `json:"workload_class"`
+	Numerator        float64       `json:"numerator"`
+	Denominator      float64       `json:"denominator"`
+	Contribution     *float64      `json:"contribution"`
+	Coverage         CoverageState `json:"coverage"`
+	AttributionState string        `json:"attribution_state"`
+}
+
+type WorkloadDecomposition struct {
+	Metric            string   `json:"metric"`
+	VolumeEffect      *float64 `json:"volume_effect"`
+	MixEffect         *float64 `json:"mix_effect"`
+	WithinClassEffect *float64 `json:"within_class_effect"`
+	Residual          *float64 `json:"residual"`
+	Status            string   `json:"status"`
+	Classes           []string `json:"classes"`
+}
+
+type InvocationCounts struct {
+	HostCalls    int `json:"host_calls"`
+	LeafCalls    int `json:"leaf_calls"`
+	HostResults  int `json:"host_results"`
+	LeafResults  int `json:"leaf_results"`
+	UnknownCalls int `json:"unknown_calls"`
+}
+
+type NativeOutlier struct {
+	Metric      string   `json:"metric"`
+	NativeValue *float64 `json:"native_value"`
+	NativeUnit  string   `json:"native_unit"`
+	Direction   string   `json:"direction"`
+	Magnitude   *float64 `json:"magnitude"`
+}
+
+type ConfounderStratum struct {
+	Kind       string `json:"kind"`
+	State      string `json:"state"`
+	Matched    bool   `json:"matched"`
+	Confidence string `json:"confidence"`
+	Provenance string `json:"provenance"`
+}
+
+type GuardrailResult struct {
+	Name         string        `json:"name"`
+	State        string        `json:"state"`
+	Coverage     CoverageState `json:"coverage"`
+	EvidenceRefs []string      `json:"evidence_refs"`
+}
+
+// AuditProjectResult is the bounded additive governance result.
+type AuditProjectResult struct {
+	SchemaVersion      string                  `json:"schema_version"`
+	Kind               string                  `json:"kind"`
+	AuditReference     string                  `json:"audit_reference"`
+	Scope              AuditScope              `json:"scope"`
+	AsOf               time.Time               `json:"as_of"`
+	RevisionHash       string                  `json:"revision_hash"`
+	Coverage           CoverageState           `json:"coverage"`
+	Metrics            []MetricResult          `json:"metrics"`
+	Findings           []AuditFinding          `json:"findings"`
+	Recommendations    []AuditRecommendation   `json:"recommendations"`
+	GovernanceOverhead []MetricResult          `json:"governance_overhead"`
+	Window             AuditWindowProvenance   `json:"window"`
+	Contributions      []ScopeContribution     `json:"contributions"`
+	WorkloadEffects    []WorkloadDecomposition `json:"workload_effects"`
+	InvocationCounts   InvocationCounts        `json:"invocation_counts"`
+	Outliers           []NativeOutlier         `json:"outliers"`
+	Confounders        []ConfounderStratum     `json:"confounders"`
+	Guardrails         []GuardrailResult       `json:"guardrails"`
+	DerivationMethod   string                  `json:"derivation_method"`
+	OmittedCount       int                     `json:"omitted_count"`
 }
 
 // ReportFormat is a supported governance report rendering.

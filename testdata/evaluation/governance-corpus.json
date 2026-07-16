@@ -1,0 +1,17 @@
+{
+  "version": "corpus-v1",
+  "cases": [
+    {"id":"good-stable","label":"good","tags":["good"],"metric_name":"non_cached_input_per_turn","baseline_value":10,"candidate_value":10,"coverage":"complete","expected_status":"flat","expected_finding":"","quality_gate":"pass"},
+    {"id":"bad-repeat","label":"bad","tags":["bad"],"metric_name":"repeated_calls_per_100_tool_calls","baseline_value":2,"candidate_value":20,"coverage":"complete","expected_status":"worsened","expected_finding":"repeated_unchanged_call","quality_gate":"pass"},
+    {"id":"ambiguous-wait","label":"ambiguous","tags":["ambiguous"],"metric_name":"tokens_per_turn","baseline_value":10,"candidate_value":20,"coverage":"complete","expected_status":"mixed","expected_finding":"passive_polling","quality_gate":"pass"},
+    {"id":"missing-evidence","label":"missing","tags":["missing"],"metric_name":"privacy_redaction_coverage","baseline_value":1,"candidate_value":0,"coverage":"missing","expected_status":"insufficient","expected_finding":"","quality_gate":"unknown"},
+    {"id":"drifted-model","label":"drifted","tags":["drifted"],"metric_name":"tokens_per_turn","baseline_value":10,"candidate_value":12,"coverage":"complete","expected_status":"mixed","expected_finding":"","quality_gate":"pass"},
+    {"id":"portfolio-simpson","label":"portfolio mix","tags":["portfolio_mix"],"metric_name":"tokens_per_turn","baseline_value":10,"candidate_value":11,"coverage":"complete","expected_status":"mixed","expected_finding":"","quality_gate":"pass"},
+    {"id":"sparse-late-window","label":"sparse late","tags":["sparse_late"],"metric_name":"validation_presence","baseline_value":1,"candidate_value":0,"coverage":"partial","expected_status":"insufficient","expected_finding":"","quality_gate":"unknown"},
+    {"id":"nested-parallel-agent","label":"nested parallel subagent","tags":["nested_parallel_subagent"],"metric_name":"tool_error_rate","baseline_value":0,"candidate_value":0,"coverage":"complete","expected_status":"flat","expected_finding":"","quality_gate":"pass"},
+    {"id":"binary-media-output","label":"binary media","tags":["binary_media"],"metric_name":"oversized_outputs_per_100_tool_results","baseline_value":0,"candidate_value":0,"coverage":"complete","expected_status":"flat","expected_finding":"","quality_gate":"pass"},
+    {"id":"self-overhead","label":"governance overhead","tags":["governance_overhead"],"metric_name":"non_cached_input_per_turn","baseline_value":10,"candidate_value":10,"coverage":"complete","expected_status":"flat","expected_finding":"","quality_gate":"pass"},
+    {"id":"rare-cohort","label":"privacy suppression","tags":["privacy_suppression"],"metric_name":"scope_attribution_coverage","baseline_value":1,"candidate_value":0,"coverage":"partial","expected_status":"insufficient","expected_finding":"","quality_gate":"unknown"},
+    {"id":"release-validation","label":"required release validation","tags":["required_release_validation"],"metric_name":"validation_presence","baseline_value":1,"candidate_value":1,"coverage":"complete","expected_status":"flat","expected_finding":"","quality_gate":"pass"}
+  ]
+}

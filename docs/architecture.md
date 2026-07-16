@@ -45,7 +45,7 @@ watermarks, idempotent writes, bounded batches, and explicit configuration. A
 collector failure must not prevent interactive prompt improvement. MCP shutdown
 must not interrupt collection, and MCP startup must not trigger implicit scans.
 
-## Planned interactive contracts
+## Interactive contracts
 
 | Tool | Contract |
 |---|---|
@@ -55,6 +55,7 @@ must not interrupt collection, and MCP startup must not trigger implicit scans.
 | `lint_prompt` | Return deterministic diagnostics without execution. |
 | `get_checkpoint` | Return completed work, blocker, next actions, and remaining gates. |
 | `audit_session` | Audit configured local evidence for one session/reference. |
+| `audit_project` | Audit one bounded portfolio/project/task/trajectory window from normalized evidence. |
 | `render_governance_report` | Render chat-native output or compact fallback. |
 
 Contracts require versioned input/output schemas, stable error codes, redaction

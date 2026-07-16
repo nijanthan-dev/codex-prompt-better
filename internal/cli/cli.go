@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/nijanthan-dev/codex-prompt-better/internal/boundary"
@@ -22,6 +23,7 @@ import (
 	"github.com/nijanthan-dev/codex-prompt-better/internal/policy"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/policypack"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/setup"
+	"github.com/nijanthan-dev/codex-prompt-better/internal/store/postgres"
 	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
 )
 
@@ -116,6 +118,9 @@ func Run(parent context.Context, args []string, streams Streams) int {
 	}
 	if command == "init" {
 		return setup.RunInit(parent, args[1:], setup.Streams{Output: streams.Output, Error: streams.Error})
+	}
+	if command == "audit" {
+		return runAudit(parent, args[1:], streams)
 	}
 	if !validCommand(command) {
 		err := contracts.NewError(contracts.ErrorCodeInvalidSchema, "unknown command", "command", false)
@@ -829,10 +834,109 @@ func validCommand(command string) bool {
 	}
 }
 
+func runAudit(ctx context.Context, args []string, streams Streams) int {
+	const maxAuditResultBytes = 50_000
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	fs := flag.NewFlagSet("audit", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	var scope, reference, startsAt, endsAt, asOf, format string
+	var sources stringList
+	var consent bool
+	fs.StringVar(&scope, "scope", "", "portfolio, project, task, or trajectory")
+	fs.StringVar(&reference, "reference", "", "opaque local scope reference")
+	fs.StringVar(&startsAt, "starts-at", "", "inclusive RFC3339 window start")
+	fs.StringVar(&endsAt, "ends-at", "", "exclusive RFC3339 window end")
+	fs.StringVar(&asOf, "as-of", "", "immutable RFC3339 audit watermark")
+	fs.Var(&sources, "source", "configured local source kind; repeatable")
+	fs.StringVar(&format, "format", "json", "json or text")
+	fs.BoolVar(&consent, "consent", false, "explicitly consent to configured local evidence")
+	if err := fs.Parse(args); err != nil || len(fs.Args()) != 0 {
+		return emitError(streams.Error, "text", contracts.NewError(
+			contracts.ErrorCodeInvalidSchema,
+			"invalid audit flags",
+			"flags",
+			false,
+		))
+	}
+	start, startErr := time.Parse(time.RFC3339Nano, startsAt)
+	end, endErr := time.Parse(time.RFC3339Nano, endsAt)
+	watermark, asOfErr := time.Parse(time.RFC3339Nano, asOf)
+	if startErr != nil || endErr != nil || asOfErr != nil ||
+		(format != "json" && format != "text") {
+		return emitError(streams.Error, "text", contracts.NewError(
+			contracts.ErrorCodeInvalidSchema,
+			"invalid audit window or format",
+			"flags",
+			false,
+		))
+	}
+	auditConsent := contracts.AuditConsentUnknown
+	if consent {
+		auditConsent = contracts.AuditConsentGranted
+	}
+	request := contracts.AuditProjectRequest{
+		SchemaVersion: contracts.SchemaVersion, Kind: "request",
+		Scope: contracts.AuditScope(scope), Reference: reference,
+		ConfiguredSources: append([]string{}, sources...),
+		StartsAt:          start, EndsAt: end, AsOf: watermark, Consent: auditConsent,
+	}
+	dsn := os.Getenv("PROMPT_BETTER_DATABASE_URL")
+	if dsn == "" {
+		return emitError(streams.Error, format, contracts.NewError(
+			contracts.ErrorCodeCoverageIncomplete,
+			"project audit store unavailable",
+			"reference",
+			true,
+		))
+	}
+	repository, err := postgres.OpenRepository(ctx, dsn, postgres.DefaultPoolConfig())
+	if err != nil {
+		return emitError(streams.Error, format, contracts.NewError(
+			contracts.ErrorCodeCoverageIncomplete,
+			"project audit store unavailable",
+			"reference",
+			true,
+		))
+	}
+	defer repository.Close()
+	result, err := repository.AuditProject(ctx, request)
+	if err != nil {
+		return emitError(streams.Error, format, err)
+	}
+	if format == "json" {
+		encoded, err := json.Marshal(result)
+		if err != nil {
+			return exitInternal
+		}
+		if len(encoded)+1 > maxAuditResultBytes {
+			return emitError(streams.Error, format, contracts.NewError(
+				contracts.ErrorCodeBudgetExhausted, "audit result exceeds output budget",
+				"result", false))
+		}
+		if _, err := streams.Output.Write(append(encoded, '\n')); err != nil {
+			return exitInternal
+		}
+		return exitOK
+	}
+	if _, err := fmt.Fprintf(
+		streams.Output,
+		"audit %s coverage=%s metrics=%d findings=%d recommendations=%d\n",
+		result.AuditReference,
+		result.Coverage,
+		len(result.Metrics),
+		len(result.Findings),
+		len(result.Recommendations),
+	); err != nil {
+		return exitInternal
+	}
+	return exitOK
+}
+
 func writeUsage(output io.Writer) int {
 	_, err := fmt.Fprintln(
 		output,
-		"usage: prompt-better <improve_prompt|create_goal_prompt|create_review_fix_prompt|lint_prompt|doctor|init> [flags] [text]",
+		"usage: prompt-better <improve_prompt|create_goal_prompt|create_review_fix_prompt|lint_prompt|audit|doctor|init> [flags] [text]",
 	)
 	if err != nil {
 		return exitInternal

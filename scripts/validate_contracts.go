@@ -83,8 +83,8 @@ func (v *validator) run() stats {
 	v.schemas = v.loadJSONTree(filepath.Join(v.root, "schemas", "v1"))
 	v.fixtures = v.loadJSONTree(filepath.Join(v.root, "testdata", "golden"))
 	v.packs = v.loadJSONTree(filepath.Join(v.root, "policies", "builtin"))
-	if len(v.schemas) != 16 {
-		v.fail("expected 16 schemas, found %d", len(v.schemas))
+	if len(v.schemas) != 17 {
+		v.fail("expected 17 schemas, found %d", len(v.schemas))
 	}
 
 	v.validateEvidence()
@@ -236,6 +236,11 @@ func (v *validator) schemaValid(value any, schema document, schemaPath string) b
 		if v.schemaValid(value, condition, schemaPath) {
 			consequence, _ := rule["then"].(document)
 			if !v.schemaValid(value, consequence, schemaPath) {
+				return false
+			}
+		} else {
+			consequence, _ := rule["else"].(document)
+			if consequence != nil && !v.schemaValid(value, consequence, schemaPath) {
 				return false
 			}
 		}
@@ -557,7 +562,7 @@ func (v *validator) validateTools() int {
 		}
 	}
 	if !sameKeys(tools, expected) {
-		v.fail("tool examples do not exactly cover seven tool schemas")
+		v.fail("tool examples do not exactly cover eight tool schemas")
 	}
 
 	commonPath := v.schemaPath("common.schema.json")
@@ -627,6 +632,16 @@ func (v *validator) validateNestedToolContracts(tools document) {
 		invalid := clone(review)
 		invalid["review_head"] = "not-hex"
 		v.expectInvalid(invalid, requestSchema, path, "review head pattern constraint not enforced")
+	}
+	auditProject := nestedDocument(tools, "audit_project", "request")
+	if auditProject != nil {
+		path := clean(filepath.Join(v.root, "schemas", "v1", "tools", "audit_project.schema.json"))
+		defs, _ := v.schemas[path]["$defs"].(document)
+		requestSchema, _ := defs["request"].(document)
+		invalid := clone(auditProject)
+		invalid["reference"] = "not-a-uuid"
+		v.expectInvalid(invalid, requestSchema, path,
+			"audit project accepted non-UUID scoped reference")
 	}
 
 	budgetPath := v.schemaPath("execution-budget.schema.json")
@@ -825,7 +840,7 @@ func (v *validator) validateIntegrationAssets() {
 		}
 	}
 	skill := v.read(filepath.Join(v.root, "skills", "prompt-better", "SKILL.md"))
-	for _, required := range []string{"smallest applicable tool", "explicit consent", "stop at the requested boundary", "audit_session", "render_governance_report"} {
+	for _, required := range []string{"smallest applicable tool", "explicit consent", "stop at the requested boundary", "audit_session", "audit_project", "render_governance_report"} {
 		if !strings.Contains(skill, required) {
 			v.fail("PromptBetter skill missing invariant: %s", required)
 		}
@@ -837,7 +852,7 @@ func (v *validator) validateIntegrationAssets() {
 	}
 	service := v.read(filepath.Join(v.root, "internal", "tools", "service.go"))
 	previous := -1
-	for _, name := range []string{"improve_prompt", "create_goal_prompt", "create_review_fix_prompt", "lint_prompt", "get_checkpoint", "audit_session", "render_governance_report"} {
+	for _, name := range []string{"improve_prompt", "create_goal_prompt", "create_review_fix_prompt", "lint_prompt", "get_checkpoint", "audit_session", "audit_project", "render_governance_report"} {
 		index := strings.Index(service, `"`+name+`"`)
 		if index <= previous {
 			v.fail("MCP tool registration order invalid: %s", name)

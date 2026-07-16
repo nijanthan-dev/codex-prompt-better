@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const latestSchemaVersion = 6
+const latestSchemaVersion = 7
 
 var (
 	// ErrNotFound reports an absent normalized entity without exposing query data.

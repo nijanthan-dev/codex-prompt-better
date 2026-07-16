@@ -6,7 +6,8 @@ func TestToolDefinition_ExtractsStandaloneRequestAndResult(t *testing.T) {
 	t.Parallel()
 	for _, name := range []string{
 		"improve_prompt", "create_goal_prompt", "create_review_fix_prompt",
-		"lint_prompt", "get_checkpoint", "audit_session", "render_governance_report",
+		"lint_prompt", "get_checkpoint", "audit_session", "audit_project",
+		"render_governance_report",
 	} {
 		for _, definition := range []string{"request", "result"} {
 			schema, err := ToolDefinition(name, definition)

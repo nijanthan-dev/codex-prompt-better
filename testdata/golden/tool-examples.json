@@ -208,6 +208,115 @@
         "evidence_refs": []
       }
     },
+    "audit_project": {
+      "request": {
+        "schema_version": "1.0.0",
+        "kind": "request",
+        "scope": "project",
+        "reference": "00000000-0000-4000-8000-000000000001",
+        "configured_sources": ["synthetic"],
+        "starts_at": "2026-01-01T00:00:00Z",
+        "ends_at": "2026-01-02T00:00:00Z",
+        "as_of": "2026-01-02T00:00:00Z",
+        "consent": "granted"
+      },
+      "result": {
+        "schema_version": "1.0.0",
+        "kind": "result",
+        "audit_reference": "00000000-0000-4000-8000-000000000001",
+        "scope": "project",
+        "as_of": "2026-01-02T00:00:00Z",
+        "revision_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "coverage": "complete",
+        "metrics": [
+          {
+            "name": "tokens_per_turn",
+            "version": "metric-v1",
+            "native_value": 100,
+            "native_unit": "tokens/turn",
+            "numerator": 1000,
+            "denominator": 10,
+            "sample_count": 10,
+            "previous_value": 102,
+            "rolling_median": 101,
+            "rolling_mad": 2,
+            "baseline_sample_count": 7,
+            "absolute_change_previous": -2,
+            "percentage_change_previous": -0.0196078431,
+            "absolute_change_rolling": -1,
+            "percentage_change_rolling": -0.0099009901,
+            "workload_adjusted_residual": 0,
+            "practical_threshold": 0.05,
+            "coverage": "complete",
+            "status": "flat",
+            "status_reason": "within_practical_or_noise_threshold",
+            "confidence": "high",
+            "uncertainty": "none",
+            "exclusions": [
+              "incomplete_turns"
+            ],
+            "evidence_refs": [
+              "synthetic-evidence-alpha"
+            ]
+          }
+        ],
+        "findings": [],
+        "recommendations": [
+          {
+            "code": "no_action",
+            "policy_version": "recommendation-v1",
+            "lifecycle_state": "proposed",
+            "target_surface": "no_action",
+            "action": "Keep the current workflow.",
+            "expected_movement": "none",
+            "protected_guardrails": [
+              "all_configured_quality_and_safety_gates"
+            ],
+            "approval_required": false,
+            "verification": "Re-audit comparable evidence.",
+            "risks": [],
+            "evidence_refs": []
+          }
+        ],
+        "governance_overhead": [],
+        "window": {
+          "starts_at": "2026-01-01T00:00:00Z",
+          "ends_at": "2026-01-02T00:00:00Z",
+          "as_of": "2026-01-02T00:00:00Z",
+          "timezone": "UTC",
+          "baseline_version": "baseline-v1",
+          "counting_mode": "logical-invocation-v1",
+          "workload_version": "workload-v1",
+          "source_versions": [
+            "synthetic-source-version"
+          ],
+          "revision": 1,
+          "late_evidence": false
+        },
+        "contributions": [],
+        "workload_effects": [],
+        "invocation_counts": {
+          "host_calls": 0,
+          "leaf_calls": 0,
+          "host_results": 0,
+          "leaf_results": 0,
+          "unknown_calls": 0
+        },
+        "outliers": [],
+        "confounders": [],
+        "guardrails": [],
+        "derivation_method": "normalized_sql+metric-v1+baseline-v1",
+        "omitted_count": 0
+      },
+      "error": {
+        "schema_version": "1.0.0",
+        "code": "coverage_incomplete",
+        "message": "Required normalized evidence missing.",
+        "field_path": "reference",
+        "retryable": true,
+        "evidence_refs": []
+      }
+    },
     "render_governance_report": {
       "request": {
         "schema_version": "1.0.0",

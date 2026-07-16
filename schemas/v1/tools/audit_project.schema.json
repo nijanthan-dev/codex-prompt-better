@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-better.local/schemas/v1/tools/audit_project.schema.json",
+  "title": "audit_project v1",
+  "oneOf": [
+    {"$ref": "#/$defs/request"},
+    {"$ref": "#/$defs/result"},
+    {"$ref": "../common.schema.json#/$defs/error"}
+  ],
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "kind", "scope", "reference", "configured_sources", "starts_at", "ends_at", "as_of", "consent"],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "kind": {"const": "request"},
+        "scope": {"enum": ["portfolio", "project", "task", "trajectory"]},
+        "reference": {"type": "string", "minLength": 1, "maxLength": 128},
+        "configured_sources": {"type": "array", "minItems": 1, "maxItems": 20, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 80}},
+        "starts_at": {"type": "string", "format": "date-time"},
+        "ends_at": {"type": "string", "format": "date-time"},
+        "as_of": {"type": "string", "format": "date-time"},
+        "consent": {"enum": ["granted", "denied", "unknown"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"scope": {"const": "portfolio"}}},
+          "then": {"properties": {"reference": {"const": "all"}}},
+          "else": {"properties": {"reference": {"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"}}}
+        }
+      ]
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "native_value", "native_unit", "numerator", "denominator", "sample_count", "previous_value", "rolling_median", "rolling_mad", "baseline_sample_count", "absolute_change_previous", "percentage_change_previous", "absolute_change_rolling", "percentage_change_rolling", "workload_adjusted_residual", "practical_threshold", "coverage", "status", "status_reason", "confidence", "uncertainty", "exclusions", "evidence_refs"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 80},
+        "version": {"type": "string", "minLength": 1, "maxLength": 40},
+        "native_value": {"type": ["number", "null"], "minimum": 0},
+        "native_unit": {"type": "string", "minLength": 1, "maxLength": 40},
+        "numerator": {"type": ["number", "null"], "minimum": 0},
+        "denominator": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "sample_count": {"type": "integer", "minimum": 0},
+        "previous_value": {"type": ["number", "null"], "minimum": 0},
+        "rolling_median": {"type": ["number", "null"], "minimum": 0},
+        "rolling_mad": {"type": ["number", "null"], "minimum": 0},
+        "baseline_sample_count": {"type": "integer", "minimum": 0},
+        "absolute_change_previous": {"type": ["number", "null"]},
+        "percentage_change_previous": {"type": ["number", "null"]},
+        "absolute_change_rolling": {"type": ["number", "null"]},
+        "percentage_change_rolling": {"type": ["number", "null"]},
+        "workload_adjusted_residual": {"type": ["number", "null"]},
+        "practical_threshold": {"type": "number", "minimum": 0},
+        "coverage": {"enum": ["complete", "partial", "missing", "unknown"]},
+        "status": {"enum": ["improved", "worsened", "flat", "mixed", "insufficient"]},
+        "status_reason": {"type": "string", "minLength": 1, "maxLength": 160},
+        "confidence": {"enum": ["high", "medium", "low", "unknown"]},
+        "uncertainty": {"type": "string", "maxLength": 160},
+        "exclusions": {"type": "array", "maxItems": 20, "items": {"type": "string", "maxLength": 120}},
+        "evidence_refs": {"type": "array", "maxItems": 100, "items": {"type": "string", "maxLength": 128}}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "detector", "detector_version", "cause", "exception_check", "classification", "confidence", "evidence_refs", "counterevidence"],
+      "properties": {
+        "code": {"type": "string", "minLength": 1, "maxLength": 80},
+        "detector": {"type": "string", "minLength": 1, "maxLength": 80},
+        "detector_version": {"type": "string", "minLength": 1, "maxLength": 40},
+        "cause": {"type": "string", "minLength": 1, "maxLength": 300},
+        "exception_check": {"type": "string", "minLength": 1, "maxLength": 300},
+        "classification": {"enum": ["necessary", "avoidable", "mixed", "uncertain"]},
+        "confidence": {"enum": ["high", "medium", "low", "unknown"]},
+        "evidence_refs": {"type": "array", "maxItems": 100, "items": {"type": "string", "maxLength": 128}},
+        "counterevidence": {"type": "array", "maxItems": 20, "items": {"type": "string", "maxLength": 160}}
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "policy_version", "lifecycle_state", "target_surface", "action", "expected_movement", "protected_guardrails", "approval_required", "verification", "risks", "evidence_refs"],
+      "properties": {
+        "code": {"type": "string", "minLength": 1, "maxLength": 80},
+        "policy_version": {"type": "string", "minLength": 1, "maxLength": 40},
+        "lifecycle_state": {"enum": ["proposed", "accepted", "dismissed", "applied_external", "verified", "ineffective", "reverted"]},
+        "target_surface": {"type": "string", "minLength": 1, "maxLength": 80},
+        "action": {"type": "string", "minLength": 1, "maxLength": 500},
+        "expected_movement": {"type": "string", "minLength": 1, "maxLength": 300},
+        "protected_guardrails": {"type": "array", "maxItems": 20, "items": {"type": "string", "maxLength": 120}},
+        "approval_required": {"type": "boolean"},
+        "verification": {"type": "string", "minLength": 1, "maxLength": 500},
+        "risks": {"type": "array", "maxItems": 20, "items": {"type": "string", "maxLength": 200}},
+        "evidence_refs": {"type": "array", "maxItems": 100, "items": {"type": "string", "maxLength": 128}}
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["starts_at", "ends_at", "as_of", "timezone", "baseline_version", "counting_mode", "workload_version", "source_versions", "revision", "late_evidence"],
+      "properties": {
+        "starts_at": {"type": "string", "format": "date-time"},
+        "ends_at": {"type": "string", "format": "date-time"},
+        "as_of": {"type": "string", "format": "date-time"},
+        "timezone": {"type": "string", "minLength": 1, "maxLength": 80},
+        "baseline_version": {"type": "string", "minLength": 1, "maxLength": 40},
+        "counting_mode": {"type": "string", "minLength": 1, "maxLength": 40},
+        "workload_version": {"type": "string", "minLength": 1, "maxLength": 40},
+        "source_versions": {"type": "array", "maxItems": 100, "items": {"type": "string", "maxLength": 128}},
+        "revision": {"type": "integer", "minimum": 1},
+        "late_evidence": {"type": "boolean"}
+      }
+    },
+    "contribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "reference", "workload_class", "numerator", "denominator", "contribution", "coverage", "attribution_state"],
+      "properties": {
+        "scope": {"enum": ["portfolio", "project", "task", "trajectory"]},
+        "reference": {"type": "string", "minLength": 1, "maxLength": 128},
+        "workload_class": {"type": "string", "minLength": 1, "maxLength": 80},
+        "numerator": {"type": "number", "minimum": 0},
+        "denominator": {"type": "number", "minimum": 0},
+        "contribution": {"type": ["number", "null"], "minimum": 0},
+        "coverage": {"enum": ["complete", "partial", "missing", "unknown"]},
+        "attribution_state": {"type": "string", "minLength": 1, "maxLength": 80}
+      }
+    },
+    "workload_effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "volume_effect", "mix_effect", "within_class_effect", "residual", "status", "classes"],
+      "properties": {
+        "metric": {"type": "string", "minLength": 1, "maxLength": 80},
+        "volume_effect": {"type": ["number", "null"]},
+        "mix_effect": {"type": ["number", "null"]},
+        "within_class_effect": {"type": ["number", "null"]},
+        "residual": {"type": ["number", "null"]},
+        "status": {"enum": ["decomposed", "simpson_mixed", "insufficient"]},
+        "classes": {"type": "array", "maxItems": 40, "items": {"type": "string", "minLength": 1, "maxLength": 80}}
+      }
+    },
+    "invocation_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host_calls", "leaf_calls", "host_results", "leaf_results", "unknown_calls"],
+      "properties": {
+        "host_calls": {"type": "integer", "minimum": 0},
+        "leaf_calls": {"type": "integer", "minimum": 0},
+        "host_results": {"type": "integer", "minimum": 0},
+        "leaf_results": {"type": "integer", "minimum": 0},
+        "unknown_calls": {"type": "integer", "minimum": 0}
+      }
+    },
+    "outlier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "native_value", "native_unit", "direction", "magnitude"],
+      "properties": {
+        "metric": {"type": "string", "minLength": 1, "maxLength": 80},
+        "native_value": {"type": ["number", "null"]},
+        "native_unit": {"type": "string", "minLength": 1, "maxLength": 80},
+        "direction": {"enum": ["higher", "lower"]},
+        "magnitude": {"type": ["number", "null"], "minimum": 0}
+      }
+    },
+    "confounder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "state", "matched", "confidence", "provenance"],
+      "properties": {
+        "kind": {"type": "string", "minLength": 1, "maxLength": 80},
+        "state": {"type": "string", "minLength": 1, "maxLength": 120},
+        "matched": {"type": "boolean"},
+        "confidence": {"enum": ["high", "medium", "low", "unknown"]},
+        "provenance": {"type": "string", "minLength": 1, "maxLength": 80}
+      }
+    },
+    "guardrail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "state", "coverage", "evidence_refs"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 80},
+        "state": {"enum": ["pass", "fail", "unknown"]},
+        "coverage": {"enum": ["complete", "partial", "missing", "unknown"]},
+        "evidence_refs": {"type": "array", "maxItems": 100, "items": {"type": "string", "maxLength": 128}}
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "kind", "audit_reference", "scope", "as_of", "revision_hash", "coverage", "metrics", "findings", "recommendations", "governance_overhead", "window", "contributions", "workload_effects", "invocation_counts", "outliers", "confounders", "guardrails", "derivation_method", "omitted_count"],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "kind": {"const": "result"},
+        "audit_reference": {"type": "string", "minLength": 1, "maxLength": 128},
+        "scope": {"enum": ["portfolio", "project", "task", "trajectory"]},
+        "as_of": {"type": "string", "format": "date-time"},
+        "revision_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "coverage": {"enum": ["complete", "partial", "missing", "unknown"]},
+        "metrics": {"type": "array", "maxItems": 50, "items": {"$ref": "#/$defs/metric"}},
+        "findings": {"type": "array", "maxItems": 50, "items": {"$ref": "#/$defs/finding"}},
+        "recommendations": {"type": "array", "maxItems": 5, "items": {"$ref": "#/$defs/recommendation"}},
+        "governance_overhead": {"type": "array", "maxItems": 20, "items": {"$ref": "#/$defs/metric"}},
+        "window": {"$ref": "#/$defs/window"},
+        "contributions": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/contribution"}},
+        "workload_effects": {"type": "array", "maxItems": 20, "items": {"$ref": "#/$defs/workload_effect"}},
+        "invocation_counts": {"$ref": "#/$defs/invocation_counts"},
+        "outliers": {"type": "array", "maxItems": 10, "items": {"$ref": "#/$defs/outlier"}},
+        "confounders": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/confounder"}},
+        "guardrails": {"type": "array", "maxItems": 20, "items": {"$ref": "#/$defs/guardrail"}},
+        "derivation_method": {"type": "string", "minLength": 1, "maxLength": 160},
+        "omitted_count": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

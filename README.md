@@ -7,7 +7,7 @@ reviewable instructions while measuring whether execution stayed in scope.
 
 > **Status:** pre-alpha. The v0.1.0 contract-preview source release exists.
 > Source now includes the deterministic CLI, PostgreSQL migrations and
-> collectors, seven-tool stdio MCP server, thin Codex skill, doctor, and safe
+> collectors, eight-tool stdio MCP server, thin Codex skill, doctor, and safe
 > init. Installable artifacts and packages do not exist.
 
 ## Vision
@@ -31,11 +31,14 @@ future work.
 
 Implemented MCP tools: `improve_prompt`, `create_goal_prompt`,
 `create_review_fix_prompt`, `lint_prompt`, `get_checkpoint`, `audit_session`,
-and `render_governance_report`. Checkpoints and rendered audits are ephemeral
+`audit_project`, and `render_governance_report`. Project audits are bounded,
+explicitly consented, and computed from normalized local evidence. Checkpoints
+and rendered audits are ephemeral
 and isolated to one MCP client session.
 
 See [architecture](docs/architecture.md), [data model](docs/data-model.md), and
-the [implementation roadmap](https://github.com/nijanthan-dev/codex-prompt-better/issues/1).
+the [governance metrics](docs/metrics.md), [evaluation/replay](docs/evaluation.md),
+and [implementation roadmap](https://github.com/nijanthan-dev/codex-prompt-better/issues/1).
 
 ## Privacy
 
