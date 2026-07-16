@@ -2,13 +2,17 @@ package postgres
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -128,6 +132,56 @@ type Project struct {
 	LifecycleState string
 }
 
+// ProjectVersion is one effective SCD2 project state.
+type ProjectVersion struct {
+	ProjectID      string
+	VersionID      string
+	VersionNumber  int64
+	Classification string
+	LifecycleState string
+	ValidFrom      time.Time
+	ValidTo        *time.Time
+}
+
+// CurrentProject returns the sole open project version.
+func (r *Repository) CurrentProject(ctx context.Context, projectID string) (ProjectVersion, error) {
+	return r.projectVersion(ctx, projectID, nil)
+}
+
+// ProjectAsOf returns the half-open version effective at event time.
+func (r *Repository) ProjectAsOf(ctx context.Context, projectID string, eventAt time.Time) (ProjectVersion, error) {
+	return r.projectVersion(ctx, projectID, &eventAt)
+}
+
+func (r *Repository) projectVersion(ctx context.Context, projectID string, eventAt *time.Time) (ProjectVersion, error) {
+	query := `SELECT project_id, project_version_id, version_number,
+        classification, lifecycle_state, valid_from, valid_to
+        FROM prompt_better.project_versions
+        WHERE project_id=$1 AND valid_to IS NULL`
+	arguments := []any{projectID}
+	if eventAt != nil {
+		query = `SELECT project_id, project_version_id, version_number,
+            classification, lifecycle_state, valid_from, valid_to
+            FROM prompt_better.project_versions
+            WHERE project_id=$1 AND valid_from <= $2
+              AND (valid_to > $2 OR valid_to IS NULL)`
+		arguments = append(arguments, *eventAt)
+	}
+	var version ProjectVersion
+	err := r.pool.QueryRow(ctx, query, arguments...).Scan(
+		&version.ProjectID, &version.VersionID, &version.VersionNumber,
+		&version.Classification, &version.LifecycleState,
+		&version.ValidFrom, &version.ValidTo,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ProjectVersion{}, ErrNotFound
+	}
+	if err != nil {
+		return ProjectVersion{}, errors.New("read project version")
+	}
+	return version, nil
+}
+
 // PutProject inserts or updates normalized project state.
 func (r *Repository) PutProject(ctx context.Context, project Project) error {
 	hash := dimensionHash(project.Classification, project.LifecycleState)
@@ -157,7 +211,7 @@ func (r *Repository) PutProject(ctx context.Context, project Project) error {
 			return nil
 		}
 		if err != nil {
-			return errors.New("read current project dimension")
+			return fmt.Errorf("read current project dimension: %w", err)
 		}
 		if string(currentHash) == string(hash[:]) {
 			return nil
@@ -193,6 +247,58 @@ type Source struct {
 	Enabled        bool
 	CreatedAt      time.Time
 	EffectiveAt    time.Time
+}
+
+// SourceVersion is one effective SCD2 source state.
+type SourceVersion struct {
+	SourceID       string
+	VersionID      string
+	VersionNumber  int64
+	AdapterVersion *string
+	ProductSurface string
+	CoverageState  string
+	Enabled        bool
+	ValidFrom      time.Time
+	ValidTo        *time.Time
+}
+
+// CurrentSource returns the sole open source version.
+func (r *Repository) CurrentSource(ctx context.Context, sourceID string) (SourceVersion, error) {
+	return r.sourceVersion(ctx, sourceID, nil)
+}
+
+// SourceAsOf returns the half-open version effective at event time.
+func (r *Repository) SourceAsOf(ctx context.Context, sourceID string, eventAt time.Time) (SourceVersion, error) {
+	return r.sourceVersion(ctx, sourceID, &eventAt)
+}
+
+func (r *Repository) sourceVersion(ctx context.Context, sourceID string, eventAt *time.Time) (SourceVersion, error) {
+	query := `SELECT source_id, source_version_id, version_number,
+        adapter_version, product_surface, coverage_state, enabled, valid_from, valid_to
+        FROM prompt_better.source_versions
+        WHERE source_id=$1 AND valid_to IS NULL`
+	arguments := []any{sourceID}
+	if eventAt != nil {
+		query = `SELECT source_id, source_version_id, version_number,
+            adapter_version, product_surface, coverage_state, enabled, valid_from, valid_to
+            FROM prompt_better.source_versions
+            WHERE source_id=$1 AND valid_from <= $2
+              AND (valid_to > $2 OR valid_to IS NULL)`
+		arguments = append(arguments, *eventAt)
+	}
+	var version SourceVersion
+	err := r.pool.QueryRow(ctx, query, arguments...).Scan(
+		&version.SourceID, &version.VersionID, &version.VersionNumber,
+		&version.AdapterVersion, &version.ProductSurface, &version.CoverageState,
+		&version.Enabled, &version.ValidFrom, &version.ValidTo,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return SourceVersion{}, ErrNotFound
+	}
+	if err != nil {
+		return SourceVersion{}, errors.New("read source version")
+	}
+	return version, nil
 }
 
 // PutSource inserts or updates configured source state.
@@ -231,7 +337,7 @@ func (r *Repository) PutSource(ctx context.Context, source Source) error {
 			return nil
 		}
 		if err != nil {
-			return errors.New("read current source dimension")
+			return fmt.Errorf("read current source dimension: %w", err)
 		}
 		if string(currentHash) == string(hash[:]) {
 			return nil
@@ -296,6 +402,267 @@ type Evidence struct {
 	ProductSurface  string
 	ObservedAt      time.Time
 	RetainedUntil   *time.Time
+}
+
+// CollectionBatch atomically persists bounded evidence and its next cursor.
+type CollectionBatch struct {
+	BatchID      string
+	CursorID     string
+	SourceID     string
+	Next         uint64
+	Generation   string
+	CursorDigest string
+	Fence        string
+	ObservedAt   time.Time
+	Evidence     []Evidence
+}
+
+// CollectionCursor returns zero when a source has no committed sequence cursor.
+func (r *Repository) CollectionCursor(ctx context.Context, sourceID string) (uint64, error) {
+	var value string
+	err := r.pool.QueryRow(ctx, `SELECT cursor_value FROM prompt_better.collection_cursors
+        WHERE source_id=$1 AND cursor_kind='sequence'`, sourceID).Scan(&value)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, errors.New("read collection cursor")
+	}
+	_, _, next, err := decodeCollectionCursor(value)
+	if err != nil {
+		return 0, errors.New("invalid collection cursor")
+	}
+	return next, nil
+}
+
+// CommitCollection commits evidence before advancing the cursor in one transaction.
+func (r *Repository) CommitCollection(ctx context.Context, batch CollectionBatch) (bool, error) {
+	if batch.CursorID == "" || batch.SourceID == "" || batch.Next == 0 || batch.Fence == "" ||
+		len(batch.Evidence) == 0 || len(batch.Evidence) > maxUsageBatch {
+		return false, errors.New("collection batch is outside bounds")
+	}
+	committed := false
+	err := r.WithSerializable(ctx, func(tx pgx.Tx) error {
+		var current uint64
+		var storedGeneration, storedDigest string
+		var cursorValue, cursorState string
+		var leaseExpires *time.Time
+		err := tx.QueryRow(ctx, `SELECT cursor_value, cursor_state, lease_expires_at
+			FROM prompt_better.collection_cursors
+			WHERE source_id=$1 AND cursor_kind='sequence' FOR UPDATE`, batch.SourceID).
+			Scan(&cursorValue, &cursorState, &leaseExpires)
+		if err == nil {
+			var parsedCurrent uint64
+			var parseErr error
+			storedGeneration, storedDigest, parsedCurrent, parseErr = decodeCollectionCursor(cursorValue)
+			current = parsedCurrent
+			err = parseErr
+			if err != nil {
+				return errors.New("invalid collection cursor")
+			}
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return errors.New("lock collection cursor")
+		}
+		if cursorState != "leased:"+batch.Fence || leaseExpires == nil {
+			return errors.New("collection lease fence rejected")
+		}
+		var leaseCurrent bool
+		if err := tx.QueryRow(ctx, `SELECT $1 > statement_timestamp()`, *leaseExpires).Scan(&leaseCurrent); err != nil || !leaseCurrent {
+			return errors.New("collection lease fence rejected")
+		}
+		generationChanged := storedGeneration != "" && storedGeneration != batch.Generation
+		for _, item := range batch.Evidence {
+			if item.SourceID != batch.SourceID {
+				return errors.New("collection source mismatch")
+			}
+		}
+		if !generationChanged && batch.Next < current {
+			return ErrStaleCursor
+		}
+		if !generationChanged && batch.Next == current {
+			if !hmac.Equal([]byte(storedDigest), []byte(batch.CursorDigest)) {
+				return ErrSourceConflict
+			}
+			var storedDigestValue, storedCount string
+			err := tx.QueryRow(ctx, `SELECT source_version, knowledge_state
+				FROM prompt_better.source_assertions WHERE source_assertion_id=$1
+				AND source_id=$2 AND assertion_kind='collection_batch'`, collectionBatchUUID(batch.BatchID), batch.SourceID).
+				Scan(&storedDigestValue, &storedCount)
+			if err != nil || storedDigestValue != batch.CursorDigest || storedCount != fmt.Sprintf("count:%d", len(batch.Evidence)) {
+				return ErrSourceConflict
+			}
+			for _, item := range batch.Evidence {
+				var hash []byte
+				err := tx.QueryRow(ctx, `SELECT content_hash FROM prompt_better.evidence_artifacts
+					WHERE source_id=$1 AND external_alias_id=$2`, item.SourceID, item.ExternalAliasID).Scan(&hash)
+				if err != nil || !hmac.Equal(hash, item.ContentHash) {
+					return ErrSourceConflict
+				}
+			}
+			return nil
+		}
+		for _, item := range batch.Evidence {
+			tag, err := tx.Exec(ctx, `INSERT INTO prompt_better.evidence_artifacts
+                (evidence_artifact_id, source_id, project_id, session_id,
+                 external_alias_id, schema_version, content_hash, content_length,
+                 classification, redaction_state, coverage_state, provenance,
+                 product_surface, observed_at, retained_until)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+                ON CONFLICT (source_id, external_alias_id)
+                WHERE external_alias_id IS NOT NULL DO UPDATE SET
+                    observed_at=EXCLUDED.observed_at,
+                    retained_until=EXCLUDED.retained_until
+                WHERE prompt_better.evidence_artifacts.content_hash=EXCLUDED.content_hash`,
+				item.ID, item.SourceID, item.ProjectID, item.SessionID,
+				item.ExternalAliasID, item.SchemaVersion, item.ContentHash,
+				item.ContentLength, item.Classification, item.RedactionState,
+				item.CoverageState, item.Provenance, item.ProductSurface,
+				item.ObservedAt, item.RetainedUntil)
+			if err != nil {
+				return errors.New("persist collection evidence")
+			}
+			if tag.RowsAffected() == 0 {
+				return ErrSourceConflict
+			}
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.source_assertions
+			(source_assertion_id, source_id, assertion_kind, knowledge_state,
+			 provenance, asserted_at, source_version)
+			VALUES ($1,$2,'collection_batch',$3,'runtime_observed',$4,$5)`,
+			collectionBatchUUID(batch.BatchID), batch.SourceID,
+			fmt.Sprintf("count:%d", len(batch.Evidence)), batch.ObservedAt, batch.CursorDigest); err != nil {
+			return errors.New("persist collection batch identity")
+		}
+		tag, err := tx.Exec(ctx, `INSERT INTO prompt_better.collection_cursors
+            (collection_cursor_id, source_id, cursor_kind, cursor_value,
+             cursor_state, observed_at, updated_at)
+			VALUES ($1,$2,'sequence',$3,$5,$4,$4)
+            ON CONFLICT (source_id, cursor_kind) DO UPDATE SET
+                cursor_value=EXCLUDED.cursor_value,
+                cursor_state=EXCLUDED.cursor_state,
+                observed_at=EXCLUDED.observed_at,
+				updated_at=EXCLUDED.updated_at
+			WHERE prompt_better.collection_cursors.cursor_state=$5
+			  AND prompt_better.collection_cursors.lease_expires_at > statement_timestamp()`,
+			batch.CursorID, batch.SourceID, encodeCollectionCursor(batch.Generation, batch.CursorDigest, batch.Next), batch.ObservedAt, "leased:"+batch.Fence)
+		if err != nil {
+			return errors.New("advance collection cursor")
+		}
+		if tag.RowsAffected() != 1 {
+			return errors.New("collection lease fence rejected")
+		}
+		committed = true
+		return nil
+	})
+	return committed, err
+}
+
+// CollectionGeneration returns the committed source generation.
+func (r *Repository) CollectionGeneration(ctx context.Context, sourceID string) (string, error) {
+	var value string
+	err := r.pool.QueryRow(ctx, `SELECT cursor_value FROM prompt_better.collection_cursors
+        WHERE source_id=$1 AND cursor_kind='sequence'`, sourceID).Scan(&value)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", errors.New("read collection generation")
+	}
+	generation, _, _, err := decodeCollectionCursor(value)
+	if err != nil {
+		return "", errors.New("invalid collection cursor")
+	}
+	return generation, nil
+}
+
+// CollectionDigest returns the keyed prefix checkpoint for the committed cursor.
+func (r *Repository) CollectionDigest(ctx context.Context, sourceID string) (string, error) {
+	var value string
+	err := r.pool.QueryRow(ctx, `SELECT cursor_value FROM prompt_better.collection_cursors
+        WHERE source_id=$1 AND cursor_kind='sequence'`, sourceID).Scan(&value)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", errors.New("read collection digest")
+	}
+	_, digest, _, err := decodeCollectionCursor(value)
+	if err != nil {
+		return "", errors.New("invalid collection cursor")
+	}
+	return digest, nil
+}
+
+// AcquireCollectionLease acquires or replaces an expired fenced source lease.
+func (r *Repository) AcquireCollectionLease(ctx context.Context, cursorID, sourceID, owner string, now time.Time, duration time.Duration) (string, bool, error) {
+	digest := sha256.Sum256([]byte(owner + now.UTC().Format(time.RFC3339Nano)))
+	fence := hex.EncodeToString(digest[:16])
+	tag, err := r.pool.Exec(ctx, `INSERT INTO prompt_better.collection_cursors
+        (collection_cursor_id, source_id, cursor_kind, cursor_value, cursor_state,
+         observed_at, lease_expires_at, updated_at)
+		VALUES ($1,$2,'sequence','0',$3,statement_timestamp(),statement_timestamp()+$4::interval,statement_timestamp())
+        ON CONFLICT (source_id, cursor_kind) DO UPDATE SET
+          cursor_state=EXCLUDED.cursor_state,
+          lease_expires_at=EXCLUDED.lease_expires_at,
+          updated_at=EXCLUDED.updated_at
+		WHERE prompt_better.collection_cursors.lease_expires_at IS NULL
+		   OR prompt_better.collection_cursors.lease_expires_at <= statement_timestamp()`,
+		cursorID, sourceID, "leased:"+fence, duration.String())
+	if err != nil {
+		return "", false, errors.New("acquire collection lease")
+	}
+	return fence, tag.RowsAffected() == 1, nil
+}
+
+func (r *Repository) RenewCollectionLease(ctx context.Context, sourceID, fence string, now time.Time, duration time.Duration) (bool, error) {
+	tag, err := r.pool.Exec(ctx, `UPDATE prompt_better.collection_cursors
+		SET lease_expires_at=statement_timestamp()+$3::interval, updated_at=statement_timestamp()
+		WHERE source_id=$1 AND cursor_kind='sequence' AND cursor_state=$2
+		  AND lease_expires_at > statement_timestamp()`, sourceID, "leased:"+fence, duration.String())
+	if err != nil {
+		return false, errors.New("renew collection lease")
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+func collectionBatchUUID(batchID string) string {
+	digest := sha256.Sum256([]byte(batchID))
+	digest[6] = (digest[6] & 0x0f) | 0x40
+	digest[8] = (digest[8] & 0x3f) | 0x80
+	text := hex.EncodeToString(digest[:16])
+	return fmt.Sprintf("%s-%s-%s-%s-%s", text[:8], text[8:12], text[12:16], text[16:20], text[20:])
+}
+
+func (r *Repository) ReleaseCollectionLease(ctx context.Context, sourceID, fence string) error {
+	_, err := r.pool.Exec(ctx, `UPDATE prompt_better.collection_cursors
+        SET cursor_state='active', lease_expires_at=NULL, updated_at=statement_timestamp()
+        WHERE source_id=$1 AND cursor_kind='sequence' AND cursor_state=$2`, sourceID, "leased:"+fence)
+	if err != nil {
+		return errors.New("release collection lease")
+	}
+	return nil
+}
+
+func encodeCollectionCursor(generation, digest string, sequence uint64) string {
+	if generation == "" {
+		return fmt.Sprintf("%d", sequence)
+	}
+	return generation + ":" + digest + ":" + fmt.Sprintf("%d", sequence)
+}
+
+func decodeCollectionCursor(value string) (string, string, uint64, error) {
+	parts := strings.Split(value, ":")
+	generation, digest, sequence := "", "", value
+	if len(parts) == 3 {
+		generation, digest, sequence = parts[0], parts[1], parts[2]
+	} else if len(parts) == 2 {
+		generation, sequence = parts[0], parts[1]
+	}
+	var next uint64
+	if _, err := fmt.Sscanf(sequence, "%d", &next); err != nil {
+		return "", "", 0, err
+	}
+	return generation, digest, next, nil
 }
 
 const maxUsageBatch = 5000
@@ -406,18 +773,29 @@ func (r *Repository) WithSerializable(ctx context.Context, fn func(pgx.Tx) error
 	if fn == nil {
 		return errors.New("transaction callback is required")
 	}
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
-	if err != nil {
-		return errors.New("begin database transaction")
+	for attempt := 1; attempt <= 3; attempt++ {
+		tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+		if err != nil {
+			return errors.New("begin database transaction")
+		}
+		err = fn(tx)
+		if err == nil {
+			err = tx.Commit(ctx)
+		}
+		if err == nil {
+			return nil
+		}
+		_ = tx.Rollback(context.Background())
+		if !serializationFailure(err) || attempt == 3 {
+			return err
+		}
 	}
-	defer tx.Rollback(context.Background())
-	if err := fn(tx); err != nil {
-		return err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return errors.New("commit database transaction")
-	}
-	return nil
+	return errors.New("database transaction retry exhausted")
+}
+
+func serializationFailure(err error) bool {
+	var postgresError *pgconn.PgError
+	return errors.As(err, &postgresError) && postgresError.Code == "40001"
 }
 
 func dimensionHash(parts ...string) [32]byte {
