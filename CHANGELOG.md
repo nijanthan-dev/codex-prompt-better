@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.0](https://github.com/nijanthan-dev/codex-prompt-better/compare/v0.1.0...v0.2.0) (2026-07-16)
+
+
+### Features
+
+* add boundary engine and policy packs ([9e86556](https://github.com/nijanthan-dev/codex-prompt-better/commit/9e865569020e2e484c32ba694079520d3b61af55))
+* add Codex stdio MCP integration ([0453d96](https://github.com/nijanthan-dev/codex-prompt-better/commit/0453d966a47713515176fda3375c0e7430662646))
+* add PostgreSQL persistence ([af1d518](https://github.com/nijanthan-dev/codex-prompt-better/commit/af1d51800a1e3ba418a984a5d711583c8e5eaa78))
+* build Go prompt compiler CLI ([9393ad8](https://github.com/nijanthan-dev/codex-prompt-better/commit/9393ad8eb45b7932b9544d710262ecd8c6b8f474))
+* ingest incremental Codex evidence ([97c797f](https://github.com/nijanthan-dev/codex-prompt-better/commit/97c797ffd89934b829a99b64b78f6a0673bcf889))
+
+
+### Bug Fixes
+
+* align release baseline ([0f324af](https://github.com/nijanthan-dev/codex-prompt-better/commit/0f324af8666a99a85cbadd5c76109961e556ab42))
+* harden MCP integration ([6b2010d](https://github.com/nijanthan-dev/codex-prompt-better/commit/6b2010dda218720604004c4f630f63e192a09dcc)), closes [#7](https://github.com/nijanthan-dev/codex-prompt-better/issues/7)
+* persist collector lineage ([748d75e](https://github.com/nijanthan-dev/codex-prompt-better/commit/748d75e5a6349eed4e4816ca292c902a893027f2))
+
 ## 0.1.0 (2026-07-14)
 
 
