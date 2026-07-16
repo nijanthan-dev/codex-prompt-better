@@ -1,4 +1,4 @@
-FROM golang:1.24-bookworm AS go-toolchain
+FROM golang:1.25-bookworm AS go-toolchain
 
 FROM postgres:17-bookworm
 

@@ -1,14 +1,14 @@
 # Installation plan
 
-Prompt Better is pre-alpha. Its v0.1.0 GitHub release freezes source contracts,
-and its deterministic Go CLI can be run from source, but there is no released
-binary, package, installer, database migration, MCP configuration, or Codex
-skill yet. Do not treat source commands as an installable artifact.
+Prompt Better is pre-alpha. Its v0.1.0 GitHub release freezes source contracts.
+The repository contains the CLI, migrations, collectors, stdio MCP server,
+source plugin, Codex skill, doctor, and safe init. There is no released binary,
+package, or installer. Do not treat source commands as a published artifact.
 
 ## Planned prerequisites
 
 - Supported macOS initially; Windows and Linux follow through platform adapters.
-- Go 1.24 or newer for source builds.
+- Go 1.25 or newer for source builds.
 - PostgreSQL 16 or newer, on the latest minor release for its major version.
 - Codex with local skill and stdio MCP support for the interactive integration.
 - Git; GitHub CLI only for GitHub evidence/features that the user configures.
@@ -25,21 +25,48 @@ provenance after v0.2.0 artifacts exist.
 
 No package or installable artifact is published before the v0.2.0 closeout.
 
-## Planned first run
+## Source integration
 
-`prompt-better doctor` will report sanitized readiness: binary/platform,
-configuration, PostgreSQL compatibility/connectivity, migrations, Codex
-integration, source permissions, and collector state. It must not print secrets,
-raw connection strings, usernames, prompts, session data, or private paths.
+Preview source setup from a checkout:
 
-`prompt-better init` will be explicit and idempotent. It will preview local files
-and database changes, choose an execution policy, keep raw retention/telemetry
-off, require opt-in per evidence source, and avoid modifying Codex permissions.
-Non-interactive mode will require explicit flags for every sensitive choice.
+```sh
+go run ./cmd/prompt-better init \
+  --execution-policy improve_only \
+  --source configuration \
+  --source git \
+  --source-root "$PWD"
+```
 
-Uninstall and data-removal behavior must be documented and tested before the
-first release, including separate removal of binaries, configuration, schedules,
-database data, and Codex integration.
+Repeat with `--apply` only after reviewing the preview. Source and binary modes
+are mutually exclusive. Binary mode uses `--server-binary FILE`. The command
+accepts no shell fragments and registers only the named `promptBetter` stdio
+server through `codex mcp add`.
+
+Doctor is read-only:
+
+```sh
+go run ./cmd/prompt-better doctor --format text
+go run ./cmd/prompt-better doctor --format json
+```
+
+It reports sanitized readiness states for platform, strict integration config,
+owned skill hashes, MCP registration, PostgreSQL, configured collectors, and
+unknown host capabilities. It never prints paths, connection strings,
+usernames, prompts, session data, or secret values.
+
+Init writes only the versioned PromptBetter integration config, installed skill,
+ownership/hash manifest, and named MCP registration. Files are atomic mode 0600.
+Existing differing state fails with `source_conflict`; identical state is an
+idempotent no-op. Config stores enabled source kinds, execution policy, optional
+process purpose, disabled raw retention/telemetry, and the database environment
+variable name. It never stores a DSN, identity key, or resolved secret.
+
+Preview uninstall with `prompt-better init --uninstall`; add `--apply` to remove
+only unchanged owned files and the owned registration. Modified owned files or
+registration cause safe refusal. Uninstall does not delete databases, collected
+evidence, source checkouts, or binaries.
+
+See [MCP integration](mcp.md) for tool behavior, limits, rollback, and privacy.
 
 ## Primary references
 

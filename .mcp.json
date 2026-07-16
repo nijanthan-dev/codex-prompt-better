@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "promptBetter": {
+      "title": "PromptBetter",
+      "description": "Local deterministic prompt compilation and bounded governance inspection.",
+      "cwd": ".",
+      "command": "go",
+      "args": [
+        "run",
+        "./cmd/prompt-better-mcp"
+      ]
+    }
+  }
+}

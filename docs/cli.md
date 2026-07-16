@@ -9,6 +9,8 @@ execute an improved prompt, inspect Codex data, or access the network.
 - `create_goal_prompt`: render the `Take this as a new goal:` house format.
 - `create_review_fix_prompt`: render bounded review remediation instructions.
 - `lint_prompt`: return deterministic prompt diagnostics.
+- `doctor`: report sanitized integration readiness; read-only.
+- `init`: preview/apply/uninstall the owned Codex integration.
 
 Input is positional text, standard input, or `--input FILE`. `--request-json`
 selects the frozen v1 request shape. Output is concise text by default;
@@ -52,3 +54,6 @@ checked between compilation stages.
 
 The v1 lint schema gained optional `location`, `rationale`, and `remediation`
 fields additively. This implementation emits all three for every diagnostic.
+
+`doctor` and `init` use their own explicit flags and do not read prompt input.
+See [installation](installation.md) and [MCP integration](mcp.md).

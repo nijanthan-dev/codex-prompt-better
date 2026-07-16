@@ -15,6 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/identity"
+	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
 )
 
 func TestRepositoryIntegration(t *testing.T) {
@@ -341,7 +342,7 @@ func TestRepositoryIntegration(t *testing.T) {
 		turnOrdinal := int64(0)
 		item := Evidence{
 			ID: "31000000-0000-0000-0000-000000000021", SourceID: atomicSource.ID,
-			SessionID: &sessionID, ExternalAliasID: &alias, SchemaVersion: "1.0.0", ContentHash: hash[:],
+			ProjectID: &project.ID, SessionID: &sessionID, ExternalAliasID: &alias, SchemaVersion: "1.0.0", ContentHash: hash[:],
 			ContentLength: 25, Classification: "internal", RedactionState: "not_needed",
 			CoverageState: "complete", Provenance: "runtime_observed",
 			ProductSurface: "local", ObservedAt: base,
@@ -375,6 +376,23 @@ func TestRepositoryIntegration(t *testing.T) {
 			JOIN prompt_better.tool_calls c ON c.response_id=r.response_id
 			WHERE e.evidence_artifact_id=$1`, item.ID).Scan(&normalizedCount); err != nil || normalizedCount != 1 {
 			t.Fatalf("normalized lineage count=%d error=%v", normalizedCount, err)
+		}
+		currentAudit, provenance, err := repo.AuditSession(ctx, sessionID, []string{atomicSource.Kind}, nil)
+		if err != nil || currentAudit.Coverage != contracts.CoverageStateComplete || len(currentAudit.EvidenceRefs) != 1 || len(provenance) != 1 {
+			t.Fatalf("current audit=%+v provenance=%v error=%v", currentAudit, provenance, err)
+		}
+		asOf := base.Add(time.Hour)
+		historicalAudit, _, err := repo.AuditSession(ctx, sessionID, []string{atomicSource.Kind}, &asOf)
+		if err != nil || historicalAudit.Coverage != contracts.CoverageStateComplete {
+			t.Fatalf("historical audit=%+v error=%v", historicalAudit, err)
+		}
+		before := base.Add(-time.Nanosecond)
+		boundaryAudit, _, err := repo.AuditSession(ctx, sessionID, []string{atomicSource.Kind}, &before)
+		if err != nil || boundaryAudit.Coverage != contracts.CoverageStatePartial {
+			t.Fatalf("boundary audit=%+v error=%v", boundaryAudit, err)
+		}
+		if _, _, err := repo.AuditSession(ctx, sessionID, []string{"other"}, nil); err == nil {
+			t.Fatal("unconfigured source accepted")
 		}
 		committed, err = repo.CommitCollection(ctx, batch)
 		if err != nil || committed {
