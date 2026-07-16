@@ -29,4 +29,8 @@ func TestBuild_ExplicitCoverageAndSanitizedBoundedErrors(t *testing.T) {
 	if report.Sources[0].Coverage != evidence.CoverageMissing || report.Sources[1].Coverage != evidence.CoverageUnknown || report.AsOf.Location() != time.UTC {
 		t.Fatalf("coverage/watermark wrong: %#v", report)
 	}
+	if len(report.Sources[0].FieldCoverage) != 7 ||
+		report.Sources[0].FieldCoverage["usage_cache"] != evidence.CoverageUnknown {
+		t.Fatalf("field coverage missing: %#v", report.Sources[0].FieldCoverage)
+	}
 }

@@ -52,6 +52,24 @@ func TestSanitize_CorrelatesCompatibleLineageDomains(t *testing.T) {
 	}
 }
 
+func TestSanitize_KeysCanonicalCallAndStateEpoch(t *testing.T) {
+	t.Parallel()
+	key := []byte("0123456789abcdef0123456789abcdef")
+	clean, _, err := Sanitize("codex_jsonl", key, map[string]string{
+		"canonical_call": "tool:query:synthetic",
+		"state_epoch":    "unchanged-state",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if clean["canonical_call"] == "tool:query:synthetic" ||
+		clean["state_epoch"] == "unchanged-state" ||
+		len(clean["canonical_call"]) != 64 ||
+		len(clean["state_epoch"]) != 64 {
+		t.Fatalf("keyed runtime identity missing: %#v", clean)
+	}
+}
+
 func TestParseLineage_PreservesMissingAndInvalidValues(t *testing.T) {
 	t.Parallel()
 	lineage := ParseLineage(map[string]string{

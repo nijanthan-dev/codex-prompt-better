@@ -107,7 +107,7 @@ func TestPostgresEncryptedBackupAndIsolatedRestore(t *testing.T) {
 	if err := target.QueryRowContext(ctx, `SELECT count(*) FROM prompt_better.project_versions`).Scan(&versions); err != nil {
 		t.Fatal(err)
 	}
-	if version != 5 || projects != 1 || versions != 1 {
+	if version != 6 || projects != 1 || versions != 1 {
 		t.Fatalf("restored version=%d projects=%d dimensions=%d", version, projects, versions)
 	}
 }

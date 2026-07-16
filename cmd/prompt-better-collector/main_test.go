@@ -55,3 +55,15 @@ func TestConfiguredAdapter_DisabledDoesNotRead(t *testing.T) {
 		t.Fatalf("disabled adapter: %v", err)
 	}
 }
+
+func TestPersistentSourceCarriesConfiguredProjectAttribution(t *testing.T) {
+	t.Parallel()
+	source := persistentSource(sourceConfig{
+		SourceID: "synthetic-source", CursorID: "synthetic-cursor",
+		ProjectID: "synthetic-project",
+	})
+	if source.SourceID != "synthetic-source" || source.CursorID != "synthetic-cursor" ||
+		source.ProjectID != "synthetic-project" {
+		t.Fatalf("persistent mapping incomplete: %#v", source)
+	}
+}

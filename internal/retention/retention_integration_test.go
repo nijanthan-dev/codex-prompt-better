@@ -75,6 +75,7 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
 	putRetentionEvidence(t, ctx, repo, projectID, sourceID, youngID,
 		asOf.Add(-29*24*time.Hour), "young")
 	putDerivedRetentionRows(t, ctx, db, projectID, oldID, asOf)
+	putNormalizedRetentionRows(t, ctx, db, projectID, sourceID, asOf)
 	if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.key_versions
         (key_version_id,key_reference,algorithm,state,created_at)
         VALUES ('80000000-0000-0000-0000-000000000020','synthetic-key-v1',
@@ -123,6 +124,13 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
         WHERE project_id=$1`, projectID, 1)
 	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.project_aliases
         WHERE project_id=$1`, projectID, 1)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.tasks
+		WHERE project_id=$1`, projectID, 1)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.state_epochs epoch
+		JOIN prompt_better.trajectories trajectory
+		  ON trajectory.trajectory_id=epoch.trajectory_id
+		JOIN prompt_better.sessions session ON session.session_id=trajectory.session_id
+		WHERE session.project_id=$1`, projectID, 1)
 	for _, table := range []string{"audit_revisions", "metric_results", "findings", "recommendations"} {
 		assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.`+table+
 			` WHERE $1::uuid IS NOT NULL`, projectID, 0)
@@ -165,8 +173,52 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
         WHERE project_id=$1`, projectID, 0)
 	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.project_aliases
         WHERE project_id=$1`, projectID, 0)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.tasks
+		WHERE project_id=$1`, projectID, 0)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.state_epochs epoch
+		JOIN prompt_better.trajectories trajectory
+		  ON trajectory.trajectory_id=epoch.trajectory_id
+		JOIN prompt_better.sessions session ON session.session_id=trajectory.session_id
+		WHERE session.project_id=$1`, projectID, 0)
 	if err := repo.MaintainAfterRetention(ctx); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func putNormalizedRetentionRows(t *testing.T, ctx context.Context, db *sql.DB,
+	projectID, sourceID string, asOf time.Time) {
+	t.Helper()
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{`INSERT INTO prompt_better.sessions
+			(session_id,project_id,source_id,started_at,coverage_state,knowledge_state)
+			VALUES ('82000000-0000-0000-0000-000000000001',$1,$2,$3,'complete','observed')`,
+			[]any{projectID, sourceID, asOf.Add(-31 * 24 * time.Hour)}},
+		{`INSERT INTO prompt_better.trajectories
+			(trajectory_id,session_id,source_id,started_at,knowledge_state)
+			VALUES ('82000000-0000-0000-0000-000000000002',
+			 '82000000-0000-0000-0000-000000000001',$1,$2,'observed')`,
+			[]any{sourceID, asOf.Add(-31 * 24 * time.Hour)}},
+		{`INSERT INTO prompt_better.tasks
+			(task_id,project_id,source_id,task_kind,attribution_state,
+			 algorithm_version,observed_at,knowledge_state)
+			VALUES ('82000000-0000-0000-0000-000000000003',$1,$2,'codex_task',
+			 'attributed','attribution-v1',$3,'observed')`,
+			[]any{projectID, sourceID, asOf.Add(-31 * 24 * time.Hour)}},
+		{`INSERT INTO prompt_better.state_epochs
+			(state_epoch_id,trajectory_id,source_id,state_hash,mutation_state,
+			 started_at,knowledge_state)
+			VALUES ('82000000-0000-0000-0000-000000000004',
+			 '82000000-0000-0000-0000-000000000002',$1,
+			 decode(repeat('ef',32),'hex'),'mutated',$2,'observed')`,
+			[]any{sourceID, asOf.Add(-31 * 24 * time.Hour)}},
+	}
+	for _, statement := range statements {
+		if _, err := db.ExecContext(ctx, statement.query, statement.args...); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 

@@ -25,6 +25,8 @@ unmatched evidence rather than invent relationships.
 | `sources` | Evidence adapter/config identity. | `source_id` to cursors and artifacts. |
 | `collection_cursors` | Per-source incremental watermark and lease. | unique `source_id + cursor_kind`. |
 | `sessions` | Normalized Codex execution session metadata. | `project_id`; external identity through source refs. |
+| `tasks` | Opaque normalized task identity and attribution state. | project/source; turns. |
+| `state_epochs` | Redacted state-change boundary for repeat classification. | trajectory/source; tool calls. |
 | `prompt_attempts` | Compiled prompt metadata and hashes. | `session_id`, optional parent attempt. |
 | `policy_snapshots` | Versioned effective execution/privacy policy. | `project_id`; referenced by attempts/audits. |
 | `boundaries` | Discovered boundary, provenance, confidence, risk. | attempt or session; policy pack/version. |

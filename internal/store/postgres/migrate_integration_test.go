@@ -43,14 +43,14 @@ func TestMigrationAndRoleBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version != 5 {
-		t.Fatalf("version = %d, want 5", version)
+	if version != 6 {
+		t.Fatalf("version = %d, want 6", version)
 	}
 	assertExists(t, ctx, db, "SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'prompt_better')")
 	assertExists(t, ctx, db, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'prompt_better_runtime')")
 	assertExists(t, ctx, db, "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'schema_migrations')")
-	assertCount(t, ctx, db, `SELECT count(*) FROM information_schema.tables WHERE table_schema = 'prompt_better' AND table_type = 'BASE TABLE'`, 44)
-	assertCount(t, ctx, db, `SELECT count(*) FROM information_schema.table_constraints WHERE constraint_schema = 'prompt_better' AND constraint_type = 'FOREIGN KEY'`, 83)
+	assertCount(t, ctx, db, `SELECT count(*) FROM information_schema.tables WHERE table_schema = 'prompt_better' AND table_type = 'BASE TABLE'`, 46)
+	assertCount(t, ctx, db, `SELECT count(*) FROM information_schema.table_constraints WHERE constraint_schema = 'prompt_better' AND constraint_type = 'FOREIGN KEY'`, 89)
 	assertCount(t, ctx, db, `SELECT count(*) FROM information_schema.views WHERE table_schema = 'prompt_better'`, 9)
 	t.Run("constraints reject invalid and orphan rows", func(t *testing.T) {
 		if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.projects

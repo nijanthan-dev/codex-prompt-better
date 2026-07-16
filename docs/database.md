@@ -56,6 +56,11 @@ states remain explicit. Source-native usage values retain their unit, product
 surface, source adapter/version, observation time, and provenance; API and Codex
 subscription measurements are never converted or combined implicitly.
 
+Migration 6 adds opaque `tasks`, redacted `state_epochs`, and bounded tool
+outcome/modality/size fields. These complete the collector-to-governance handoff;
+they do not compute metrics or retain raw content. Runtime/collector roles write
+them; the reporter role is read-only.
+
 ## SCD2 dimensions
 
 `projects` and `sources` hold stable UUID identity only. Mutable classification,

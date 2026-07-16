@@ -54,6 +54,7 @@ type Lineage struct {
 	SessionID          string
 	TrajectoryID       string
 	ParentTrajectoryID string
+	TaskID             string
 	TurnID             string
 	TurnOrdinal        *int64
 	ResponseID         string
@@ -107,13 +108,33 @@ func Validate(record Record) error {
 }
 
 var allowedAttributes = map[string]map[string]bool{
-	"configuration":      {"execution_policy": true, "host_permission": true, "max_input_bytes": true, "timeout": true, "format": true, "activity_class": true},
-	"git":                {"repository_alias": true, "worktree_alias": true, "branch_alias": true, "head_alias": true, "activity_class": true},
-	"github":             {"event_kind": true, "state": true, "repository_alias": true, "pull_request_alias": true, "check_alias": true, "activity_class": true},
-	"codex_jsonl":        {"session_alias": true, "trajectory_alias": true, "turn_alias": true, "turn_ordinal": true, "phase": true, "response_lineage": true, "parent_response_alias": true, "tool_call_alias": true, "caller_alias": true, "tool_kind": true, "call_path": true, "model_variant": true, "reasoning_effort": true, "reasoning_mode": true, "effective_context": true, "cache_mode": true, "cache_ttl": true, "image_detail": true, "safeguard_outcome": true, "safety_identifier_presence": true, "activity_class": true},
+	"configuration": {"execution_policy": true, "host_permission": true, "max_input_bytes": true, "timeout": true, "format": true, "activity_class": true},
+	"git":           {"repository_alias": true, "worktree_alias": true, "branch_alias": true, "head_alias": true, "activity_class": true},
+	"github":        {"event_kind": true, "state": true, "repository_alias": true, "pull_request_alias": true, "check_alias": true, "activity_class": true},
+	"codex_jsonl": attributeSet(
+		"session_alias", "trajectory_alias", "task_alias", "task_attribution_state",
+		"turn_alias", "turn_ordinal", "phase", "phase_event", "response_lineage",
+		"parent_response_alias", "response_event", "tool_call_alias", "caller_alias",
+		"tool_kind", "call_path", "tool_outcome", "result_state", "canonical_call",
+		"state_epoch", "mutation_state", "output_modality", "output_size_bytes",
+		"wait_state", "model_variant", "reasoning_effort", "reasoning_mode",
+		"effective_context", "verbosity", "service_mode", "cache_mode", "cache_ttl",
+		"usage_kind", "usage_value", "usage_unit", "accounting_regime", "cache_kind",
+		"cache_value", "image_detail", "safeguard_outcome",
+		"safety_identifier_presence", "checkpoint_event", "boundary_event",
+		"delegation_event", "stop_event", "compaction_event", "activity_class",
+	),
 	"codex_state_sqlite": {"thread_alias": true, "trajectory_alias": true, "state": true, "model_variant": true, "reasoning_effort": true, "activity_class": true},
 	"rollout_summary":    {"session_alias": true, "trajectory_alias": true, "compaction_state": true, "delegation_parent": true, "delegation_depth": true, "context_mode": true, "activity_class": true},
 	"process":            {"purpose": true, "state": true, "activity_class": true},
+}
+
+func attributeSet(names ...string) map[string]bool {
+	result := make(map[string]bool, len(names))
+	for _, name := range names {
+		result[name] = true
+	}
+	return result
 }
 
 // Sanitize applies a strict source schema; unknown/private fields are omitted.
@@ -129,7 +150,7 @@ func Sanitize(sourceKind string, identityKey []byte, attributes map[string]strin
 		if secretLike(value) {
 			return nil, nil, ErrSensitive
 		}
-		if strings.HasSuffix(field, "_alias") || strings.Contains(field, "lineage") || strings.HasSuffix(field, "_parent") {
+		if keyedAttribute(field) {
 			if strings.TrimSpace(value) == "" {
 				clean[field] = ""
 				continue
@@ -146,12 +167,21 @@ func Sanitize(sourceKind string, identityKey []byte, attributes map[string]strin
 	return clean, redacted, nil
 }
 
+func keyedAttribute(field string) bool {
+	return strings.HasSuffix(field, "_alias") ||
+		strings.Contains(field, "lineage") ||
+		strings.HasSuffix(field, "_parent") ||
+		field == "canonical_call" ||
+		field == "state_epoch"
+}
+
 // ParseLineage maps sanitized attributes to typed opaque lineage.
 func ParseLineage(attributes map[string]string) Lineage {
 	lineage := Lineage{
 		SessionID:          attributes["session_alias"],
 		TrajectoryID:       attributes["trajectory_alias"],
 		ParentTrajectoryID: attributes["delegation_parent"],
+		TaskID:             attributes["task_alias"],
 		TurnID:             attributes["turn_alias"],
 		ResponseID:         attributes["response_lineage"],
 		ParentResponseID:   attributes["parent_response_alias"],
@@ -175,10 +205,16 @@ func aliasDomain(sourceKind, field string) string {
 		return "session"
 	case "trajectory_alias", "delegation_parent":
 		return "trajectory"
+	case "task_alias":
+		return "task"
 	case "response_lineage", "parent_response_alias":
 		return "response"
 	case "tool_call_alias", "caller_alias":
 		return "tool_call"
+	case "canonical_call":
+		return "canonical_call"
+	case "state_epoch":
+		return "state_epoch"
 	default:
 		return sourceKind + ":" + field
 	}
