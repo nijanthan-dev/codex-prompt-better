@@ -337,12 +337,20 @@ func TestRepositoryIntegration(t *testing.T) {
 		}
 		hash := sha256.Sum256([]byte("atomic synthetic evidence"))
 		alias := "31000000-0000-0000-0000-000000000011"
+		sessionID := "31000000-0000-0000-0000-000000000031"
+		turnOrdinal := int64(0)
 		item := Evidence{
 			ID: "31000000-0000-0000-0000-000000000021", SourceID: atomicSource.ID,
-			ExternalAliasID: &alias, SchemaVersion: "1.0.0", ContentHash: hash[:],
+			SessionID: &sessionID, ExternalAliasID: &alias, SchemaVersion: "1.0.0", ContentHash: hash[:],
 			ContentLength: 25, Classification: "internal", RedactionState: "not_needed",
 			CoverageState: "complete", Provenance: "runtime_observed",
 			ProductSurface: "local", ObservedAt: base,
+			Lineage: EvidenceLineage{
+				SessionID: sessionID, TrajectoryID: "31000000-0000-0000-0000-000000000032",
+				TurnID: "31000000-0000-0000-0000-000000000033", TurnOrdinal: &turnOrdinal,
+				ResponseID: "31000000-0000-0000-0000-000000000034",
+				ToolCallID: "31000000-0000-0000-0000-000000000035", ToolKind: "synthetic", CallPath: "direct",
+			},
 		}
 		batch := CollectionBatch{
 			BatchID: "synthetic-batch-one", CursorID: "31000000-0000-0000-0000-000000000001", SourceID: atomicSource.ID,
@@ -356,6 +364,17 @@ func TestRepositoryIntegration(t *testing.T) {
 		committed, err := repo.CommitCollection(ctx, batch)
 		if err != nil || !committed {
 			t.Fatalf("first commit=%t error=%v", committed, err)
+		}
+		var normalizedCount int
+		if err := repo.pool.QueryRow(ctx, `SELECT count(*)
+			FROM prompt_better.evidence_artifacts e
+			JOIN prompt_better.sessions s ON s.session_id=e.session_id
+			JOIN prompt_better.trajectories tr ON tr.session_id=s.session_id
+			JOIN prompt_better.turns t ON t.trajectory_id=tr.trajectory_id
+			JOIN prompt_better.responses r ON r.turn_id=t.turn_id
+			JOIN prompt_better.tool_calls c ON c.response_id=r.response_id
+			WHERE e.evidence_artifact_id=$1`, item.ID).Scan(&normalizedCount); err != nil || normalizedCount != 1 {
+			t.Fatalf("normalized lineage count=%d error=%v", normalizedCount, err)
 		}
 		committed, err = repo.CommitCollection(ctx, batch)
 		if err != nil || committed {
@@ -383,6 +402,29 @@ func TestRepositoryIntegration(t *testing.T) {
 		cursor, err = repo.CollectionCursor(ctx, atomicSource.ID)
 		if err != nil || cursor != 1 {
 			t.Fatalf("failed commit advanced cursor=%d error=%v", cursor, err)
+		}
+
+		missingHash := sha256.Sum256([]byte("unlinked synthetic evidence"))
+		missingAlias := "31000000-0000-0000-0000-000000000041"
+		missing := item
+		missing.ID = "31000000-0000-0000-0000-000000000042"
+		missing.ExternalAliasID = &missingAlias
+		missing.SessionID = nil
+		missing.ContentHash = missingHash[:]
+		missing.CoverageState = "partial"
+		missing.Lineage = EvidenceLineage{}
+		unlinked := batch
+		unlinked.BatchID = "synthetic-batch-unlinked"
+		unlinked.Next = 2
+		unlinked.CursorDigest = "synthetic-digest-two"
+		unlinked.Evidence = []Evidence{missing}
+		if committed, err := repo.CommitCollection(ctx, unlinked); err != nil || !committed {
+			t.Fatalf("unlinked commit=%t error=%v", committed, err)
+		}
+		var linked bool
+		if err := repo.pool.QueryRow(ctx, `SELECT session_id IS NOT NULL
+			FROM prompt_better.evidence_artifacts WHERE evidence_artifact_id=$1`, missing.ID).Scan(&linked); err != nil || linked {
+			t.Fatalf("missing lineage linked=%t error=%v", linked, err)
 		}
 	})
 

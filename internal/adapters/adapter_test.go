@@ -44,6 +44,9 @@ func TestSourceAdapters_Contract(t *testing.T) {
 			if result.NextCursor != 1 || result.Coverage != evidence.CoverageComplete {
 				t.Fatalf("unexpected cursor/coverage: %#v", result)
 			}
+			if test.kind == "codex_jsonl" && (result.Records[0].Lineage.SessionID == "" || result.Records[0].Lineage.ResponseID == "") {
+				t.Fatalf("normalized lineage missing: %#v", result.Records[0].Lineage)
+			}
 		})
 	}
 }
@@ -89,6 +92,20 @@ func TestGit_RejectsBlankRequiredAlias(t *testing.T) {
 	result, err := adapter.Collect(context.Background(), request())
 	if !errors.Is(err, ErrMalformed) || result.Reason != "schema_drift" {
 		t.Fatalf("blank alias accepted: %#v, %v", result, err)
+	}
+}
+
+func TestJSONL_IncompleteLineageRemainsPartial(t *testing.T) {
+	t.Parallel()
+	adapter := NewJSONLWithIdentity("codex_jsonl", "synthetic", strings.NewReader(
+		`{"version":"1","observed_at":"2026-01-01T00:00:00Z","attributes":{"response_lineage":"response-only"}}`+"\n",
+	), fixtureKey, true, true)
+	result, err := adapter.Collect(context.Background(), request())
+	if err != nil || result.Coverage != evidence.CoveragePartial || result.Reason != "lineage_incomplete" {
+		t.Fatalf("incomplete lineage result=%#v error=%v", result, err)
+	}
+	if result.Records[0].Lineage.ResponseID == "" || result.Records[0].Lineage.SessionID != "" {
+		t.Fatalf("incomplete lineage was inferred: %#v", result.Records[0].Lineage)
 	}
 }
 

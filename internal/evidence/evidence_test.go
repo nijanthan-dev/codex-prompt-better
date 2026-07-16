@@ -28,3 +28,38 @@ func TestValidate_RejectsSecretLikeValue(t *testing.T) {
 		t.Fatalf("got %v, want sensitive rejection", err)
 	}
 }
+
+func TestSanitize_CorrelatesCompatibleLineageDomains(t *testing.T) {
+	t.Parallel()
+	key := []byte("synthetic-key-material-32-bytes!!")
+	state, _, err := Sanitize("codex_state_sqlite", key, map[string]string{"thread_alias": "session-one"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsonl, _, err := Sanitize("codex_jsonl", key, map[string]string{"session_alias": "session-one"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state["thread_alias"] != jsonl["session_alias"] {
+		t.Fatal("compatible session aliases did not correlate")
+	}
+	trajectory, _, err := Sanitize("rollout_summary", key, map[string]string{"trajectory_alias": "session-one"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if trajectory["trajectory_alias"] == jsonl["session_alias"] {
+		t.Fatal("incompatible alias domains correlated")
+	}
+}
+
+func TestParseLineage_PreservesMissingAndInvalidValues(t *testing.T) {
+	t.Parallel()
+	lineage := ParseLineage(map[string]string{
+		"session_alias": "opaque-session",
+		"turn_ordinal":  "invalid",
+		"call_path":     "direct",
+	})
+	if lineage.SessionID != "opaque-session" || lineage.TurnOrdinal != nil || lineage.TrajectoryID != "" {
+		t.Fatalf("unexpected lineage: %+v", lineage)
+	}
+}

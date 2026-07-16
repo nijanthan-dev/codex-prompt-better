@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/nijanthan-dev/codex-prompt-better/internal/evidence"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/store/postgres"
 )
 
@@ -66,12 +67,29 @@ func (b *PostgresBackend) Commit(ctx context.Context, commit Commit) (bool, erro
 		}
 		id := deterministicUUID(record.ID)
 		alias := id
+		lineage := postgres.EvidenceLineage{
+			SessionID:          lineageUUID(record.Lineage.SessionID),
+			TrajectoryID:       lineageUUID(record.Lineage.TrajectoryID),
+			ParentTrajectoryID: lineageUUID(record.Lineage.ParentTrajectoryID),
+			TurnID:             lineageUUID(record.Lineage.TurnID),
+			TurnOrdinal:        record.Lineage.TurnOrdinal,
+			ResponseID:         lineageUUID(record.Lineage.ResponseID),
+			ParentResponseID:   lineageUUID(record.Lineage.ParentResponseID),
+			ToolCallID:         lineageUUID(record.Lineage.ToolCallID),
+			CallerToolCallID:   lineageUUID(record.Lineage.CallerToolCallID),
+			ToolKind:           record.Lineage.ToolKind,
+			CallPath:           record.Lineage.CallPath,
+		}
+		var sessionID *string
+		if lineage.SessionID != "" {
+			sessionID = &lineage.SessionID
+		}
 		items = append(items, postgres.Evidence{
-			ID: id, SourceID: source.SourceID, ExternalAliasID: &alias,
-			SchemaVersion: "1.0.0", ContentHash: hash, ContentLength: int64(len(record.Attributes)),
+			ID: id, SourceID: source.SourceID, SessionID: sessionID, ExternalAliasID: &alias,
+			SchemaVersion: evidence.SchemaVersion, ContentHash: hash, ContentLength: int64(len(record.Attributes)),
 			Classification: record.Classification, RedactionState: redactionState(record.RedactedFields),
 			CoverageState: string(record.Coverage), Provenance: "runtime_observed",
-			ProductSurface: record.ProductSurface, ObservedAt: record.ObservedAt,
+			ProductSurface: record.ProductSurface, ObservedAt: record.ObservedAt, Lineage: lineage,
 		})
 	}
 	observedAt := time.Now().UTC()
@@ -84,6 +102,13 @@ func (b *PostgresBackend) Commit(ctx context.Context, commit Commit) (bool, erro
 		Fence: commit.Fence, ObservedAt: observedAt,
 		Evidence: items,
 	})
+}
+
+func lineageUUID(value string) string {
+	if value == "" {
+		return ""
+	}
+	return deterministicUUID(value)
 }
 
 func (b *PostgresBackend) Acquire(ctx context.Context, kind, owner string, now time.Time, duration time.Duration) (string, bool, error) {

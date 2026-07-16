@@ -134,6 +134,8 @@ func (a *JSONL) Collect(ctx context.Context, request Request) (Result, error) {
 		return partial(result, "truncated_or_oversized"), ErrTruncated
 	}
 	generationMAC := hmac.New(sha256.New, a.key)
+	generationMAC.Write([]byte(evidence.IdentityVersion))
+	generationMAC.Write([]byte{0})
 	generationMAC.Write([]byte(a.kind))
 	generationMAC.Write([]byte{0})
 	generationMAC.Write([]byte(a.identity))
@@ -178,6 +180,13 @@ func (a *JSONL) Collect(ctx context.Context, request Request) (Result, error) {
 			ProductSurface: surface(a.kind), ContentSHA256: hex.EncodeToString(digest),
 			RedactedFields: item.redacted, Attributes: item.attributes, LateRevision: rotated,
 			GovernanceOverhead: item.attributes["activity_class"] == "governance_overhead",
+			Lineage:            evidence.ParseLineage(item.attributes),
+		}
+		if record.Lineage.Incomplete() {
+			record.Coverage = evidence.CoveragePartial
+			record.CoverageReason = "lineage_incomplete"
+			result.Coverage = evidence.CoveragePartial
+			result.Reason = "lineage_incomplete"
 		}
 		if record.GovernanceOverhead {
 			record.Attributes["collection_trigger"] = "suppressed"
@@ -200,6 +209,8 @@ func digestPrefix(key []byte, records []parsedRecord, cursor uint64) string {
 		cursor = uint64(len(records))
 	}
 	digest := hmac.New(sha256.New, key)
+	digest.Write([]byte(evidence.IdentityVersion))
+	digest.Write([]byte{0})
 	for _, record := range records[:cursor] {
 		digest.Write(record.canonical)
 		digest.Write([]byte{0})
