@@ -402,6 +402,22 @@ type Evidence struct {
 	ProductSurface  string
 	ObservedAt      time.Time
 	RetainedUntil   *time.Time
+	Lineage         EvidenceLineage
+}
+
+// EvidenceLineage contains normalized opaque UUIDs derived before persistence.
+type EvidenceLineage struct {
+	SessionID          string
+	TrajectoryID       string
+	ParentTrajectoryID string
+	TurnID             string
+	TurnOrdinal        *int64
+	ResponseID         string
+	ParentResponseID   string
+	ToolCallID         string
+	CallerToolCallID   string
+	ToolKind           string
+	CallPath           string
 }
 
 // CollectionBatch atomically persists bounded evidence and its next cursor.
@@ -474,6 +490,16 @@ func (r *Repository) CommitCollection(ctx context.Context, batch CollectionBatch
 		for _, item := range batch.Evidence {
 			if item.SourceID != batch.SourceID {
 				return errors.New("collection source mismatch")
+			}
+			if err := persistEvidenceLineage(ctx, tx, item); err != nil {
+				return err
+			}
+		}
+		// A second bounded pass resolves explicit parents that appeared later in
+		// the same batch without inventing placeholder lineage.
+		for _, item := range batch.Evidence {
+			if err := persistEvidenceLineage(ctx, tx, item); err != nil {
+				return err
 			}
 		}
 		if !generationChanged && batch.Next < current {
@@ -555,6 +581,116 @@ func (r *Repository) CommitCollection(ctx context.Context, batch CollectionBatch
 		return nil
 	})
 	return committed, err
+}
+
+func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error {
+	lineage := item.Lineage
+	if lineage.SessionID == "" {
+		return nil
+	}
+	if item.SessionID == nil || *item.SessionID != lineage.SessionID {
+		return errors.New("collection lineage mismatch")
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.sessions
+		(session_id, project_id, source_id, started_at, coverage_state, knowledge_state)
+		VALUES ($1,$2,$3,$4,$5,'observed')
+		ON CONFLICT (session_id) DO UPDATE SET
+			coverage_state = CASE
+				WHEN prompt_better.sessions.coverage_state='complete' AND EXCLUDED.coverage_state<>'complete'
+				THEN EXCLUDED.coverage_state
+				ELSE prompt_better.sessions.coverage_state
+			END`, lineage.SessionID, item.ProjectID, item.SourceID, item.ObservedAt, item.CoverageState); err != nil {
+		return errors.New("persist collection session")
+	}
+
+	parentTrajectoryID, err := existingLineageID(ctx, tx,
+		`SELECT trajectory_id FROM prompt_better.trajectories WHERE trajectory_id=$1`,
+		lineage.ParentTrajectoryID)
+	if err != nil {
+		return err
+	}
+	if lineage.TrajectoryID != "" {
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.trajectories
+			(trajectory_id, session_id, source_id, external_alias_id,
+			 parent_trajectory_id, started_at, knowledge_state)
+			VALUES ($1,$2,$3,$1,$4,$5,'observed')
+			ON CONFLICT (trajectory_id) DO UPDATE SET
+				parent_trajectory_id=COALESCE(prompt_better.trajectories.parent_trajectory_id,
+				EXCLUDED.parent_trajectory_id)`, lineage.TrajectoryID, lineage.SessionID,
+			item.SourceID, parentTrajectoryID, item.ObservedAt); err != nil {
+			return errors.New("persist collection trajectory")
+		}
+	}
+
+	if lineage.TurnID != "" && lineage.TrajectoryID != "" && lineage.TurnOrdinal != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.turns
+			(turn_id, trajectory_id, source_id, external_alias_id, ordinal, observed_at, knowledge_state)
+			VALUES ($1,$2,$3,$1,$4,$5,'observed')
+			ON CONFLICT (turn_id) DO NOTHING`, lineage.TurnID, lineage.TrajectoryID,
+			item.SourceID, *lineage.TurnOrdinal, item.ObservedAt); err != nil {
+			return errors.New("persist collection turn")
+		}
+	}
+
+	parentResponseID, err := existingLineageID(ctx, tx,
+		`SELECT response_id FROM prompt_better.responses WHERE response_id=$1`,
+		lineage.ParentResponseID)
+	if err != nil {
+		return err
+	}
+	if lineage.ResponseID != "" && lineage.TurnID != "" {
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.responses
+			(response_id, turn_id, source_id, external_alias_id, parent_response_id,
+			 started_at, knowledge_state)
+			VALUES ($1,$2,$3,$1,$4,$5,'observed')
+			ON CONFLICT (response_id) DO UPDATE SET
+				parent_response_id=COALESCE(prompt_better.responses.parent_response_id,
+				EXCLUDED.parent_response_id)`, lineage.ResponseID, lineage.TurnID,
+			item.SourceID, parentResponseID, item.ObservedAt); err != nil {
+			return errors.New("persist collection response")
+		}
+	}
+
+	if lineage.ToolCallID != "" && lineage.ResponseID != "" {
+		callPath := lineage.CallPath
+		if callPath != "direct" && callPath != "programmatic" {
+			callPath = "unknown"
+		}
+		toolKind := lineage.ToolKind
+		if toolKind == "" {
+			toolKind = "unknown"
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.tool_calls
+			(tool_call_id, response_id, source_id, external_alias_id, caller_alias_id,
+			 call_path, tool_kind, started_at, knowledge_state)
+			VALUES ($1,$2,$3,$1,$4,$5,$6,$7,'observed')
+			ON CONFLICT (tool_call_id) DO NOTHING`, lineage.ToolCallID, lineage.ResponseID,
+			item.SourceID, nullableString(lineage.CallerToolCallID), callPath,
+			toolKind, item.ObservedAt); err != nil {
+			return errors.New("persist collection tool call")
+		}
+	}
+	return nil
+}
+
+func existingLineageID(ctx context.Context, tx pgx.Tx, query, id string) (*string, error) {
+	if id == "" {
+		return nil, nil
+	}
+	var existing string
+	if err := tx.QueryRow(ctx, query, id).Scan(&existing); errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.New("resolve collection parent lineage")
+	}
+	return &existing, nil
+}
+
+func nullableString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 // CollectionGeneration returns the committed source generation.

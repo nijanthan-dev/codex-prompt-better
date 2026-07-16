@@ -12,6 +12,18 @@ single-source ownership; failures use bounded backoff and sanitized quarantine.
 Rotation or truncation creates a partial-coverage revision instead of silently
 reusing a stale cursor.
 
+Identity generation `identity-v2` maps compatible session, trajectory,
+response, and tool-call aliases into canonical keyed domains before storage.
+Only opaque identifiers cross the adapter boundary. Normalized lineage rows and
+evidence links commit before the cursor in the same transaction. Missing parent
+lineage remains unlinked with partial coverage instead of being guessed.
+
+Evidence collected before `identity-v2` remains immutable and may be unlinked.
+The next configured collection detects the versioned cursor digest change,
+replays the bounded source, and writes new opaque identities. Operators should
+retain or delete older evidence through the documented retention workflow; no
+automatic destructive backfill is attempted.
+
 Mutable project and source attributes are never written by adapters. They pass
 through the PostgreSQL SCD2 repository with stable UUIDs. Source event time is
 the effective `valid_from`; collector ingestion time remains separate and never
