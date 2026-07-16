@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.0](https://github.com/nijanthan-dev/codex-prompt-better/compare/v0.1.0...v0.2.0) (2026-07-16)
+
+
+### Features
+
+* add boundary engine and policy packs ([9e86556](https://github.com/nijanthan-dev/codex-prompt-better/commit/9e865569020e2e484c32ba694079520d3b61af55))
+* build Go prompt compiler CLI ([9393ad8](https://github.com/nijanthan-dev/codex-prompt-better/commit/9393ad8eb45b7932b9544d710262ecd8c6b8f474))
+
+
+### Bug Fixes
+
+* align release baseline ([0f324af](https://github.com/nijanthan-dev/codex-prompt-better/commit/0f324af8666a99a85cbadd5c76109961e556ab42))
+
 ## 0.1.0 (2026-07-14)
 
 
