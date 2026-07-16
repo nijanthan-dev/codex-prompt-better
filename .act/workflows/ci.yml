@@ -47,3 +47,22 @@ jobs:
           GOARCH: amd64
           GOOS: ${{ matrix.goos }}
         run: go build -trimpath -o /tmp/prompt-better-${{ matrix.goos }} ./cmd/prompt-better
+
+  postgres:
+    name: PostgreSQL ${{ matrix.major }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - major: 16
+            host: prompt-better-act-pg16
+          - major: 17
+            host: prompt-better-act-pg17
+    steps:
+      - name: PostgreSQL integration
+        env:
+          TEST_DATABASE_URL: postgres://postgres:synthetic-test-only@${{ matrix.host }}:5432/prompt_better_test?sslmode=disable
+          TEST_POSTGRES_MAJOR: ${{ matrix.major }}
+        run: go test -count=1 -tags=integration ./internal/store/postgres ./internal/retention ./internal/recovery
