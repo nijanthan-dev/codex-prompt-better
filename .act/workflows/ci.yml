@@ -13,12 +13,24 @@ jobs:
         run: |
           go version
           gitleaks version
+          govulncheck -version
+      - name: Module consistency
+        run: |
+          root="$PWD"
+          temp="$(mktemp -d)"
+          cp -R . "${temp}/repo"
+          cd "${temp}/repo"
+          go mod tidy
+          cmp go.mod "${root}/go.mod"
+          cmp go.sum "${root}/go.sum"
       - name: Format
         run: test -z "$(gofmt -l .)"
       - name: Test
         run: go test -count=1 ./...
       - name: Vet
         run: go vet ./...
+      - name: Vulnerabilities
+        run: govulncheck ./...
       - name: Race
         run: go test -count=1 -race ./...
       - name: Binary integration
@@ -31,26 +43,33 @@ jobs:
         run: gitleaks dir --no-banner --redact .
 
   cross-build:
-    name: Build ${{ matrix.goos }}
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        goos:
-          - darwin
-          - linux
-          - windows
+        include:
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
     steps:
       - name: Build
         env:
           CGO_ENABLED: 0
-          GOARCH: amd64
+          GOARCH: ${{ matrix.goarch }}
           GOOS: ${{ matrix.goos }}
         run: |
-          go build -trimpath -o /tmp/prompt-better-${{ matrix.goos }} ./cmd/prompt-better
-          go build -trimpath -o /tmp/prompt-better-collector-${{ matrix.goos }} ./cmd/prompt-better-collector
-          go build -trimpath -o /tmp/prompt-better-mcp-${{ matrix.goos }} ./cmd/prompt-better-mcp
+          go build -trimpath -o /tmp/prompt-better-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/prompt-better
+          go build -trimpath -o /tmp/prompt-better-collector-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/prompt-better-collector
+          go build -trimpath -o /tmp/prompt-better-mcp-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/prompt-better-mcp
 
   postgres:
     name: PostgreSQL ${{ matrix.major }}

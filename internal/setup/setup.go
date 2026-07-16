@@ -15,10 +15,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/policy"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/store/postgres"
 	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
@@ -103,6 +106,7 @@ type ownershipManifest struct {
 type registration struct {
 	Command string   `json:"command"`
 	Args    []string `json:"args"`
+	Cwd     string   `json:"cwd,omitempty"`
 }
 
 // RunInit parses and executes prompt-better init.
@@ -228,7 +232,8 @@ func runInstall(ctx context.Context, home, configPath string, config Integration
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return writeError(streams.Error, "Codex MCP state unavailable")
 	}
-	if registrationState != nil && !sameRegistration(*registrationState, expected) {
+	pluginRegistration := registrationState != nil && isPluginRegistration(*registrationState)
+	if registrationState != nil && !sameRegistration(*registrationState, expected) && !pluginRegistration {
 		return writeError(streams.Error, "source_conflict")
 	}
 	if !apply {
@@ -247,10 +252,16 @@ func runInstall(ctx context.Context, home, configPath string, config Integration
 		removeNewFiles(missing)
 		return writeError(streams.Error, "integration write failed")
 	}
-	if registrationState == nil {
+	if registrationState == nil || pluginRegistration {
 		args := []string{"mcp", "add", serverName, "--", expected.Command}
 		args = append(args, expected.Args...)
 		if _, err := runner.Run(ctx, "codex", args...); err != nil {
+			removeNewFiles(missing)
+			return writeError(streams.Error, "Codex MCP registration failed")
+		}
+		current, err := getRegistration(ctx, runner)
+		if err != nil || current == nil || !sameRegistration(*current, expected) {
+			_, _ = runner.Run(ctx, "codex", "mcp", "remove", serverName)
 			removeNewFiles(missing)
 			return writeError(streams.Error, "Codex MCP registration failed")
 		}
@@ -411,26 +422,33 @@ func doctorChecks(ctx context.Context, home, configPath string, runner Runner) [
 	checks = append(checks, doctorCheck{Name: "mcp_registration", State: registrationState})
 	serverState := "unknown"
 	if registrationState == "ready" {
-		serverState = serverReadiness(*current)
+		serverState = serverReadiness(ctx, *current)
 	}
 	checks = append(checks, doctorCheck{Name: "server", State: serverState})
 	databaseState := "not_configured"
-	if os.Getenv(databaseEnv) != "" {
+	collectorState := "unknown"
+	if dsn := os.Getenv(databaseEnv); dsn != "" {
 		databaseState = "unavailable"
 		dbctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		if repository, err := postgres.OpenRepository(dbctx, os.Getenv(databaseEnv), postgres.DefaultPoolConfig()); err == nil {
+		if repository, err := postgres.OpenRepository(dbctx, dsn, postgres.DefaultPoolConfig()); err == nil {
 			result := repository.Doctor(dbctx)
-			repository.Close()
 			if result.Ready {
 				databaseState = "ready"
+				if configState == "ready" {
+					if ready, err := repository.ConfiguredCollectors(dbctx, config.SourceKinds); err == nil && ready {
+						collectorState = "ready"
+					} else {
+						collectorState = "missing"
+					}
+				}
 			}
+			repository.Close()
 		}
 		cancel()
 	}
 	checks = append(checks, doctorCheck{Name: "database", State: databaseState})
-	collectorState := "unknown"
-	if configState == "ready" {
-		collectorState = "configured"
+	if configState == "ready" && collectorState == "unknown" {
+		collectorState = "missing"
 	}
 	checks = append(checks, doctorCheck{Name: "collectors", State: collectorState}, doctorCheck{Name: "host_capabilities", State: "unknown"})
 	return checks
@@ -453,7 +471,12 @@ func validateStoredConfig(config IntegrationConfig) error {
 	return nil
 }
 
-func serverReadiness(value registration) string {
+func serverReadiness(ctx context.Context, value registration) string {
+	probeContext, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	commandName := value.Command
+	commandArgs := append([]string(nil), value.Args...)
 	if value.Command == "go" {
 		if _, err := exec.LookPath("go"); err != nil || len(value.Args) < 4 || value.Args[0] != "-C" || value.Args[2] != "run" || value.Args[3] != "./cmd/prompt-better-mcp" {
 			return "unavailable"
@@ -464,17 +487,79 @@ func serverReadiness(value registration) string {
 		if info, err := os.Stat(filepath.Join(value.Args[1], "cmd", "prompt-better-mcp")); err != nil || !info.IsDir() {
 			return "unavailable"
 		}
-		return "ready"
+		versionCommand := exec.CommandContext(probeContext, "go", "version")
+		versionCommand.Env = append(os.Environ(), "GOTOOLCHAIN=local")
+		version, err := versionCommand.Output()
+		if err != nil || !supportedGoVersion(string(version)) {
+			return "unavailable"
+		}
+		temp, err := os.MkdirTemp("", "prompt-better-doctor-*")
+		if err != nil {
+			return "unavailable"
+		}
+		defer os.RemoveAll(temp)
+		commandName = filepath.Join(temp, "prompt-better-mcp")
+		if runtime.GOOS == "windows" {
+			commandName += ".exe"
+		}
+		build := exec.CommandContext(probeContext, "go", "build", "-mod=readonly", "-trimpath", "-o", commandName, "./cmd/prompt-better-mcp")
+		build.Dir = value.Args[1]
+		build.Env = append(os.Environ(), "GOTOOLCHAIN=local", "GOPROXY=off")
+		if build.Run() != nil {
+			return "unavailable"
+		}
+		commandArgs = append([]string(nil), value.Args[4:]...)
+	} else {
+		path, err := regularFile(value.Command)
+		if err != nil {
+			return "unavailable"
+		}
+		info, _ := os.Stat(path)
+		if runtime.GOOS != "windows" && info.Mode()&0o111 == 0 {
+			return "unavailable"
+		}
+		commandName = path
 	}
-	path, err := regularFile(value.Command)
+
+	command := exec.CommandContext(probeContext, commandName, commandArgs...)
+	command.Dir = value.Cwd
+	command.Env = os.Environ()
+	command.Stderr = io.Discard
+	client := mcp.NewClient(&mcp.Implementation{Name: "prompt-better-doctor", Version: configVersion}, nil)
+	session, err := client.Connect(probeContext, &mcp.CommandTransport{Command: command, TerminateDuration: time.Second}, nil)
 	if err != nil {
 		return "unavailable"
 	}
-	info, _ := os.Stat(path)
-	if runtime.GOOS != "windows" && info.Mode()&0o111 == 0 {
+	defer session.Close()
+	listed, err := session.ListTools(probeContext, nil)
+	if err != nil || len(listed.Tools) != 7 {
+		return "unavailable"
+	}
+	required := map[string]bool{
+		"improve_prompt": true, "create_goal_prompt": true, "create_review_fix_prompt": true,
+		"lint_prompt": true, "get_checkpoint": true, "audit_session": true, "render_governance_report": true,
+	}
+	for _, tool := range listed.Tools {
+		delete(required, tool.Name)
+	}
+	if len(required) != 0 {
 		return "unavailable"
 	}
 	return "ready"
+}
+
+func supportedGoVersion(output string) bool {
+	fields := strings.Fields(output)
+	if len(fields) < 3 || !strings.HasPrefix(fields[2], "go") {
+		return false
+	}
+	parts := strings.Split(strings.TrimPrefix(fields[2], "go"), ".")
+	if len(parts) < 2 {
+		return false
+	}
+	major, majorErr := strconv.Atoi(parts[0])
+	minor, minorErr := strconv.Atoi(parts[1])
+	return majorErr == nil && minorErr == nil && (major > 1 || major == 1 && minor >= 25)
 }
 
 func getRegistration(ctx context.Context, runner Runner) (*registration, error) {
@@ -489,10 +574,12 @@ func getRegistration(ctx context.Context, runner Runner) (*registration, error) 
 	var document struct {
 		Command   string   `json:"command"`
 		Args      []string `json:"args"`
+		Cwd       string   `json:"cwd"`
 		Transport struct {
 			Type    string   `json:"type"`
 			Command string   `json:"command"`
 			Args    []string `json:"args"`
+			Cwd     string   `json:"cwd"`
 		} `json:"transport"`
 	}
 	if json.Unmarshal(data, &document) != nil {
@@ -504,15 +591,46 @@ func getRegistration(ctx context.Context, runner Runner) (*registration, error) 
 		}
 		document.Command = document.Transport.Command
 		document.Args = document.Transport.Args
+		document.Cwd = document.Transport.Cwd
 	}
 	if document.Command == "" {
 		return nil, errors.New("registration response invalid")
 	}
-	return &registration{Command: document.Command, Args: document.Args}, nil
+	return &registration{Command: document.Command, Args: document.Args, Cwd: document.Cwd}, nil
 }
 
 func sameRegistration(left, right registration) bool {
-	return left.Command == right.Command && strings.Join(left.Args, "\x00") == strings.Join(right.Args, "\x00")
+	return left.Command == right.Command &&
+		slices.Equal(left.Args, right.Args) &&
+		left.Cwd == right.Cwd
+}
+
+func isPluginRegistration(value registration) bool {
+	if value.Command != "go" || len(value.Args) != 2 || value.Args[0] != "run" ||
+		value.Args[1] != "./cmd/prompt-better-mcp" || value.Cwd == "" {
+		return false
+	}
+	pluginData, pluginErr := readBounded(filepath.Join(value.Cwd, ".codex-plugin", "plugin.json"))
+	mcpData, mcpErr := readBounded(filepath.Join(value.Cwd, ".mcp.json"))
+	if pluginErr != nil || mcpErr != nil {
+		return false
+	}
+	var plugin struct {
+		Name       string `json:"name"`
+		MCPServers string `json:"mcpServers"`
+	}
+	var manifest struct {
+		MCPServers map[string]struct {
+			Command string   `json:"command"`
+			Args    []string `json:"args"`
+		} `json:"mcpServers"`
+	}
+	if json.Unmarshal(pluginData, &plugin) != nil || json.Unmarshal(mcpData, &manifest) != nil {
+		return false
+	}
+	server, ok := manifest.MCPServers[serverName]
+	return ok && plugin.Name == "prompt-better" && plugin.MCPServers == "./.mcp.json" &&
+		server.Command == value.Command && slices.Equal(server.Args, value.Args)
 }
 
 func registrationDigest(value registration) string {
@@ -648,7 +766,7 @@ func allReady(checks []doctorCheck) bool {
 				return false
 			}
 		case "collectors":
-			if check.State != "configured" {
+			if check.State != "ready" {
 				return false
 			}
 		case "host_capabilities":

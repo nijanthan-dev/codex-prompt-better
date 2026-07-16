@@ -15,14 +15,31 @@ import (
 	"github.com/nijanthan-dev/codex-prompt-better/internal/setup"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/store/postgres"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/tools"
+	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
 )
 
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), shutdownSignals()...)
 	defer stop()
-	if err := runWithArgs(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
+	if err := runProcess(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintln(os.Stderr, "prompt-better-mcp: server_failed")
 		os.Exit(1)
+	}
+}
+
+func runProcess(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	exited := make(chan error, 1)
+	go func() { exited <- runWithArgs(ctx, args, stdin, stdout, stderr) }()
+	select {
+	case err := <-exited:
+		return err
+	case <-ctx.Done():
+		select {
+		case err := <-exited:
+			return err
+		case <-time.After(250 * time.Millisecond):
+			return nil
+		}
 	}
 }
 
@@ -38,13 +55,17 @@ func runWithArgs(ctx context.Context, args []string, stdin io.Reader, stdout, st
 	if err := flags.Parse(args); err != nil || len(flags.Args()) != 0 {
 		return errors.New("configuration invalid")
 	}
-	configuredSources := []string{}
+	toolConfig := tools.Configuration{ExecutionPolicy: contracts.ExecutionPolicyImproveOnly, SourceKinds: []string{}}
 	if configPath != "" {
 		integrationConfig, err := setup.LoadIntegrationConfig(configPath)
 		if err != nil {
 			return err
 		}
-		configuredSources = integrationConfig.SourceKinds
+		toolConfig = tools.Configuration{
+			ExecutionPolicy:          integrationConfig.ExecutionPolicy,
+			SourceKinds:              integrationConfig.SourceKinds,
+			ProcessPurposeConfigured: integrationConfig.ProcessPurpose != "",
+		}
 	}
 	logger := slog.New(slog.NewTextHandler(stderr, nil))
 	options := mcpserver.DefaultOptions(logger)
@@ -57,7 +78,7 @@ func runWithArgs(ctx context.Context, args []string, stdin io.Reader, stdout, st
 		return err
 	}
 	defer closeStore()
-	if _, err := tools.RegisterConfigured(server, auditStore, configuredSources); err != nil {
+	if _, err := tools.RegisterWithConfig(server, auditStore, toolConfig); err != nil {
 		return errors.New("tool registration failed")
 	}
 	transport, err := mcpserver.NewStdioTransport(stdin, stdout, options.MaxInputBytes)

@@ -26,6 +26,18 @@ import (
 
 const maxResultBytes = 50_000
 
+const (
+	maxCheckpointItems = 50
+	maxCheckpointItem  = 500
+)
+
+// Configuration bounds runtime behavior to the explicit integration config.
+type Configuration struct {
+	ExecutionPolicy          contracts.ExecutionPolicy
+	SourceKinds              []string
+	ProcessPurposeConfigured bool
+}
+
 type sessionState struct {
 	checkpoint *contracts.GetCheckpointResult
 	auditRef   string
@@ -38,31 +50,38 @@ type AuditStore interface {
 }
 
 type Service struct {
-	server         *mcpserver.Server
-	audits         AuditStore
-	allowedSources map[string]bool
-	mu             sync.Mutex
-	state          map[string]*sessionState
+	server          *mcpserver.Server
+	audits          AuditStore
+	executionPolicy contracts.ExecutionPolicy
+	allowedSources  map[string]bool
+	processEnabled  bool
+	mu              sync.Mutex
+	state           map[string]*sessionState
 }
 
 func RegisterAll(server *mcpserver.Server, audits AuditStore) (*Service, error) {
-	return RegisterConfigured(server, audits, nil)
+	return RegisterWithConfig(server, audits, Configuration{ExecutionPolicy: contracts.ExecutionPolicyFollowUserIntent})
 }
 
-// RegisterConfigured registers all tools with an optional source allowlist.
-// A non-nil empty list disables store-backed audit access.
-func RegisterConfigured(server *mcpserver.Server, audits AuditStore, configuredSources []string) (*Service, error) {
+// RegisterWithConfig registers all tools with explicit policy and audit bounds.
+func RegisterWithConfig(server *mcpserver.Server, audits AuditStore, config Configuration) (*Service, error) {
 	if server == nil {
 		return nil, errors.New("MCP server required")
 	}
+	if !policy.ValidExecutionPolicy(config.ExecutionPolicy) {
+		return nil, errors.New("execution policy required")
+	}
 	var allowed map[string]bool
-	if configuredSources != nil {
-		allowed = make(map[string]bool, len(configuredSources))
-		for _, source := range configuredSources {
+	if config.SourceKinds != nil {
+		allowed = make(map[string]bool, len(config.SourceKinds))
+		for _, source := range config.SourceKinds {
 			allowed[source] = true
 		}
 	}
-	service := &Service{server: server, audits: audits, allowedSources: allowed, state: map[string]*sessionState{}}
+	service := &Service{
+		server: server, audits: audits, executionPolicy: config.ExecutionPolicy,
+		allowedSources: allowed, processEnabled: config.ProcessPurposeConfigured, state: map[string]*sessionState{},
+	}
 	if err := register(service, "improve_prompt", improveDescription, service.improvePrompt); err != nil {
 		return nil, err
 	}
@@ -111,10 +130,13 @@ func register[Input, Output any](service *Service, name, description string, han
 			return errorResult(contracts.NewError(contracts.ErrorCodeInvalidSchema, "request does not match the frozen schema", "request", false)), nil
 		}
 		output, err := handle(bounded, sessionKey(request.Session), input)
+		if contextErr := bounded.Err(); contextErr != nil {
+			return errorResult(mapError(contextErr)), nil
+		}
 		if err != nil {
 			return errorResult(mapError(err)), nil
 		}
-		return successResult(output)
+		return successResult(output), nil
 	})
 	return nil
 }
@@ -131,15 +153,15 @@ func decodeStrict(data []byte, target any) error {
 	return nil
 }
 
-func successResult(output any) (*mcp.CallToolResult, error) {
+func successResult(output any) *mcp.CallToolResult {
 	data, err := json.Marshal(output)
 	if err != nil || len(data) > maxResultBytes {
-		return nil, errors.New("encode bounded tool result")
+		return errorResult(contracts.NewError(contracts.ErrorCodeInternal, "tool result exceeded its bound", "result", false))
 	}
 	return &mcp.CallToolResult{
 		Content:           []mcp.Content{&mcp.TextContent{Text: string(data)}},
 		StructuredContent: output,
-	}, nil
+	}
 }
 
 func errorResult(stable *contracts.StableError) *mcp.CallToolResult {
@@ -205,6 +227,11 @@ func (service *Service) pruneDisconnectedLocked() {
 }
 
 func (service *Service) improvePrompt(ctx context.Context, session string, request contracts.ImprovePromptRequest) (contracts.ImprovePromptResult, error) {
+	if executionPolicyRank(request.ExecutionPolicy) > executionPolicyRank(service.executionPolicy) {
+		return contracts.ImprovePromptResult{}, contracts.NewError(
+			contracts.ErrorCodePermissionDenied, "requested execution policy exceeds configured policy", "execution_policy", false,
+		)
+	}
 	result, err := compiler.Improve(ctx, request, policy.HostUnknown)
 	if err != nil {
 		return contracts.ImprovePromptResult{}, err
@@ -226,10 +253,10 @@ func (service *Service) createGoalPrompt(ctx context.Context, session string, re
 	service.saveCheckpoint(session, contracts.GetCheckpointResult{
 		SchemaVersion: contracts.SchemaVersion, Kind: "result", Objective: bounded(request.Objective, 1000),
 		AcceptedDecisions: []string{"House goal format selected."},
-		Constraints:       append([]string{}, request.PromptPlan.Invariants...), EvidenceRefs: []string{},
+		Constraints:       boundedCheckpointList(request.PromptPlan.Invariants), EvidenceRefs: []string{},
 		Completed: []string{"Goal prompt compiled."}, Validation: []string{"Frozen v1 goal contract passed."},
 		Blockers: []string{}, NextAction: "Start the goal only when the requested boundary permits it.",
-		RemainingGates: append([]string{}, request.PromptPlan.Gates...),
+		RemainingGates: boundedCheckpointList(request.PromptPlan.Gates),
 	})
 	return result, nil
 }
@@ -242,7 +269,7 @@ func (service *Service) createReviewFixPrompt(ctx context.Context, session strin
 	service.saveCheckpoint(session, contracts.GetCheckpointResult{
 		SchemaVersion: contracts.SchemaVersion, Kind: "result",
 		Objective:         "Fix review findings for head " + request.ReviewHead + ".",
-		AcceptedDecisions: append([]string{}, result.FailureClasses...),
+		AcceptedDecisions: boundedCheckpointList(result.FailureClasses),
 		Constraints:       []string{"Scan directly analogous paths for every failure class."}, EvidenceRefs: []string{},
 		Completed: []string{"Review-fix prompt compiled."}, Validation: []string{"Review head and bounded findings passed validation."},
 		Blockers: []string{}, NextAction: "Apply and validate the review fixes at the exact reviewed head.",
@@ -323,6 +350,9 @@ func (service *Service) auditSession(ctx context.Context, session string, reques
 		for _, source := range request.ConfiguredSources {
 			if !service.allowedSources[source] {
 				return contracts.AuditSessionResult{}, contracts.NewError(contracts.ErrorCodePermissionDenied, "audit source is not configured", "configured_sources", false)
+			}
+			if source == "process" && !service.processEnabled {
+				return contracts.AuditSessionResult{}, contracts.NewError(contracts.ErrorCodePermissionDenied, "process audit purpose is not configured", "configured_sources", false)
 			}
 		}
 	}
@@ -450,13 +480,38 @@ func checkpointForImprove(request contracts.ImprovePromptRequest, result contrac
 	if len(validation) == 0 {
 		validation = []string{"Frozen v1 request and policy validation passed."}
 	}
+	validation = boundedCheckpointList(validation)
 	return contracts.GetCheckpointResult{
 		SchemaVersion: contracts.SchemaVersion, Kind: "result", Objective: bounded(request.Intent, 1000),
 		AcceptedDecisions: []string{fmt.Sprintf("Execution policy outcome: %s.", result.PolicyOutcome)},
-		Constraints:       append([]string{}, plan.Invariants...), EvidenceRefs: []string{},
+		Constraints:       boundedCheckpointList(plan.Invariants), EvidenceRefs: []string{},
 		Completed: []string{"Improved prompt compiled."}, Validation: validation, Blockers: []string{},
-		NextAction: "Use the improved prompt at the authorized boundary.", RemainingGates: append([]string{}, plan.Gates...),
+		NextAction: "Use the improved prompt at the authorized boundary.", RemainingGates: boundedCheckpointList(plan.Gates),
 	}
+}
+
+func executionPolicyRank(value contracts.ExecutionPolicy) int {
+	switch value {
+	case contracts.ExecutionPolicyImproveOnly:
+		return 1
+	case contracts.ExecutionPolicyAskBeforeExecute:
+		return 2
+	case contracts.ExecutionPolicyFollowUserIntent:
+		return 3
+	default:
+		return 0
+	}
+}
+
+func boundedCheckpointList(values []string) []string {
+	if len(values) > maxCheckpointItems {
+		values = values[:maxCheckpointItems]
+	}
+	result := make([]string, len(values))
+	for index, value := range values {
+		result[index] = bounded(value, maxCheckpointItem)
+	}
+	return result
 }
 
 func bounded(value string, limit int) string {

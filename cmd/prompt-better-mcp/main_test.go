@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -66,6 +67,23 @@ func TestRunWithArgs_RejectsInvalidConfigWithoutLeakingPath(t *testing.T) {
 	err := runWithArgs(context.Background(), []string{"--config", "/synthetic/private/config"}, bytes.NewReader(nil), &bytes.Buffer{}, &stderr)
 	if err == nil || strings.Contains(err.Error(), "/synthetic/private/config") {
 		t.Fatalf("unsafe config error: %v", err)
+	}
+}
+
+func TestRunProcess_CancellationIsBounded(t *testing.T) {
+	inputReader, inputWriter := io.Pipe()
+	defer inputWriter.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	exited := make(chan error, 1)
+	go func() { exited <- runProcess(ctx, nil, inputReader, io.Discard, io.Discard) }()
+	cancel()
+	select {
+	case err := <-exited:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("process fallback did not exit")
 	}
 }
 

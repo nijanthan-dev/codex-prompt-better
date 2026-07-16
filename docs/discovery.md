@@ -9,12 +9,12 @@ aligned with it.
 - Project name: Prompt Better
 - Display name: Prompt Better for Codex
 - Repository: `nijanthan-dev/codex-prompt-better`
-- Status: pre-alpha; v0.1.0 contract-preview source release and source CLI available; not packaged
+- Status: pre-alpha; v0.1.0 contract-preview source release, source CLI, and source MCP integration available; not packaged
 
 ## GitHub About
 
 > Pre-alpha local-first prompt compiler and linter for OpenAI Codex; v0.1.0
-> contract-preview source release and Go CLI available, with governance and MCP integration planned.
+> contract-preview source release, Go CLI, and seven-tool source MCP integration available; not packaged.
 
 ## Topics
 

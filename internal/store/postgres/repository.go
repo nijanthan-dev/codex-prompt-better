@@ -122,6 +122,22 @@ func (r *Repository) Doctor(ctx context.Context) DoctorResult {
 	return result
 }
 
+// ConfiguredCollectors reports whether every configured source kind has an enabled current dimension.
+func (r *Repository) ConfiguredCollectors(ctx context.Context, sourceKinds []string) (bool, error) {
+	if len(sourceKinds) == 0 {
+		return false, nil
+	}
+	var configured int
+	if err := r.pool.QueryRow(ctx, `SELECT count(DISTINCT s.source_kind)
+        FROM prompt_better.sources s
+        JOIN prompt_better.source_versions v
+          ON v.source_id = s.source_id AND v.valid_to IS NULL
+        WHERE v.enabled AND s.source_kind = ANY($1::text[])`, sourceKinds).Scan(&configured); err != nil {
+		return false, errors.New("read configured collectors")
+	}
+	return configured == len(sourceKinds), nil
+}
+
 // Project is normalized project metadata with no raw identifier or display name.
 type Project struct {
 	ID             string

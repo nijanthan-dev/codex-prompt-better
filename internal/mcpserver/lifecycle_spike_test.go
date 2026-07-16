@@ -1,8 +1,12 @@
 package mcpserver
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -11,6 +15,61 @@ import (
 
 type spikeRequest struct {
 	Value string `json:"value"`
+}
+
+func TestSDKLifecycleSpike_LegacyProtocolNegotiation(t *testing.T) {
+	t.Parallel()
+	for _, version := range []string{"2024-11-05", "2025-03-26"} {
+		t.Run(version, func(t *testing.T) {
+			server, err := New(Options{
+				MaxInputBytes: 4096, MaxConcurrent: 1, Timeout: time.Second,
+				Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			inputReader, inputWriter := io.Pipe()
+			outputReader, outputWriter := io.Pipe()
+			transport, err := NewStdioTransport(inputReader, outputWriter, 4096)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			exited := make(chan error, 1)
+			go func() { exited <- server.Run(ctx, transport) }()
+			if _, err := io.WriteString(inputWriter, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"`+version+`","capabilities":{},"clientInfo":{"name":"legacy","version":"1.0"}}}`+"\n"); err != nil {
+				t.Fatal(err)
+			}
+			var response struct {
+				Result struct {
+					ProtocolVersion string `json:"protocolVersion"`
+				} `json:"result"`
+			}
+			line, err := bufio.NewReader(outputReader).ReadBytes('\n')
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(line, &response); err != nil {
+				t.Fatalf("response=%q err=%v", line, err)
+			}
+			if response.Result.ProtocolVersion != version {
+				t.Fatalf("protocol=%s", response.Result.ProtocolVersion)
+			}
+			if _, err := io.WriteString(inputWriter, `{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}`+"\n"); err != nil {
+				t.Fatal(err)
+			}
+			cancel()
+			_ = inputWriter.Close()
+			select {
+			case err := <-exited:
+				if err != nil {
+					t.Fatal(err)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("legacy session did not exit")
+			}
+		})
+	}
 }
 
 type spikeResult struct {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -85,14 +86,75 @@ func NewStdioTransport(reader io.Reader, writer io.Writer, maxInputBytes int) (m
 	if reader == nil || writer == nil || maxInputBytes <= 0 {
 		return nil, errors.New("invalid stdio transport")
 	}
-	return &mcp.IOTransport{
-		Reader: &boundedReadCloser{reader: bufio.NewReader(reader), max: maxInputBytes},
-		Writer: nopWriteCloser{Writer: writer},
+	var readerCloser io.Closer
+	if closer, ok := reader.(io.Closer); ok {
+		readerCloser = closer
+	}
+	var writerCloser io.Closer
+	if closer, ok := writer.(io.Closer); ok {
+		writerCloser = closer
+	}
+	boundedReader := &boundedReadCloser{reader: bufio.NewReader(reader), closer: readerCloser, max: maxInputBytes}
+	boundedWriter := &streamWriteCloser{Writer: writer, closer: writerCloser}
+	return &stdioTransport{
+		delegate: &mcp.IOTransport{Reader: boundedReader, Writer: boundedWriter},
+		reader:   boundedReader,
+		writer:   boundedWriter,
 	}, nil
+}
+
+type stdioTransport struct {
+	delegate mcp.Transport
+	reader   io.Closer
+	writer   io.Closer
+}
+
+func (transport *stdioTransport) Connect(ctx context.Context) (mcp.Connection, error) {
+	connection, err := transport.delegate.Connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	wrapped := &contextConnection{
+		Connection: connection,
+		reader:     transport.reader,
+		writer:     transport.writer,
+		done:       make(chan struct{}),
+	}
+	go func() {
+		select {
+		case <-ctx.Done():
+			wrapped.closeStreams()
+		case <-wrapped.done:
+		}
+	}()
+	return wrapped, nil
+}
+
+type contextConnection struct {
+	mcp.Connection
+	reader io.Closer
+	writer io.Closer
+	once   sync.Once
+	done   chan struct{}
+}
+
+func (connection *contextConnection) Close() error {
+	connection.closeStreams()
+	return connection.Connection.Close()
+}
+
+func (connection *contextConnection) closeStreams() {
+	connection.once.Do(func() {
+		close(connection.done)
+		_ = connection.reader.Close()
+		_ = connection.writer.Close()
+	})
 }
 
 type boundedReadCloser struct {
 	reader *bufio.Reader
+	closer io.Closer
+	once   sync.Once
 	max    int
 	buffer []byte
 	end    error
@@ -132,8 +194,28 @@ func (reader *boundedReadCloser) readLine() ([]byte, error) {
 	}
 }
 
-func (*boundedReadCloser) Close() error { return nil }
+func (reader *boundedReadCloser) Close() error {
+	var err error
+	reader.once.Do(func() {
+		if reader.closer != nil {
+			err = reader.closer.Close()
+		}
+	})
+	return err
+}
 
-type nopWriteCloser struct{ io.Writer }
+type streamWriteCloser struct {
+	io.Writer
+	closer io.Closer
+	once   sync.Once
+}
 
-func (nopWriteCloser) Close() error { return nil }
+func (writer *streamWriteCloser) Close() error {
+	var err error
+	writer.once.Do(func() {
+		if writer.closer != nil {
+			err = writer.closer.Close()
+		}
+	})
+	return err
+}

@@ -14,6 +14,7 @@ import (
 
 type fakeRunner struct {
 	registration *registration
+	plugin       *registration
 	calls        [][]string
 	failAdd      bool
 }
@@ -34,9 +35,31 @@ func (r *fakeRunner) Run(_ context.Context, name string, args ...string) ([]byte
 		r.registration = &registration{Command: args[separator], Args: append([]string(nil), args[separator+1:]...)}
 	}
 	if len(args) >= 3 && args[0] == "mcp" && args[1] == "remove" {
-		r.registration = nil
+		r.registration = r.plugin
 	}
 	return nil, nil
+}
+
+func TestInstallOverlaysPluginRegistrationAndUninstallRestoresIt(t *testing.T) {
+	home := t.TempDir()
+	config, expected, _ := validateInstall("improve_only", []string{"git"}, "", sourceRoot(t), "")
+	configPath := filepath.Join(home, filepath.FromSlash(defaultConfigRel))
+	plugin := &registration{Command: "go", Args: []string{"run", "./cmd/prompt-better-mcp"}, Cwd: sourceRoot(t)}
+	runner := &fakeRunner{registration: plugin, plugin: plugin}
+	streams := Streams{Output: &bytes.Buffer{}, Error: &bytes.Buffer{}}
+
+	if code := runInstall(context.Background(), home, configPath, config, expected, true, runner, streams); code != 0 {
+		t.Fatalf("plugin overlay code=%d", code)
+	}
+	if runner.registration == nil || isPluginRegistration(*runner.registration) {
+		t.Fatalf("configured registration not overlaid: %#v", runner.registration)
+	}
+	if code := runUninstall(context.Background(), home, configPath, true, runner, streams); code != 0 {
+		t.Fatalf("plugin restore code=%d", code)
+	}
+	if runner.registration == nil || !sameRegistration(*runner.registration, *plugin) {
+		t.Fatalf("plugin registration not restored: %#v", runner.registration)
+	}
 }
 
 func TestInstallRollsBackNewFilesWhenRegistrationFails(t *testing.T) {
@@ -218,6 +241,27 @@ func TestDoctorSanitizesOutput(t *testing.T) {
 	}
 }
 
+func TestAllReadyRequiresVerifiedCollectors(t *testing.T) {
+	checks := []doctorCheck{
+		{Name: "platform", State: "supported"},
+		{Name: "config", State: "ready"},
+		{Name: "ownership", State: "ready"},
+		{Name: "skill", State: "ready"},
+		{Name: "mcp_registration", State: "ready"},
+		{Name: "server", State: "ready"},
+		{Name: "database", State: "ready"},
+		{Name: "collectors", State: "ready"},
+		{Name: "host_capabilities", State: "unknown"},
+	}
+	if !allReady(checks) {
+		t.Fatal("verified readiness rejected")
+	}
+	checks[7].State = "configured"
+	if allReady(checks) {
+		t.Fatal("unverified collector state accepted")
+	}
+}
+
 func TestLoadIntegrationConfig_StrictAndSafe(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "integration.json")
 	valid := `{"schema_version":"1.0.0","execution_policy":"improve_only","source_kinds":["git"],"raw_prompt_retention":false,"telemetry":false,"database_env":"PROMPT_BETTER_DATABASE_URL"}`
@@ -237,20 +281,32 @@ func TestLoadIntegrationConfig_StrictAndSafe(t *testing.T) {
 }
 
 func TestGetRegistration_ParsesDocumentedCodexShape(t *testing.T) {
-	runner := staticRunner{data: []byte(`{"name":"promptBetter","transport":{"type":"stdio","command":"go","args":["run","./cmd/prompt-better-mcp"]}}`)}
+	runner := staticRunner{data: []byte(`{"name":"promptBetter","transport":{"type":"stdio","command":"go","args":["run","./cmd/prompt-better-mcp"],"cwd":"/synthetic/plugin"}}`)}
 	registration, err := getRegistration(context.Background(), runner)
-	if err != nil || registration.Command != "go" || len(registration.Args) != 2 {
+	if err != nil || registration.Command != "go" || len(registration.Args) != 2 || registration.Cwd == "" {
 		t.Fatalf("registration=%#v err=%v", registration, err)
 	}
 }
 
-func TestServerReadiness_SourceAndMissingBinary(t *testing.T) {
-	root := sourceRoot(t)
-	if state := serverReadiness(registration{Command: "go", Args: []string{"-C", root, "run", "./cmd/prompt-better-mcp"}}); state != "ready" {
-		t.Fatalf("source state=%s", state)
-	}
-	if state := serverReadiness(registration{Command: filepath.Join(t.TempDir(), "missing")}); state != "unavailable" {
+func TestServerReadiness_MissingBinary(t *testing.T) {
+	if state := serverReadiness(context.Background(), registration{Command: filepath.Join(t.TempDir(), "missing")}); state != "unavailable" {
 		t.Fatalf("missing binary state=%s", state)
+	}
+}
+
+func TestSupportedGoVersion(t *testing.T) {
+	for _, test := range []struct {
+		value string
+		want  bool
+	}{
+		{"go version go1.25.0 darwin/arm64", true},
+		{"go version go1.26rc1 linux/amd64", false},
+		{"go version go1.24.9 windows/amd64", false},
+		{"invalid", false},
+	} {
+		if got := supportedGoVersion(test.value); got != test.want {
+			t.Fatalf("supportedGoVersion(%q)=%t", test.value, got)
+		}
 	}
 }
 
