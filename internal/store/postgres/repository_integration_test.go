@@ -84,6 +84,93 @@ func TestRepositoryIntegration(t *testing.T) {
 		if historical != "internal" || current != "restricted" {
 			t.Fatalf("historical=%q current=%q", historical, current)
 		}
+		asOf, err := repo.ProjectAsOf(ctx, project.ID, base.Add(time.Hour))
+		if err != nil || asOf.Classification != "internal" || asOf.ValidTo == nil {
+			t.Fatalf("historical query=%+v error=%v", asOf, err)
+		}
+		currentVersion, err := repo.CurrentProject(ctx, project.ID)
+		if err != nil || currentVersion.Classification != "restricted" || currentVersion.ValidTo != nil {
+			t.Fatalf("current query=%+v error=%v", currentVersion, err)
+		}
+		late := changed
+		late.VersionID = "10000000-0000-0000-0000-000000000014"
+		late.Classification = "confidential"
+		late.EffectiveAt = base.Add(90 * time.Minute)
+		if err := repo.PutProject(ctx, late); !errors.Is(err, ErrInvalidEffectiveTime) {
+			t.Fatalf("late observation error=%v", err)
+		}
+		var currentCount, overlapCount, zeroLengthCount int
+		if err := repo.pool.QueryRow(ctx, `SELECT
+            count(*) FILTER (WHERE valid_to IS NULL),
+            count(*) FILTER (WHERE valid_to IS NOT NULL AND valid_to <= valid_from)
+            FROM prompt_better.project_versions WHERE project_id=$1`, project.ID).
+			Scan(&currentCount, &zeroLengthCount); err != nil {
+			t.Fatal(err)
+		}
+		if err := repo.pool.QueryRow(ctx, `SELECT count(*) FROM prompt_better.project_versions a
+            JOIN prompt_better.project_versions b ON a.project_id=b.project_id
+             AND a.project_version_id < b.project_version_id
+             AND tstzrange(a.valid_from, a.valid_to, '[)') && tstzrange(b.valid_from, b.valid_to, '[)')
+            WHERE a.project_id=$1`, project.ID).Scan(&overlapCount); err != nil {
+			t.Fatal(err)
+		}
+		if currentCount != 1 || overlapCount != 0 || zeroLengthCount != 0 {
+			t.Fatalf("SCD2 invariant current=%d overlap=%d zero=%d", currentCount, overlapCount, zeroLengthCount)
+		}
+	})
+
+	t.Run("concurrent project changes preserve one current version", func(t *testing.T) {
+		concurrent := Project{
+			ID: "11000000-0000-0000-0000-000000000001", VersionID: "11000000-0000-0000-0000-000000000011",
+			CreatedAt: base, EffectiveAt: base, Classification: "internal", LifecycleState: "active",
+		}
+		if err := repo.PutProject(ctx, concurrent); err != nil {
+			t.Fatal(err)
+		}
+		changes := []Project{concurrent, concurrent}
+		changes[0].VersionID = "11000000-0000-0000-0000-000000000012"
+		changes[0].Classification = "confidential"
+		changes[1].VersionID = "11000000-0000-0000-0000-000000000013"
+		changes[1].Classification = "restricted"
+		for index := range changes {
+			changes[index].EffectiveAt = base.Add(time.Hour)
+		}
+		errorsSeen := make(chan error, len(changes))
+		var group sync.WaitGroup
+		for _, change := range changes {
+			group.Add(1)
+			go func() {
+				defer group.Done()
+				errorsSeen <- repo.PutProject(ctx, change)
+			}()
+		}
+		group.Wait()
+		close(errorsSeen)
+		successes := 0
+		for err := range errorsSeen {
+			if err == nil {
+				successes++
+				continue
+			}
+			if !errors.Is(err, ErrInvalidEffectiveTime) {
+				t.Fatalf("unexpected concurrent error: %v", err)
+			}
+		}
+		var currentCount, overlapCount int
+		if err := repo.pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE valid_to IS NULL)
+            FROM prompt_better.project_versions WHERE project_id=$1`, concurrent.ID).Scan(&currentCount); err != nil {
+			t.Fatal(err)
+		}
+		if err := repo.pool.QueryRow(ctx, `SELECT count(*) FROM prompt_better.project_versions a
+            JOIN prompt_better.project_versions b ON a.project_id=b.project_id
+             AND a.project_version_id < b.project_version_id
+             AND tstzrange(a.valid_from, a.valid_to, '[)') && tstzrange(b.valid_from, b.valid_to, '[)')
+            WHERE a.project_id=$1`, concurrent.ID).Scan(&overlapCount); err != nil {
+			t.Fatal(err)
+		}
+		if successes != 1 || currentCount != 1 || overlapCount != 0 {
+			t.Fatalf("concurrent SCD2 successes=%d current=%d overlap=%d", successes, currentCount, overlapCount)
+		}
 	})
 
 	source := Source{
@@ -94,6 +181,52 @@ func TestRepositoryIntegration(t *testing.T) {
 	t.Run("source, cursor, evidence, and coverage", func(t *testing.T) {
 		if err := repo.PutSource(ctx, source); err != nil {
 			t.Fatal(err)
+		}
+		identical := source
+		identical.VersionID = "20000000-0000-0000-0000-000000000012"
+		identical.EffectiveAt = base.Add(time.Hour)
+		if err := repo.PutSource(ctx, identical); err != nil {
+			t.Fatal(err)
+		}
+		changed := source
+		changed.VersionID = "20000000-0000-0000-0000-000000000013"
+		changed.CoverageState = "partial"
+		changed.EffectiveAt = base.Add(2 * time.Hour)
+		if err := repo.PutSource(ctx, changed); err != nil {
+			t.Fatal(err)
+		}
+		historicalSource, err := repo.SourceAsOf(ctx, source.ID, base.Add(time.Hour))
+		if err != nil || historicalSource.CoverageState != "complete" {
+			t.Fatalf("historical source=%+v error=%v", historicalSource, err)
+		}
+		currentSource, err := repo.CurrentSource(ctx, source.ID)
+		if err != nil || currentSource.CoverageState != "partial" || currentSource.ValidTo != nil {
+			t.Fatalf("current source=%+v error=%v", currentSource, err)
+		}
+		lateSource := changed
+		lateSource.VersionID = "20000000-0000-0000-0000-000000000014"
+		lateSource.CoverageState = "unknown"
+		lateSource.EffectiveAt = base.Add(90 * time.Minute)
+		if err := repo.PutSource(ctx, lateSource); !errors.Is(err, ErrInvalidEffectiveTime) {
+			t.Fatalf("late source error=%v", err)
+		}
+		var sourceCurrent, sourceOverlap, sourceZero int
+		if err := repo.pool.QueryRow(ctx, `SELECT
+            count(*) FILTER (WHERE valid_to IS NULL),
+            count(*) FILTER (WHERE valid_to IS NOT NULL AND valid_to <= valid_from)
+            FROM prompt_better.source_versions WHERE source_id=$1`, source.ID).
+			Scan(&sourceCurrent, &sourceZero); err != nil {
+			t.Fatal(err)
+		}
+		if err := repo.pool.QueryRow(ctx, `SELECT count(*) FROM prompt_better.source_versions a
+            JOIN prompt_better.source_versions b ON a.source_id=b.source_id
+             AND a.source_version_id < b.source_version_id
+             AND tstzrange(a.valid_from, a.valid_to, '[)') && tstzrange(b.valid_from, b.valid_to, '[)')
+            WHERE a.source_id=$1`, source.ID).Scan(&sourceOverlap); err != nil {
+			t.Fatal(err)
+		}
+		if sourceCurrent != 1 || sourceOverlap != 0 || sourceZero != 0 {
+			t.Fatalf("source SCD2 current=%d overlap=%d zero=%d", sourceCurrent, sourceOverlap, sourceZero)
 		}
 		if err := repo.AdvanceSequenceCursor(ctx, "30000000-0000-0000-0000-000000000001", source.ID, 1, base); err != nil {
 			t.Fatal(err)
@@ -135,6 +268,121 @@ func TestRepositoryIntegration(t *testing.T) {
 		}
 		if coverage.CoverageRatio == nil || *coverage.CoverageRatio != 1 {
 			t.Fatalf("unexpected observed coverage: %+v", coverage)
+		}
+	})
+
+	t.Run("concurrent source changes preserve one current version", func(t *testing.T) {
+		concurrent := Source{
+			ID: "22000000-0000-0000-0000-000000000001", VersionID: "22000000-0000-0000-0000-000000000011",
+			Kind: "synthetic_jsonl", ProductSurface: "local", CoverageState: "complete",
+			Enabled: true, CreatedAt: base, EffectiveAt: base,
+		}
+		if err := repo.PutSource(ctx, concurrent); err != nil {
+			t.Fatal(err)
+		}
+		changes := []Source{concurrent, concurrent}
+		changes[0].VersionID = "22000000-0000-0000-0000-000000000012"
+		changes[0].CoverageState = "partial"
+		changes[1].VersionID = "22000000-0000-0000-0000-000000000013"
+		changes[1].CoverageState = "unknown"
+		for index := range changes {
+			changes[index].EffectiveAt = base.Add(time.Hour)
+		}
+		errorsSeen := make(chan error, len(changes))
+		var group sync.WaitGroup
+		for _, change := range changes {
+			group.Add(1)
+			go func() {
+				defer group.Done()
+				errorsSeen <- repo.PutSource(ctx, change)
+			}()
+		}
+		group.Wait()
+		close(errorsSeen)
+		successes := 0
+		for err := range errorsSeen {
+			if err == nil {
+				successes++
+				continue
+			}
+			if !errors.Is(err, ErrInvalidEffectiveTime) {
+				t.Fatalf("unexpected concurrent source error: %v", err)
+			}
+		}
+		var currentCount, overlapCount int
+		if err := repo.pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE valid_to IS NULL)
+            FROM prompt_better.source_versions WHERE source_id=$1`, concurrent.ID).Scan(&currentCount); err != nil {
+			t.Fatal(err)
+		}
+		if err := repo.pool.QueryRow(ctx, `SELECT count(*) FROM prompt_better.source_versions a
+            JOIN prompt_better.source_versions b ON a.source_id=b.source_id
+             AND a.source_version_id < b.source_version_id
+             AND tstzrange(a.valid_from, a.valid_to, '[)') && tstzrange(b.valid_from, b.valid_to, '[)')
+            WHERE a.source_id=$1`, concurrent.ID).Scan(&overlapCount); err != nil {
+			t.Fatal(err)
+		}
+		if successes != 1 || currentCount != 1 || overlapCount != 0 {
+			t.Fatalf("concurrent source successes=%d current=%d overlap=%d", successes, currentCount, overlapCount)
+		}
+	})
+
+	t.Run("collection evidence and cursor commit atomically", func(t *testing.T) {
+		atomicSource := Source{
+			ID: "21000000-0000-0000-0000-000000000001", VersionID: "21000000-0000-0000-0000-000000000011",
+			Kind: "synthetic_jsonl", ProductSurface: "local", CoverageState: "complete",
+			Enabled: true, CreatedAt: base, EffectiveAt: base,
+		}
+		if err := repo.PutSource(ctx, atomicSource); err != nil {
+			t.Fatal(err)
+		}
+		hash := sha256.Sum256([]byte("atomic synthetic evidence"))
+		alias := "31000000-0000-0000-0000-000000000011"
+		item := Evidence{
+			ID: "31000000-0000-0000-0000-000000000021", SourceID: atomicSource.ID,
+			ExternalAliasID: &alias, SchemaVersion: "1.0.0", ContentHash: hash[:],
+			ContentLength: 25, Classification: "internal", RedactionState: "not_needed",
+			CoverageState: "complete", Provenance: "runtime_observed",
+			ProductSurface: "local", ObservedAt: base,
+		}
+		batch := CollectionBatch{
+			BatchID: "synthetic-batch-one", CursorID: "31000000-0000-0000-0000-000000000001", SourceID: atomicSource.ID,
+			Next: 1, Generation: "synthetic-generation", CursorDigest: "synthetic-digest", ObservedAt: base, Evidence: []Evidence{item},
+		}
+		fence, acquired, err := repo.AcquireCollectionLease(ctx, batch.CursorID, batch.SourceID, "integration", base, time.Hour)
+		if err != nil || !acquired {
+			t.Fatalf("lease acquired=%t error=%v", acquired, err)
+		}
+		batch.Fence = fence
+		committed, err := repo.CommitCollection(ctx, batch)
+		if err != nil || !committed {
+			t.Fatalf("first commit=%t error=%v", committed, err)
+		}
+		committed, err = repo.CommitCollection(ctx, batch)
+		if err != nil || committed {
+			t.Fatalf("replay commit=%t error=%v", committed, err)
+		}
+		sameCursorConflict := batch
+		otherAtSameCursor := sha256.Sum256([]byte("same cursor conflict"))
+		sameCursorConflict.Evidence = append([]Evidence{}, item)
+		sameCursorConflict.Evidence[0].ContentHash = otherAtSameCursor[:]
+		if _, err := repo.CommitCollection(ctx, sameCursorConflict); !errors.Is(err, ErrSourceConflict) {
+			t.Fatalf("same-cursor conflict error=%v", err)
+		}
+		cursor, err := repo.CollectionCursor(ctx, atomicSource.ID)
+		if err != nil || cursor != 1 {
+			t.Fatalf("cursor=%d error=%v", cursor, err)
+		}
+		conflict := batch
+		conflict.Next = 2
+		other := sha256.Sum256([]byte("conflicting atomic evidence"))
+		conflict.Evidence = append([]Evidence{}, item)
+		conflict.Evidence[0].ContentHash = other[:]
+		if _, err := repo.CommitCollection(ctx, conflict); !errors.Is(err, ErrSourceConflict) {
+			t.Fatalf("conflict error=%v", err)
+		}
+		cursor, err = repo.CollectionCursor(ctx, atomicSource.ID)
+		if err != nil || cursor != 1 {
+			t.Fatalf("failed commit advanced cursor=%d error=%v", cursor, err)
 		}
 	})
 

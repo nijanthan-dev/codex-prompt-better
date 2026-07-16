@@ -41,6 +41,47 @@ func TestSyntheticScalePlansAndThroughput(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	for version := 2; version <= 100; version++ {
+		if err := repo.PutProject(ctx, Project{
+			ID: projectID, VersionID: uuidFor(0x60010000, version), CreatedAt: base,
+			EffectiveAt:    base.Add(time.Duration(version) * time.Hour),
+			Classification: []string{"internal", "confidential"}[version%2], LifecycleState: "active",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := repo.pool.Exec(ctx, `INSERT INTO prompt_better.projects (project_id, created_at)
+        SELECT md5('plan-project-' || project_no)::uuid, $1
+		FROM generate_series(1,100) project_no`, base); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.pool.Exec(ctx, `INSERT INTO prompt_better.project_versions
+          (project_version_id, project_id, version_number, classification,
+           lifecycle_state, version_hash, valid_from, valid_to)
+        SELECT md5('plan-version-' || project_no || '-' || version_no)::uuid,
+          md5('plan-project-' || project_no)::uuid, version_no, 'internal', 'active',
+		  decode(repeat('00',32),'hex'), $1::timestamptz + version_no * interval '1 hour',
+		  CASE WHEN version_no=100 THEN NULL ELSE $1::timestamptz + (version_no+1) * interval '1 hour' END
+        FROM generate_series(1,100) project_no
+		CROSS JOIN generate_series(1,100) version_no`, base); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.pool.Exec(ctx, `ANALYZE prompt_better.project_versions`); err != nil {
+		t.Fatal(err)
+	}
+	var asOfPlan, currentPlan string
+	if err := repo.pool.QueryRow(ctx, `EXPLAIN (FORMAT JSON) SELECT project_version_id
+        FROM prompt_better.project_versions WHERE project_id=$1 AND valid_from <= $2
+        AND (valid_to > $2 OR valid_to IS NULL)`, projectID, base.Add(50*time.Hour)).Scan(&asOfPlan); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.pool.QueryRow(ctx, `EXPLAIN (FORMAT JSON) SELECT project_version_id
+        FROM prompt_better.project_versions WHERE project_id=$1 AND valid_to IS NULL`, projectID).Scan(&currentPlan); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(asOfPlan, "project_versions_asof_idx") || !strings.Contains(currentPlan, "project_versions_one_current_uq") {
+		t.Fatalf("SCD2 query plans missing index: as_of=%q current=%q", asOfPlan, currentPlan)
+	}
 	sessionID := uuidFor(0x60000000, 5)
 	if _, err := repo.pool.Exec(ctx, `INSERT INTO prompt_better.sessions
         (session_id, project_id, source_id, started_at, coverage_state, knowledge_state)
