@@ -22,6 +22,12 @@ The MCP transport advertises each tool's request and result definition, not the
 request/result/error union in the source schema. Transport registration contains
 no compiler, policy, collector, or database business logic.
 
+The configured execution policy is a maximum: a tool request cannot select a
+broader policy. Plugin-only startup defaults to `improve_only`. The MCP host
+permission remains unknown, so the server never grants or silently recommends
+execution. Process-source audit also requires the configured process-purpose
+scope; that purpose is never returned or logged.
+
 ## State and evidence
 
 Checkpoint and audit render state is bounded, in memory, isolated by MCP client,
@@ -53,11 +59,15 @@ do not include prompt text, paths, DSNs, tokens, usernames, or source records.
 documented `codex mcp get/add/remove` commands and never edits Codex TOML or
 changes Codex permissions, model, reasoning effort, verbosity, fast mode,
 global instructions, or hidden flags. See [installation](installation.md).
+When the source plugin is installed, init safely overlays its same-name
+registration with the configured command. Uninstall removes the owned overlay
+and restores plugin discovery without changing plugin files.
 
 Rollback uses `prompt-better init --uninstall --apply`. It removes only unchanged
 owned integration files and the unchanged owned MCP registration. It does not
 remove PostgreSQL data, collected evidence, binaries, or source checkouts.
 
-Package installation, release artifacts, automatic historical backfill,
-governance metrics, dashboards, rich reports, and automatic execution are not
-supported by this source integration.
+Marketplace entry/interface publication, package installation, release
+artifacts, automatic historical backfill, governance metrics, dashboards, rich
+reports, and automatic execution are not supported by this source integration;
+marketplace/package work remains issue #10.

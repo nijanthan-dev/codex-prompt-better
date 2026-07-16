@@ -1,15 +1,36 @@
 # Build and test output
 /bin/
+/build/
 /dist/
+/out/
 /coverage/
+/.tmp/
+/tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.out
 *.coverprofile
+coverage.*
+profile.cov
+*.prof
+*.pprof
+*.trace
 *.test
+
+# Local Go workspace state
+go.work
+go.work.sum
 
 # Local configuration and data
 .env
 .env.*
 !.env.example
 *.local.*
+*.log
+*.pid
 *.sqlite
 *.sqlite3
 *.db
@@ -18,6 +39,10 @@
 
 # Editors and operating systems
 .DS_Store
+Thumbs.db
 .idea/
 .vscode/
 *.swp
+*~
+
+# MCP/plugin manifests, schemas, skills, and fixtures are repository source.

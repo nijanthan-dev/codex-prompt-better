@@ -3,10 +3,15 @@ package tools
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/nijanthan-dev/codex-prompt-better/internal/compiler"
+	"github.com/nijanthan-dev/codex-prompt-better/internal/mcpserver"
 	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
 )
 
@@ -16,9 +21,82 @@ type fakeAuditStore struct {
 	asOf      *time.Time
 }
 
+func TestAllTools_TimeoutAndOverloadAreStable(t *testing.T) {
+	requests := validToolRequests()
+	for _, mode := range []string{"timeout", "overload"} {
+		t.Run(mode, func(t *testing.T) {
+			timeout := time.Second
+			if mode == "timeout" {
+				timeout = time.Nanosecond
+			}
+			server, err := mcpserver.New(mcpserver.Options{
+				MaxInputBytes: 64 * 1024, MaxConcurrent: 1, Timeout: timeout,
+				Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := RegisterAll(server, &fakeAuditStore{}); err != nil {
+				t.Fatal(err)
+			}
+			var release func()
+			if mode == "overload" {
+				_, release, err = server.Acquire(context.Background())
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer release()
+			}
+			ctx, session := connectTestClient(t, server)
+			for name, arguments := range requests {
+				result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: arguments})
+				if err != nil || !result.IsError {
+					t.Fatalf("%s result=%#v err=%v", name, result, err)
+				}
+				if text := result.Content[0].(*mcp.TextContent).Text; !strings.Contains(text, string(contracts.ErrorCodeBudgetExhausted)) {
+					t.Fatalf("%s unstable bound error=%s", name, text)
+				}
+			}
+		})
+	}
+}
+
+func validToolRequests() map[string]map[string]any {
+	plan := compiler.NewPlan("Synthetic goal.")
+	reference := "00000000-0000-4000-8000-000000000001"
+	return map[string]map[string]any{
+		"improve_prompt": {
+			"schema_version": contracts.SchemaVersion, "kind": "request", "intent": "Synthetic.",
+			"execution_policy": "improve_only",
+		},
+		"create_goal_prompt": {
+			"schema_version": contracts.SchemaVersion, "kind": "request", "objective": "Synthetic.", "prompt_plan": plan,
+		},
+		"create_review_fix_prompt": {
+			"schema_version": contracts.SchemaVersion, "kind": "request", "findings": []string{"Synthetic."}, "review_head": "abcdef1",
+		},
+		"lint_prompt": {
+			"schema_version": contracts.SchemaVersion, "kind": "request", "candidate": "Goal:\nSynthetic.",
+		},
+		"get_checkpoint": {
+			"schema_version": contracts.SchemaVersion, "kind": "request", "reference": "latest",
+		},
+		"audit_session": {
+			"schema_version": contracts.SchemaVersion, "kind": "request", "reference": reference,
+			"consent": "granted", "configured_sources": []string{"git"},
+		},
+		"render_governance_report": {
+			"schema_version": contracts.SchemaVersion, "kind": "request", "audit_reference": reference, "format": "chat",
+		},
+	}
+}
+
 func TestAuditSession_RejectsSourceOutsideServerAllowlist(t *testing.T) {
 	server := newTestServer(t)
-	service, err := RegisterConfigured(server, &fakeAuditStore{}, []string{"git"})
+	service, err := RegisterWithConfig(server, &fakeAuditStore{}, Configuration{
+		ExecutionPolicy: contracts.ExecutionPolicyFollowUserIntent,
+		SourceKinds:     []string{"git"},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,6 +107,25 @@ func TestAuditSession_RejectsSourceOutsideServerAllowlist(t *testing.T) {
 	var stable *contracts.StableError
 	if !errors.As(err, &stable) || stable.Code != contracts.ErrorCodePermissionDenied {
 		t.Fatalf("expected permission denial, got %v", err)
+	}
+}
+
+func TestAuditSession_RejectsProcessWithoutConfiguredPurpose(t *testing.T) {
+	server := newTestServer(t)
+	service, err := RegisterWithConfig(server, &fakeAuditStore{}, Configuration{
+		ExecutionPolicy: contracts.ExecutionPolicyImproveOnly,
+		SourceKinds:     []string{"process"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.auditSession(context.Background(), "one", contracts.AuditSessionRequest{
+		SchemaVersion: contracts.SchemaVersion, Kind: "request", Reference: "00000000-0000-4000-8000-000000000001",
+		Consent: contracts.AuditConsentGranted, ConfiguredSources: []string{"process"},
+	})
+	var stable *contracts.StableError
+	if !errors.As(err, &stable) || stable.Code != contracts.ErrorCodePermissionDenied {
+		t.Fatalf("expected purpose denial, got %v", err)
 	}
 }
 
@@ -117,10 +214,11 @@ func TestRegisterAll_AdvertisesSevenFrozenTools(t *testing.T) {
 	if err != nil || len(listed.Tools) != 7 {
 		t.Fatalf("tool list=%#v error=%v", listed, err)
 	}
-	for _, name := range []string{
+	expected := []string{
 		"improve_prompt", "create_goal_prompt", "create_review_fix_prompt", "lint_prompt",
 		"get_checkpoint", "audit_session", "render_governance_report",
-	} {
+	}
+	for _, name := range expected {
 		if !hasTool(listed.Tools, name) {
 			t.Fatalf("tool %s missing", name)
 		}

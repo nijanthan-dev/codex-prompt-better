@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -42,6 +43,48 @@ func TestImprovePrompt_SuccessSchemaErrorAndLimit(t *testing.T) {
 	}})
 	if err != nil || !oversized.IsError {
 		t.Fatalf("oversized result=%#v error=%v", oversized, err)
+	}
+}
+
+func TestImprovePrompt_ConfiguredPolicyIsMaximum(t *testing.T) {
+	server := newTestServer(t)
+	service, err := RegisterWithConfig(server, nil, Configuration{
+		ExecutionPolicy: contracts.ExecutionPolicyImproveOnly,
+		SourceKinds:     []string{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.improvePrompt(context.Background(), "synthetic", contracts.ImprovePromptRequest{
+		SchemaVersion:   contracts.SchemaVersion,
+		Kind:            "request",
+		Intent:          "Return a synthetic result.",
+		ExecutionPolicy: contracts.ExecutionPolicyAskBeforeExecute,
+	})
+	var stable *contracts.StableError
+	if !errors.As(err, &stable) || stable.Code != contracts.ErrorCodePermissionDenied {
+		t.Fatalf("broader policy error=%v", err)
+	}
+}
+
+func TestImprovePrompt_InvalidPolicyRemainsSchemaError(t *testing.T) {
+	server := newTestServer(t)
+	service, err := RegisterWithConfig(server, nil, Configuration{
+		ExecutionPolicy: contracts.ExecutionPolicyImproveOnly,
+		SourceKinds:     []string{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.improvePrompt(context.Background(), "synthetic", contracts.ImprovePromptRequest{
+		SchemaVersion:   contracts.SchemaVersion,
+		Kind:            "request",
+		Intent:          "Return a synthetic result.",
+		ExecutionPolicy: "invalid",
+	})
+	var stable *contracts.StableError
+	if !errors.As(err, &stable) || stable.Code != contracts.ErrorCodeInvalidSchema {
+		t.Fatalf("invalid policy error=%v", err)
 	}
 }
 
@@ -156,6 +199,54 @@ func TestGetCheckpoint_LatestNotFoundAndSessionIsolation(t *testing.T) {
 	}})
 	if err != nil || !isolated.IsError {
 		t.Fatalf("isolated result=%#v error=%v", isolated, err)
+	}
+}
+
+func TestCheckpoint_BoundsPromptPlanItemsToResultSchema(t *testing.T) {
+	plan := compiler.NewPlan("Create a synthetic goal.")
+	plan.Invariants = []string{strings.Repeat("i", 1000)}
+	plan.Gates = []string{strings.Repeat("g", 1000)}
+	diagnostics := make([]string, 100)
+	for index := range diagnostics {
+		diagnostics[index] = fmt.Sprintf("diagnostic-%d", index)
+	}
+	checkpoint := checkpointForImprove(
+		contracts.ImprovePromptRequest{Intent: "synthetic"},
+		contracts.ImprovePromptResult{PolicyOutcome: contracts.PolicyOutcomeReturnOnly, Diagnostics: diagnostics},
+		plan,
+	)
+	if len(checkpoint.Constraints[0]) != maxCheckpointItem || len(checkpoint.RemainingGates[0]) != maxCheckpointItem {
+		t.Fatalf("checkpoint item lengths=%d,%d", len(checkpoint.Constraints[0]), len(checkpoint.RemainingGates[0]))
+	}
+	if len(checkpoint.Validation) != maxCheckpointItems {
+		t.Fatalf("checkpoint validation items=%d", len(checkpoint.Validation))
+	}
+}
+
+func TestCheckpoint_BoundsReviewFailureClasses(t *testing.T) {
+	service := &Service{server: newTestServer(t), state: map[string]*sessionState{}}
+	findings := make([]string, 100)
+	for index := range findings {
+		findings[index] = fmt.Sprintf("failure class %d", index)
+	}
+	if _, err := service.createReviewFixPrompt(context.Background(), "synthetic", contracts.CreateReviewFixPromptRequest{
+		SchemaVersion: contracts.SchemaVersion, Kind: "request", ReviewHead: "abcdef1", Findings: findings,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(service.state["synthetic"].checkpoint.AcceptedDecisions); got != maxCheckpointItems {
+		t.Fatalf("review checkpoint decisions=%d", got)
+	}
+}
+
+func TestSuccessResult_EncodesOversizeAsStableToolError(t *testing.T) {
+	result := successResult(map[string]string{"value": strings.Repeat("x", maxResultBytes)})
+	if !result.IsError || len(result.Content) != 1 {
+		t.Fatalf("oversize result=%#v", result)
+	}
+	text := result.Content[0].(*mcp.TextContent).Text
+	if !strings.Contains(text, string(contracts.ErrorCodeInternal)) {
+		t.Fatalf("unstable result error=%s", text)
 	}
 }
 
