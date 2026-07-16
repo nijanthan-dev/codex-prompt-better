@@ -13,6 +13,7 @@ func TestDiscoverNormalizedCandidates(t *testing.T) {
 		".git":                                 {Data: []byte("gitdir: synthetic")},
 		"AGENTS.md":                            {Data: []byte("Out of scope: generated artifacts.")},
 		"SECURITY.md":                          {Data: []byte("Synthetic policy")},
+		".env":                                 {Data: []byte("SYNTHETIC=private")},
 		"src/file.go":                          {Data: []byte("package fixture")},
 		"vendor/module/file.go":                {Data: []byte("package module")},
 		"generated/output.go":                  {Data: []byte("package generated")},
@@ -38,6 +39,23 @@ func TestDiscoverNormalizedCandidates(t *testing.T) {
 		if strings.Contains(candidate.SourceRef, "/") || strings.Contains(candidate.SourceRef, "\\") {
 			t.Fatalf("unsafe source ref: %s", candidate.SourceRef)
 		}
+	}
+}
+
+func TestDiscoverPublicSecurityPolicyDoesNotBlock(t *testing.T) {
+	public, err := Discover(context.Background(), FSReader{FS: fstest.MapFS{
+		"SECURITY.md":  {Data: []byte("Public reporting policy")},
+		".env.example": {Data: []byte("SYNTHETIC=example")},
+	}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasCategory(public.Candidates, "privacy") || hasCategory(public.Candidates, "security") || !hasCategory(public.Candidates, "validation") {
+		t.Fatalf("public security policy misclassified: %+v", public.Candidates)
+	}
+	sensitive, err := Discover(context.Background(), FSReader{FS: fstest.MapFS{".env": {Data: []byte("SYNTHETIC=private")}}}, nil)
+	if err != nil || !hasCategory(sensitive.Candidates, "privacy") {
+		t.Fatalf("sensitive metadata not protected: %+v err=%v", sensitive.Candidates, err)
 	}
 }
 

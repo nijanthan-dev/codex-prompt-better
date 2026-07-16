@@ -203,9 +203,23 @@ func normalizeScopes(scopes []string) ([]string, error) {
 }
 
 func targetedFile(name, base string) bool {
-	return workflowFile(name, base) || instructionFile(base) || base == "security.md" || base == "release-please-config.json" || base == ".goreleaser.yml" || base == ".goreleaser.yaml" || base == "makefile"
+	return workflowFile(name, base) || instructionFile(base) || base == "security.md" || privacyMetadataFile(base) || base == "release-please-config.json" || base == ".goreleaser.yml" || base == ".goreleaser.yaml" || base == "makefile"
 }
 func instructionFile(base string) bool { return base == "agents.md" || base == "claude.md" }
+func privacyMetadataFile(base string) bool {
+	if base == ".env" || base == "credentials.json" || base == "secrets.json" {
+		return true
+	}
+	if !strings.HasPrefix(base, ".env.") {
+		return false
+	}
+	switch strings.TrimPrefix(base, ".env.") {
+	case "example", "sample", "template", "dist":
+		return false
+	default:
+		return true
+	}
+}
 func workflowFile(name, base string) bool {
 	inWorkflowDirectory := strings.HasPrefix(name, ".github/workflows/") || strings.Contains(name, "/.github/workflows/")
 	return inWorkflowDirectory && (strings.HasSuffix(base, ".yml") || strings.HasSuffix(base, ".yaml"))
@@ -214,9 +228,9 @@ func fileCategory(name, base string) string {
 	switch {
 	case instructionFile(base):
 		return "instruction"
-	case base == "security.md":
+	case privacyMetadataFile(base):
 		return "privacy"
-	case workflowFile(name, base) || base == "makefile":
+	case workflowFile(name, base) || base == "makefile" || base == "security.md":
 		if strings.Contains(base, "release") || strings.Contains(base, "publish") {
 			return "release"
 		}

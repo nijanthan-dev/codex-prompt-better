@@ -80,6 +80,30 @@ func TestBoundaryDiscoveryIsExplicitAndSanitized(t *testing.T) {
 	}
 }
 
+func TestLintContextRootAllowsPublicSecurityPolicy(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "SECURITY.md"), []byte("Public vulnerability reporting policy."), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, prompt, stderr := execute([]string{"improve_prompt"}, "Return synthetic output.")
+	if code != exitOK || stderr != "" {
+		t.Fatalf("compile code=%d stderr=%s", code, stderr)
+	}
+	code, out, stderr := execute([]string{"lint_prompt", "--format", "json", "--context-root", root}, prompt)
+	if code != exitOK || stderr != "" {
+		t.Fatalf("lint code=%d out=%s stderr=%s", code, out, stderr)
+	}
+	var result contracts.LintPromptResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatal(err)
+	}
+	for _, decision := range result.BoundaryDecisions {
+		if decision.Outcome == "block" {
+			t.Fatalf("public security policy blocked lint: %+v", decision)
+		}
+	}
+}
+
 func TestBoundaryFlagsRejectUnsafeCombinations(t *testing.T) {
 	root := t.TempDir()
 	tests := [][]string{
