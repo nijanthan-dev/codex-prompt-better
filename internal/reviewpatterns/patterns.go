@@ -14,8 +14,12 @@ import (
 
 // ValidateTree returns deterministic diagnostics for unsafe source patterns.
 func ValidateTree(root string) ([]string, error) {
+	releaseFailures, err := validateRelease(root)
+	if err != nil {
+		return nil, err
+	}
 	var paths []string
-	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+	err = filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -32,7 +36,7 @@ func ValidateTree(root string) ([]string, error) {
 	}
 	sort.Strings(paths)
 	set := token.NewFileSet()
-	var failures []string
+	failures := releaseFailures
 	for _, path := range paths {
 		file, err := parser.ParseFile(set, path, nil, 0)
 		if err != nil {

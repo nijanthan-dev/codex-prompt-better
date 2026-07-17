@@ -54,7 +54,7 @@ No v0.2 artifact or package is published yet. The prepared release contains
 four binaries for five OS/architecture targets, checksums, per-archive SPDX
 SBOMs, GitHub attestations, and a fail-closed installer. The ARM Homebrew
 formula builds from source; Darwin amd64 remains a verified direct archive.
-Developers can still run from a checkout with Go 1.25+. `prompt-better init`
+Developers can still run from a checkout with Go 1.25.12+. `prompt-better init`
 previews integration changes and requires `--apply`. See
 [installation](docs/installation.md), [CLI contract](docs/cli.md), and
 [MCP integration](docs/mcp.md).

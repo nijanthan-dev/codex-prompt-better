@@ -1,6 +1,6 @@
-FROM golang:1.25-bookworm AS go-toolchain
+FROM golang:1.25.12-bookworm@sha256:ea341baa9bd5ba6784f6d7161ace70544349a6242d54d34a0fbfd2c4d51c9d58 AS go-toolchain
 
-FROM postgres:17-bookworm
+FROM postgres:17-bookworm@sha256:4f736ae292687621d4dbe0d499ffd024a36bd2ee7d8ca6f2ccd4c800f047b394
 
 COPY --from=go-toolchain /usr/local/go /usr/local/go
 
@@ -9,6 +9,7 @@ ARG GOVULNCHECK_VERSION=1.6.0
 ARG GORELEASER_VERSION=2.17.0
 ARG SYFT_VERSION=1.48.0
 ARG TARGETARCH
+ARG VULNDB_REFRESH
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PATH=/usr/local/go/bin:${PATH}
 
@@ -48,11 +49,25 @@ RUN apt-get update \
     && grep "  syft_${SYFT_VERSION}_linux_${TARGETARCH}.tar.gz$" syft-checksums.txt \
         | sha256sum --check - \
     && tar -xzf "/tmp/syft_${SYFT_VERSION}_linux_${TARGETARCH}.tar.gz" -C /usr/local/bin syft \
+    && echo "Go vulnerability database snapshot: ${VULNDB_REFRESH}" \
+    && curl --fail --location --proto '=https' --tlsv1.2 \
+        --output /tmp/vulndb.zip https://vuln.go.dev/vulndb.zip \
+    && unzip -Z1 /tmp/vulndb.zip > /tmp/vulndb-files \
+    && ! grep -Eq '(^/|(^|/)\.\.(/|$)|\\)' /tmp/vulndb-files \
+    && grep -qx 'index/db.json' /tmp/vulndb-files \
+    && grep -qx 'index/modules.json' /tmp/vulndb-files \
+    && mkdir -p /opt/go-vulndb \
+    && unzip -q /tmp/vulndb.zip -d /opt/go-vulndb \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /root/.cache/go-build /tmp/*.tar.gz /tmp/*checksums.txt
+    && rm -rf /var/lib/apt/lists/* /root/.cache/go-build /tmp/*.tar.gz /tmp/*.zip /tmp/*checksums.txt /tmp/vulndb-files
 
-COPY go.mod go.sum /tmp/prompt-better-modules/
-RUN cd /tmp/prompt-better-modules && go mod download
+COPY . /tmp/prompt-better-modules/
+RUN cd /tmp/prompt-better-modules \
+    && cp go.mod /tmp/prompt-better-go.mod \
+    && cp go.sum /tmp/prompt-better-go.sum \
+    && go mod tidy \
+    && cmp go.mod /tmp/prompt-better-go.mod \
+    && cmp go.sum /tmp/prompt-better-go.sum
 
 ENV CGO_ENABLED=1 \
     GOTOOLCHAIN=local

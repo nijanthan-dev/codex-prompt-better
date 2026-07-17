@@ -11,7 +11,7 @@ published until issue #11 completes release verification.
 - Source builds are verified for macOS, Linux, and Windows on amd64, plus macOS
   and Linux on arm64. Runtime subprocess integration is exercised on the host
   platform; platform-specific collection remains adapter-dependent.
-- Go 1.25 or newer for source builds.
+- Go 1.25.12 or newer for source builds.
 - PostgreSQL 16 or newer, on the latest minor release for its major version.
 - Codex with local skill and stdio MCP support for the interactive integration.
 - Git; GitHub CLI for configured GitHub evidence and direct-archive provenance.
@@ -56,7 +56,10 @@ the installer verifies the archive checksum, then runs `gh attestation verify`
 against `nijanthan-dev/codex-prompt-better`. Missing tools, provenance/network
 failures, tampering, wrong versions, unsupported platforms, unexpected archive
 entries, or unowned destination files fail closed. Do not pipe a remote script
-into a shell.
+into a shell. Concurrent install, rollback, and uninstall operations for the
+same destination are rejected before mutation. If an operation is forcibly
+terminated, remove `.prompt-better-lock` from the install directory only after
+confirming no installer process remains, then inspect the owned set before retrying.
 
 One verified prior binary set is retained under
 `${XDG_STATE_HOME:-$HOME/.local/state}/prompt-better`:
@@ -111,7 +114,7 @@ go run ./cmd/prompt-better doctor --format json
 
 It reports sanitized readiness states for platform, strict integration config,
 owned skill hashes, MCP registration, PostgreSQL, configured collectors, and
-unknown host capabilities. Server readiness verifies Go 1.25+, an offline
+unknown host capabilities. Server readiness verifies Go 1.25.12+, an offline
 read-only module build, MCP initialize, and all eight discovered tools. Collector
 readiness requires enabled current database source dimensions for every configured
 source kind. It never prints paths, connection strings, usernames, prompts,

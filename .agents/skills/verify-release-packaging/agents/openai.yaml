@@ -1,0 +1,4 @@
+interface:
+  display_name: "Verify Release Packaging"
+  short_description: "Enforce hermetic, adversarial release gates"
+  default_prompt: "Use $verify-release-packaging to audit and validate release packaging before a PR."

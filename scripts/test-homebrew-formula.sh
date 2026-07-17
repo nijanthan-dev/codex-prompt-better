@@ -4,7 +4,6 @@ set -eu
 root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 tap=nijanthan-dev/prompt-better-local-test
 formula=$tap/prompt-better
-port=18765
 temp=$(mktemp -d)
 server_pid=
 
@@ -45,16 +44,18 @@ sha=$(shasum -a 256 "$temp/source.tar.gz" | awk '{print $1}')
 commit=$(git rev-parse HEAD)
 commit_epoch=$(git show -s --format=%ct HEAD)
 build_date=$(date -u -r "$commit_epoch" '+%Y-%m-%dT%H:%M:%SZ')
-local_url="http://127.0.0.1:$port/source.tar.gz"
-
-python3 -m http.server "$port" --bind 127.0.0.1 --directory "$temp" >/dev/null 2>&1 &
+python3 -u -m http.server 0 --bind 127.0.0.1 --directory "$temp" >"$temp/server.log" 2>&1 &
 server_pid=$!
 attempt=0
-until curl --fail --silent --output /dev/null "$local_url"; do
+port=
+until [ -n "$port" ]; do
   attempt=$((attempt + 1))
   [ "$attempt" -lt 20 ] || { echo "source server unavailable" >&2; exit 1; }
+  port=$(sed -n 's/.* port \([0-9][0-9]*\) .*/\1/p' "$temp/server.log")
   sleep 1
 done
+local_url="http://127.0.0.1:$port/source.tar.gz"
+curl --fail --silent --output /dev/null "$local_url"
 
 brew_local tap-new --no-git "$tap" >/dev/null
 tap_root=$(brew --repository "$tap")
