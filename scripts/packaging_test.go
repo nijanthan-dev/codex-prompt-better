@@ -101,6 +101,27 @@ func TestInstallerFailsClosedOnProvenanceTamperAndUnownedDestination(t *testing.
 	}
 }
 
+func TestInstallerRejectsMixedLifecycleModesInEitherOrder(t *testing.T) {
+	root := repositoryRoot(t)
+	temp := t.TempDir()
+	tools := filepath.Join(temp, "tools")
+	mustMkdir(t, tools)
+	writeFakeReleaseTools(t, tools)
+
+	for _, args := range [][]string{
+		{"--version", "v1.2.3", "--rollback"},
+		{"--rollback", "--version", "v1.2.3"},
+		{"--version", "v1.2.3", "--uninstall"},
+		{"--uninstall", "--version", "v1.2.3"},
+		{"--version", "v1.2.3", "--version", "v1.2.4"},
+	} {
+		output, err := installerCommand(root, tools, temp, temp, filepath.Join(temp, "state"), "", args...).CombinedOutput()
+		if err == nil || !strings.Contains(string(output), "usage:") {
+			t.Fatalf("args=%v error=%v output=%s", args, err, output)
+		}
+	}
+}
+
 func TestInstallerRestoresCompleteSetAfterPartialFailure(t *testing.T) {
 	root := repositoryRoot(t)
 	temp := t.TempDir()

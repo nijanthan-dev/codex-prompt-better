@@ -14,7 +14,11 @@ usage() {
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --version) [ "$#" -ge 2 ] || usage; version=$2; shift 2 ;;
+    --version)
+      if [ "$mode" != install ] || [ -n "$version" ] || [ "$#" -lt 2 ]; then usage; fi
+      version=$2
+      shift 2
+      ;;
     --install-dir) [ "$#" -ge 2 ] || usage; install_dir=$2; shift 2 ;;
     --rollback)
       if [ "$mode" != install ] || [ -n "$version" ]; then usage; fi
