@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompt-better.local/schemas/v1/governance_report_export.schema.json",
+  "title": "governance report local export v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "local_only", "redacted", "raw_evidence_included", "audit_reference", "revision_hash", "report_facts"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "kind": { "const": "governance_report_export" },
+    "local_only": { "const": true },
+    "redacted": { "const": true },
+    "raw_evidence_included": { "const": false },
+    "audit_reference": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "revision_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "report_facts": { "$ref": "tools/audit_project.schema.json#/$defs/result/properties/report_facts" }
+  }
+}

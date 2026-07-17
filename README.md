@@ -38,6 +38,7 @@ and isolated to one MCP client session.
 
 See [architecture](docs/architecture.md), [data model](docs/data-model.md), and
 the [governance metrics](docs/metrics.md), [evaluation/replay](docs/evaluation.md),
+the [governance reporting contract](docs/reporting.md),
 and [implementation roadmap](https://github.com/nijanthan-dev/codex-prompt-better/issues/1).
 
 ## Privacy

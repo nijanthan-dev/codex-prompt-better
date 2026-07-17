@@ -43,8 +43,12 @@ func New(options Options) (*Server, error) {
 	if options.MaxInputBytes <= 0 || options.MaxConcurrent <= 0 || options.Timeout <= 0 || options.Logger == nil {
 		return nil, errors.New("invalid MCP server options")
 	}
+	capabilities := &mcp.ServerCapabilities{}
+	capabilities.AddExtension("io.prompt-better/governance-report", map[string]any{
+		"version": "1", "formats": []string{"chat", "markdown", "table"},
+	})
 	return &Server{
-		sdk:   mcp.NewServer(&mcp.Implementation{Name: "prompt-better", Version: "0.2.0-dev"}, nil),
+		sdk:   mcp.NewServer(&mcp.Implementation{Name: "prompt-better", Version: "0.2.0-dev"}, &mcp.ServerOptions{Capabilities: capabilities}),
 		limit: make(chan struct{}, options.MaxConcurrent), timeout: options.Timeout, logger: options.Logger,
 	}, nil
 }

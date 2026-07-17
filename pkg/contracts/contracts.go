@@ -513,17 +513,27 @@ type RenderGovernanceReportRequest struct {
 	SchemaVersion  string       `json:"schema_version"`
 	Kind           string       `json:"kind"`
 	AuditReference string       `json:"audit_reference"`
+	RevisionHash   string       `json:"revision_hash,omitempty"`
 	Format         ReportFormat `json:"format"`
+}
+
+type ReportSectionOmission struct {
+	Section string `json:"section"`
+	Count   int    `json:"count"`
 }
 
 // RenderGovernanceReportResult is the render_governance_report v1 result.
 type RenderGovernanceReportResult struct {
-	SchemaVersion    string            `json:"schema_version"`
-	Kind             string            `json:"kind"`
-	Format           ReportFormat      `json:"format"`
-	Rendered         string            `json:"rendered"`
-	Coverage         CoverageState     `json:"coverage"`
-	ProvenanceLabels []ProvenanceLabel `json:"provenance_labels"`
+	SchemaVersion    string                  `json:"schema_version"`
+	Kind             string                  `json:"kind"`
+	Format           ReportFormat            `json:"format"`
+	Rendered         string                  `json:"rendered"`
+	Coverage         CoverageState           `json:"coverage"`
+	ProvenanceLabels []ProvenanceLabel       `json:"provenance_labels"`
+	RevisionHash     string                  `json:"revision_hash,omitempty"`
+	FallbackReason   string                  `json:"fallback_reason,omitempty"`
+	OmittedCount     int                     `json:"omitted_count,omitempty"`
+	SectionOmissions []ReportSectionOmission `json:"section_omissions,omitempty"`
 }
 
 // ErrorCode is a stable, sanitized v1 error classification.
