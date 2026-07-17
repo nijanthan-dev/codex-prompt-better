@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"compress/gzip"
 	"crypto/sha256"
 	"fmt"
@@ -122,6 +123,31 @@ func TestInstallerRejectsMixedLifecycleModesInEitherOrder(t *testing.T) {
 	}
 }
 
+func TestInstallerRefusesConcurrentLifecycleOperation(t *testing.T) {
+	root := repositoryRoot(t)
+	temp := t.TempDir()
+	release := filepath.Join(temp, "release")
+	tools := filepath.Join(temp, "tools")
+	home := filepath.Join(temp, "home")
+	install := filepath.Join(temp, "bin")
+	state := filepath.Join(temp, "state")
+	mustMkdir(t, release, tools, home)
+	writeFakeReleaseTools(t, tools)
+	writeReleaseFixture(t, release, "1.2.3", false)
+
+	mustMkdir(t, install, filepath.Join(install, ".prompt-better-lock"))
+	output, err := installerCommand(root, tools, release, home, state, "",
+		"--version", "v1.2.3", "--install-dir", install).CombinedOutput()
+	if err == nil || !strings.Contains(string(output), "another installer operation is active") {
+		t.Fatalf("error=%v output=%s", err, output)
+	}
+	for _, name := range packageBinaries() {
+		if _, err := os.Stat(filepath.Join(install, name)); !os.IsNotExist(err) {
+			t.Fatalf("concurrent operation mutated %s", name)
+		}
+	}
+}
+
 func TestInstallerRestoresCompleteSetAfterPartialFailure(t *testing.T) {
 	root := repositoryRoot(t)
 	temp := t.TempDir()
@@ -218,6 +244,190 @@ func TestRenderHomebrewFormulaLocksSourceBuildContract(t *testing.T) {
 	}
 }
 
+func TestPackageVerifierRejectsUnsafeArchiveBeforeExtraction(t *testing.T) {
+	root := repositoryRoot(t)
+	dist := filepath.Join(t.TempDir(), "dist")
+	writePackageVerifierFixture(t, dist, true)
+	output, err := exec.Command("sh", filepath.Join(root, "scripts", "verify-package-output.sh"), dist).CombinedOutput()
+	if err == nil || !strings.Contains(string(output), "unsafe archive path") {
+		t.Fatalf("error=%v output=%s", err, output)
+	}
+}
+
+func TestPackageVerifierRejectsTargetAndChecksumDrift(t *testing.T) {
+	root := repositoryRoot(t)
+	for _, test := range []struct {
+		name     string
+		mutate   func(*testing.T, string)
+		wantText string
+	}{
+		{
+			name: "target",
+			mutate: func(t *testing.T, dist string) {
+				renameFixture(t, dist, "prompt-better_1.2.3_linux_arm64.tar.gz", "prompt-better_1.2.3_linux_riscv64.tar.gz")
+				renameFixture(t, dist, "prompt-better_1.2.3_linux_arm64.tar.gz.sbom.json", "prompt-better_1.2.3_linux_riscv64.tar.gz.sbom.json")
+			},
+			wantText: "release target set invalid",
+		},
+		{
+			name: "checksums",
+			mutate: func(t *testing.T, dist string) {
+				data, err := os.ReadFile(filepath.Join(dist, "checksums.txt"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+				if err := os.WriteFile(filepath.Join(dist, "checksums.txt"), []byte(strings.Join(lines[1:], "\n")+"\n"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantText: "checksum manifest incomplete",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			dist := filepath.Join(t.TempDir(), "dist")
+			writePackageVerifierFixture(t, dist, false)
+			test.mutate(t, dist)
+			output, err := exec.Command("sh", filepath.Join(root, "scripts", "verify-package-output.sh"), dist).CombinedOutput()
+			if err == nil || !strings.Contains(string(output), test.wantText) {
+				t.Fatalf("error=%v output=%s", err, output)
+			}
+		})
+	}
+}
+
+func writePackageVerifierFixture(t *testing.T, dist string, unsafe bool) {
+	t.Helper()
+	mustMkdir(t, dist)
+	for _, target := range []struct {
+		name string
+		zip  bool
+	}{
+		{name: "darwin_amd64.tar.gz"},
+		{name: "darwin_arm64.tar.gz"},
+		{name: "linux_amd64.tar.gz"},
+		{name: "linux_arm64.tar.gz"},
+		{name: "windows_amd64.zip", zip: true},
+	} {
+		archive := filepath.Join(dist, "prompt-better_1.2.3_"+target.name)
+		if target.zip {
+			writeZipPackageFixture(t, archive)
+		} else {
+			entry := ""
+			if unsafe && target.name == "darwin_amd64.tar.gz" {
+				entry = "../escape"
+			}
+			writeTarPackageFixture(t, archive, entry)
+		}
+		if err := os.WriteFile(archive+".sbom.json", []byte(`{"spdxVersion":"SPDX-2.3","packages":[]}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dist, "install.sh"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dist, "prompt-better.rb.tmpl"), []byte("synthetic"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	writeChecksums(t, dist)
+}
+
+func packageArchiveEntries(suffix string) []string {
+	return []string{
+		"LICENSE", "README.md", "docs/installation.md",
+		"prompt-better" + suffix, "prompt-better-admin" + suffix,
+		"prompt-better-collector" + suffix, "prompt-better-mcp" + suffix,
+	}
+}
+
+func writeTarPackageFixture(t *testing.T, path, unsafe string) {
+	t.Helper()
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gzipWriter := gzip.NewWriter(file)
+	tarWriter := tar.NewWriter(gzipWriter)
+	entries := packageArchiveEntries("")
+	if unsafe != "" {
+		entries = append(entries, unsafe)
+	}
+	for _, name := range entries {
+		content := []byte("synthetic")
+		header := &tar.Header{Name: name, Mode: 0o755, Size: int64(len(content)), ModTime: time.Unix(0, 0)}
+		if err := tarWriter.WriteHeader(header); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tarWriter.Write(content); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tarWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeZipPackageFixture(t *testing.T, path string) {
+	t.Helper()
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zipWriter := zip.NewWriter(file)
+	for _, name := range packageArchiveEntries(".exe") {
+		header := &zip.FileHeader{Name: name, Method: zip.Deflate}
+		header.SetMode(0o755)
+		entry, err := zipWriter.CreateHeader(header)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := io.WriteString(entry, "synthetic"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zipWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeChecksums(t *testing.T, dist string) {
+	t.Helper()
+	entries, err := os.ReadDir(dist)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lines []string
+	for _, entry := range entries {
+		if entry.Name() == "checksums.txt" {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dist, entry.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		lines = append(lines, fmt.Sprintf("%x  %s", sha256.Sum256(data), entry.Name()))
+	}
+	if err := os.WriteFile(filepath.Join(dist, "checksums.txt"), []byte(strings.Join(lines, "\n")+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func renameFixture(t *testing.T, dist, oldName, newName string) {
+	t.Helper()
+	if err := os.Rename(filepath.Join(dist, oldName), filepath.Join(dist, newName)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	root, err := findRoot()
@@ -246,16 +456,33 @@ func writeFakeReleaseTools(t *testing.T, directory string) {
 set -eu
 output=
 url=
+fail=false
+location=false
+proto=false
+tls=false
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --output) output=$2; shift 2 ;;
-    --*) shift ;;
+    --fail) fail=true; shift ;;
+    --location) location=true; shift ;;
+    --proto) [ "$2" = '=https' ]; proto=true; shift 2 ;;
+    --tlsv1.2) tls=true; shift ;;
+    --*) exit 2 ;;
     *) url=$1; shift ;;
   esac
 done
+[ "$fail" = true ] && [ "$location" = true ] && [ "$proto" = true ] && [ "$tls" = true ]
+[ -n "$output" ]
+case "$url" in https://github.com/*) ;; *) exit 2 ;; esac
 cp "$FAKE_RELEASE_DIR/${url##*/}" "$output"
 `
-	gh := "#!/bin/sh\n[ \"${FAKE_GH_FAIL:-}\" != 1 ]\n"
+	gh := `#!/bin/sh
+set -eu
+[ "$#" = 5 ]
+[ "$1" = attestation ] && [ "$2" = verify ] && [ -f "$3" ]
+[ "$4" = --repo ] && [ "$5" = nijanthan-dev/codex-prompt-better ]
+[ "${FAKE_GH_FAIL:-}" != 1 ]
+`
 	mv := `#!/bin/sh
 if [ "${FAKE_MV_FAIL:-}" = 1 ]; then
   case "$1" in *prompt-better-install-*-prompt-better-collector) exit 1 ;; esac

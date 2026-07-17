@@ -601,12 +601,14 @@ func supportedGoVersion(output string) bool {
 		return false
 	}
 	parts := strings.Split(strings.TrimPrefix(fields[2], "go"), ".")
-	if len(parts) < 2 {
+	if len(parts) < 3 {
 		return false
 	}
 	major, majorErr := strconv.Atoi(parts[0])
 	minor, minorErr := strconv.Atoi(parts[1])
-	return majorErr == nil && minorErr == nil && (major > 1 || major == 1 && minor >= 25)
+	patch, patchErr := strconv.Atoi(parts[2])
+	return majorErr == nil && minorErr == nil && patchErr == nil &&
+		(major > 1 || major == 1 && (minor > 25 || minor == 25 && patch >= 12))
 }
 
 func getRegistration(ctx context.Context, runner Runner) (*registration, error) {

@@ -5,6 +5,9 @@
 - Use fresh worktrees from current `origin/main`; never risk user work in cleanup.
 - Keep scope issue-bound. Planning/issues do not authorize implementation.
 - Use cross-platform Go architecture; macOS-first integration must stay isolated.
+- For packaging, installer, Homebrew, release workflow, SBOM, attestation, or
+  toolchain work, load `.agents/skills/verify-release-packaging/SKILL.md` and
+  satisfy `go run ./scripts/validate_patterns.go` before full validation.
 - Before creating, modifying, reviewing, or validating Go source, scripts, tools,
   or tests, load and follow the applicable `golang-*` skills. Select the narrowest
   useful set; always consider code style, naming, safety, error handling, and

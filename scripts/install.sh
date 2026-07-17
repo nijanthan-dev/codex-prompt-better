@@ -66,10 +66,33 @@ state_id=$(sha_text "$install_dir")
 state_dir=$state_root/$state_id
 manifest=$state_dir/manifest
 rollback_dir=$state_dir/rollback
+lock_dir=$install_dir/.prompt-better-lock
+lock_held=false
 if [ -L "$state_base" ] || [ -L "$state_root" ] || [ -L "$state_dir" ] || [ -L "$rollback_dir" ]; then
   echo "installer state must not use symlinks" >&2
   exit 1
 fi
+
+acquire_lock() {
+  if [ ! -d "$install_dir" ] || [ -L "$lock_dir" ]; then
+    echo "install directory unavailable" >&2
+    return 1
+  fi
+  mkdir -p "$state_dir"
+  chmod 0700 "$state_dir"
+  if ! mkdir "$lock_dir" 2>/dev/null; then
+    echo "another installer operation is active" >&2
+    return 1
+  fi
+  lock_held=true
+}
+
+release_lock() {
+  if [ "$lock_held" = true ]; then
+    rm -rf "$lock_dir"
+    lock_held=false
+  fi
+}
 
 manifest_value() {
   key=$1
@@ -124,11 +147,9 @@ restore_from() {
 }
 
 if [ "$mode" = uninstall ]; then
-  verify_owned "$manifest" || { echo "installed binaries are missing, modified, or unowned" >&2; exit 1; }
   staged=$state_dir/uninstall.$$
-  mkdir -p "$staged"
   moved=
-  uninstall_active=true
+  uninstall_active=false
   # shellcheck disable=SC2317 # Invoked by trap.
   cleanup_uninstall() {
     status=$?
@@ -136,9 +157,15 @@ if [ "$mode" = uninstall ]; then
     if [ "$uninstall_active" = true ]; then
       for restore in $moved; do mv "$staged/$restore" "$install_dir/$restore" || true; done
     fi
+    release_lock
     exit "$status"
   }
   trap cleanup_uninstall EXIT HUP INT TERM
+  [ -d "$install_dir" ] || { echo "installed binaries are missing, modified, or unowned" >&2; exit 1; }
+  acquire_lock
+  verify_owned "$manifest" || { echo "installed binaries are missing, modified, or unowned" >&2; exit 1; }
+  mkdir -p "$staged"
+  uninstall_active=true
   for name in $binaries; do
     moved="$moved $name"
     if ! mv "$install_dir/$name" "$staged/$name"; then
@@ -153,10 +180,7 @@ if [ "$mode" = uninstall ]; then
 fi
 
 if [ "$mode" = rollback ]; then
-  verify_owned "$manifest" || { echo "installed binaries are missing, modified, or unowned" >&2; exit 1; }
-  verify_backup || { echo "verified rollback unavailable" >&2; exit 1; }
   current=$state_dir/current.$$
-  mkdir -p "$current"
   rollback_active=false
   # shellcheck disable=SC2317 # Invoked by trap.
   cleanup_rollback() {
@@ -167,9 +191,15 @@ if [ "$mode" = rollback ]; then
       cp "$current/manifest" "$manifest" || true
     fi
     rm -rf "$current"
+    release_lock
     exit "$status"
   }
   trap cleanup_rollback EXIT HUP INT TERM
+  [ -d "$install_dir" ] || { echo "installed binaries are missing, modified, or unowned" >&2; exit 1; }
+  acquire_lock
+  verify_owned "$manifest" || { echo "installed binaries are missing, modified, or unowned" >&2; exit 1; }
+  verify_backup || { echo "verified rollback unavailable" >&2; exit 1; }
+  mkdir -p "$current"
   cp "$manifest" "$current/manifest"
   for name in $binaries; do cp "$install_dir/$name" "$current/$name"; done
   rollback_active=true
@@ -235,6 +265,7 @@ cleanup() {
   for name in $binaries; do
     rm -f "$install_dir/.prompt-better-install-$$-$name" "$install_dir/.prompt-better-restore-$$-$name"
   done
+  release_lock
   exit "$status"
 }
 trap cleanup EXIT HUP INT TERM
@@ -278,8 +309,8 @@ done
 reported=$("$temp/extract/prompt-better" --version 2>/dev/null | awk '{print $2}')
 [ "$reported" = "$version" ] || { echo "archive version mismatch" >&2; exit 1; }
 
-mkdir -p "$install_dir" "$state_dir"
-chmod 0700 "$state_dir"
+mkdir -p "$install_dir"
+acquire_lock
 if [ -f "$manifest" ]; then
   verify_owned "$manifest" || { echo "installed binaries are missing, modified, or unowned" >&2; exit 1; }
   had_previous=true

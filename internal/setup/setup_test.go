@@ -342,7 +342,9 @@ func TestSupportedGoVersion(t *testing.T) {
 		value string
 		want  bool
 	}{
-		{"go version go1.25.0 darwin/arm64", true},
+		{"go version go1.25.12 darwin/arm64", true},
+		{"go version go1.25.11 darwin/arm64", false},
+		{"go version go1.26.0 linux/amd64", true},
 		{"go version go1.26rc1 linux/amd64", false},
 		{"go version go1.24.9 windows/amd64", false},
 		{"invalid", false},
