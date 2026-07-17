@@ -21,6 +21,7 @@ import (
 	promptlint "github.com/nijanthan-dev/codex-prompt-better/internal/lint"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/mcpserver"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/policy"
+	"github.com/nijanthan-dev/codex-prompt-better/internal/report"
 	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
 	contractschemas "github.com/nijanthan-dev/codex-prompt-better/schemas"
 )
@@ -40,11 +41,17 @@ type Configuration struct {
 }
 
 type sessionState struct {
-	checkpoint *contracts.GetCheckpointResult
-	auditRef   string
-	audit      *contracts.AuditSessionResult
-	provenance []contracts.ProvenanceLabel
+	checkpoint    *contracts.GetCheckpointResult
+	auditRef      string
+	audit         *contracts.AuditSessionResult
+	provenance    []contracts.ProvenanceLabel
+	projectAudits map[string]contracts.AuditProjectResult
+	projectOrder  []string
 }
+
+const maxProjectAuditsPerSession = 8
+
+type reportCapabilityKey struct{}
 
 type AuditStore interface {
 	AuditSession(context.Context, string, []string, *time.Time) (contracts.AuditSessionResult, []contracts.ProvenanceLabel, error)
@@ -141,6 +148,7 @@ func register[Input, Output any](service *Service, name, description string, han
 		if err := decodeStrict(request.Params.Arguments, &input); err != nil {
 			return errorResult(contracts.NewError(contracts.ErrorCodeInvalidSchema, "request does not match the frozen schema", "request", false)), nil
 		}
+		bounded = context.WithValue(bounded, reportCapabilityKey{}, reportCapability(request.Session))
 		output, err := handle(bounded, sessionKey(request.Session), input)
 		if contextErr := bounded.Err(); contextErr != nil {
 			return errorResult(mapError(contextErr)), nil
@@ -394,7 +402,7 @@ func (service *Service) auditSession(ctx context.Context, session string, reques
 	return result, nil
 }
 
-func (service *Service) auditProject(ctx context.Context, _ string, request contracts.AuditProjectRequest) (contracts.AuditProjectResult, error) {
+func (service *Service) auditProject(ctx context.Context, session string, request contracts.AuditProjectRequest) (contracts.AuditProjectResult, error) {
 	if err := audit.ValidateRequest(request); err != nil {
 		return contracts.AuditProjectResult{}, err
 	}
@@ -420,7 +428,47 @@ func (service *Service) auditProject(ctx context.Context, _ string, request cont
 			true,
 		)
 	}
-	return service.projectAudits.AuditProject(ctx, request)
+	result, err := service.projectAudits.AuditProject(ctx, request)
+	if err != nil {
+		return contracts.AuditProjectResult{}, err
+	}
+	if result.SchemaVersion != contracts.SchemaVersion || result.Kind != "result" ||
+		result.AuditReference != request.Reference || result.Scope != request.Scope ||
+		!revisionHash.MatchString(result.RevisionHash) || result.ReportFacts == nil ||
+		result.ReportFacts.Version != "report-facts-v1" {
+		return contracts.AuditProjectResult{}, contracts.NewError(contracts.ErrorCodeCoverageIncomplete, "governance report facts unavailable", "report_facts", true)
+	}
+	cached, err := cloneProjectAudit(result)
+	if err != nil {
+		return contracts.AuditProjectResult{}, contracts.NewError(contracts.ErrorCodeCoverageIncomplete, "governance report result invalid", "result", true)
+	}
+	service.mu.Lock()
+	state := service.sessionStateLocked(session)
+	if state.projectAudits == nil {
+		state.projectAudits = map[string]contracts.AuditProjectResult{}
+	}
+	if _, exists := state.projectAudits[result.RevisionHash]; !exists {
+		state.projectOrder = append(state.projectOrder, result.RevisionHash)
+	}
+	state.projectAudits[result.RevisionHash] = cached
+	for len(state.projectOrder) > maxProjectAuditsPerSession {
+		delete(state.projectAudits, state.projectOrder[0])
+		state.projectOrder = state.projectOrder[1:]
+	}
+	service.mu.Unlock()
+	return result, nil
+}
+
+func cloneProjectAudit(result contracts.AuditProjectResult) (contracts.AuditProjectResult, error) {
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		return contracts.AuditProjectResult{}, err
+	}
+	var clone contracts.AuditProjectResult
+	if err := json.Unmarshal(encoded, &clone); err != nil {
+		return contracts.AuditProjectResult{}, err
+	}
+	return clone, nil
 }
 
 func validateSources(sources []string) error {
@@ -437,7 +485,10 @@ func validateSources(sources []string) error {
 	return nil
 }
 
-var sessionReference = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$`)
+var (
+	sessionReference = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$`)
+	revisionHash     = regexp.MustCompile(`^[a-f0-9]{64}$`)
+)
 
 func parseAuditReference(reference string) (string, *time.Time, error) {
 	if strings.HasPrefix(reference, "current:") {
@@ -461,24 +512,58 @@ func parseAuditReference(reference string) (string, *time.Time, error) {
 	return reference, nil, nil
 }
 
-func (service *Service) renderGovernanceReport(_ context.Context, session string, request contracts.RenderGovernanceReportRequest) (contracts.RenderGovernanceReportResult, error) {
+func (service *Service) renderGovernanceReport(ctx context.Context, session string, request contracts.RenderGovernanceReportRequest) (contracts.RenderGovernanceReportResult, error) {
 	if request.SchemaVersion != contracts.SchemaVersion || request.Kind != "request" || len(request.AuditReference) < 1 || len(request.AuditReference) > 128 {
 		return contracts.RenderGovernanceReportResult{}, contracts.NewError(contracts.ErrorCodeInvalidSchema, "invalid governance report request", "request", false)
 	}
 	if request.Format != contracts.ReportFormatChat && request.Format != contracts.ReportFormatMarkdown && request.Format != contracts.ReportFormatTable {
 		return contracts.RenderGovernanceReportResult{}, contracts.NewError(contracts.ErrorCodeInvalidSchema, "unsupported report format", "format", false)
 	}
+	if request.RevisionHash != "" && !revisionHash.MatchString(request.RevisionHash) {
+		return contracts.RenderGovernanceReportResult{}, contracts.NewError(contracts.ErrorCodeInvalidSchema, "invalid revision hash", "revision_hash", false)
+	}
 	service.mu.Lock()
 	service.pruneDisconnectedLocked()
 	state := service.state[session]
 	var audit *contracts.AuditSessionResult
 	var provenance []contracts.ProvenanceLabel
+	var project *contracts.AuditProjectResult
 	if state != nil && state.audit != nil && state.auditRef == request.AuditReference {
 		copy := *state.audit
 		audit = &copy
 		provenance = append([]contracts.ProvenanceLabel{}, state.provenance...)
 	}
+	if state != nil && request.RevisionHash != "" {
+		if cached, exists := state.projectAudits[request.RevisionHash]; exists && cached.AuditReference == request.AuditReference {
+			copy := cached
+			project = &copy
+		}
+	}
 	service.mu.Unlock()
+	if request.RevisionHash != "" {
+		if project == nil {
+			return contracts.RenderGovernanceReportResult{}, contracts.NewError(contracts.ErrorCodeNotFound, "audit revision unavailable in this MCP session", "revision_hash", false)
+		}
+		format := request.Format
+		fallback := ""
+		if format == contracts.ReportFormatChat {
+			capability, _ := ctx.Value(reportCapabilityKey{}).(reportCapabilityState)
+			supported, reason := capability.chatSupported()
+			if !supported {
+				format, fallback = contracts.ReportFormatMarkdown, reason
+			}
+		}
+		model, err := report.Build(*project)
+		if err != nil {
+			return contracts.RenderGovernanceReportResult{}, contracts.NewError(contracts.ErrorCodeCoverageIncomplete, "governance report facts unavailable", "report_facts", true)
+		}
+		base := contracts.RenderGovernanceReportResult{
+			SchemaVersion: contracts.SchemaVersion, Kind: "result", Format: format,
+			Coverage: project.Coverage, ProvenanceLabels: []contracts.ProvenanceLabel{contracts.ProvenanceDerived},
+			RevisionHash: project.RevisionHash, FallbackReason: fallback,
+		}
+		return report.RenderBounded(model, format, base)
+	}
 	if audit == nil {
 		return contracts.RenderGovernanceReportResult{}, contracts.NewError(contracts.ErrorCodeNotFound, "audit reference unavailable in this MCP session", "audit_reference", false)
 	}
@@ -501,24 +586,71 @@ func renderAudit(audit contracts.AuditSessionResult, format contracts.ReportForm
 	case contracts.ReportFormatChat:
 		fmt.Fprintf(&output, "Coverage: %s. Evidence references: %d.", audit.Coverage, len(audit.EvidenceRefs))
 		for _, finding := range audit.Findings {
-			fmt.Fprintf(&output, " %s.", finding)
+			fmt.Fprintf(&output, " %s.", report.Sanitize(finding))
 		}
 	case contracts.ReportFormatMarkdown:
 		fmt.Fprintf(&output, "## PromptBetter governance report\n\n- Coverage: `%s`\n- Evidence references: %d\n- Redaction applied: %t\n", audit.Coverage, len(audit.EvidenceRefs), audit.RedactionApplied)
 		if len(audit.Findings) > 0 {
 			output.WriteString("- Findings:\n")
 			for _, finding := range audit.Findings {
-				fmt.Fprintf(&output, "  - %s\n", finding)
+				fmt.Fprintf(&output, "  - %s\n", report.SanitizeMarkdown(finding))
 			}
 		}
 	case contracts.ReportFormatTable:
 		output.WriteString("field | value\n--- | ---\n")
 		fmt.Fprintf(&output, "coverage | %s\nevidence_refs | %d\nredaction_applied | %t\n", audit.Coverage, len(audit.EvidenceRefs), audit.RedactionApplied)
 		for index, finding := range audit.Findings {
-			fmt.Fprintf(&output, "finding_%d | %s\n", index+1, finding)
+			fmt.Fprintf(&output, "finding_%d | %s\n", index+1, report.SanitizeMarkdown(finding))
 		}
 	}
 	return strings.TrimSpace(output.String())
+}
+
+type reportCapabilityState struct{ present, valid bool }
+
+func reportCapability(session *mcp.ServerSession) reportCapabilityState {
+	if session == nil {
+		return reportCapabilityState{}
+	}
+	params := session.InitializeParams()
+	if params == nil || params.Capabilities == nil {
+		return reportCapabilityState{}
+	}
+	value, present := params.Capabilities.Extensions["io.prompt-better/governance-report"]
+	if !present {
+		return reportCapabilityState{}
+	}
+	settings, ok := value.(map[string]any)
+	if !ok || settings["version"] != "1" {
+		return reportCapabilityState{present: true}
+	}
+	formats, ok := settings["formats"].([]any)
+	if !ok {
+		if typed, typedOK := settings["formats"].([]string); typedOK {
+			for _, f := range typed {
+				if f == "chat" {
+					return reportCapabilityState{true, true}
+				}
+			}
+		}
+		return reportCapabilityState{present: true}
+	}
+	for _, value := range formats {
+		if value == "chat" {
+			return reportCapabilityState{true, true}
+		}
+	}
+	return reportCapabilityState{present: true}
+}
+
+func (state reportCapabilityState) chatSupported() (bool, string) {
+	if state.valid {
+		return true, ""
+	}
+	if state.present {
+		return false, "chat_capability_malformed"
+	}
+	return false, "chat_capability_unavailable"
 }
 
 func checkpointForImprove(request contracts.ImprovePromptRequest, result contracts.ImprovePromptResult, plan contracts.PromptPlan) contracts.GetCheckpointResult {
@@ -584,4 +716,4 @@ const auditDescription = "Reads bounded normalized evidence for one explicitly r
 
 const projectAuditDescription = "Audits one explicitly consented local portfolio, project, task, or trajectory window from normalized evidence. It never starts collection, executes recommendations, or changes host state. Output is bounded, versioned, redacted, and preserves unknown coverage."
 
-const reportDescription = "Renders the audit cached under the exact same reference in this MCP session as chat, Markdown, or a compact table. Use after audit_session when the user wants a bounded human-readable coverage report; it does not calculate #8 metrics or persist a #9 artifact. Input is the frozen v1 render_governance_report request; output includes format, rendered, coverage, and provenance_labels. Rendered output is capped at 50000 bytes. Missing audit state, invalid format, cancellation, timeout, and overload return sanitized stable errors."
+const reportDescription = "Renders a cached audit as chat, Markdown, or a compact accessible table without recalculating metrics. Legacy session reports use the exact audit_reference; project reports also require the exact revision_hash returned by audit_project in this MCP session. Chat requires the versioned Prompt Better client capability and otherwise falls back to Markdown with a reason. The complete encoded result is capped at 50000 bytes with explicit omission counts."

@@ -11,6 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func TestServer_AcquireBoundsConcurrencyAndTime(t *testing.T) {
@@ -96,6 +98,26 @@ func TestServer_RunSanitizesProtocolFailure(t *testing.T) {
 	}
 	if got := logs.String(); !strings.Contains(got, "protocol_failure") || strings.Contains(got, "not-json") {
 		t.Fatalf("unsafe diagnostics: %q", got)
+	}
+}
+
+func TestServerAdvertisesGovernanceReportExtension(t *testing.T) {
+	server, err := New(Options{MaxInputBytes: 1024, MaxConcurrent: 1, Timeout: time.Second, Logger: discardLogger()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	serverTransport, clientTransport := mcp.NewInMemoryTransports()
+	go func() { _ = server.Run(ctx, serverTransport) }()
+	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "1"}, nil)
+	session, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	if _, ok := session.InitializeResult().Capabilities.Extensions["io.prompt-better/governance-report"]; !ok {
+		t.Fatal("governance report extension not advertised")
 	}
 }
 

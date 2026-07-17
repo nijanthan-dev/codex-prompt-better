@@ -35,6 +35,10 @@
           "minLength": 1,
           "maxLength": 128
         },
+        "revision_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
         "format": {
           "enum": [
             "chat",
@@ -94,6 +98,22 @@
               "derived",
               "unknown"
             ]
+          }
+        },
+        "revision_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "fallback_reason": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "omitted_count": { "type": "integer", "minimum": 1 },
+        "section_omissions": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["section", "count"],
+            "properties": {
+              "section": { "type": "string", "minLength": 1, "maxLength": 40 },
+              "count": { "type": "integer", "minimum": 1 }
+            }
           }
         }
       }

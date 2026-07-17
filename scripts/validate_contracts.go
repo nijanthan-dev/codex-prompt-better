@@ -83,8 +83,8 @@ func (v *validator) run() stats {
 	v.schemas = v.loadJSONTree(filepath.Join(v.root, "schemas", "v1"))
 	v.fixtures = v.loadJSONTree(filepath.Join(v.root, "testdata", "golden"))
 	v.packs = v.loadJSONTree(filepath.Join(v.root, "policies", "builtin"))
-	if len(v.schemas) != 17 {
-		v.fail("expected 17 schemas, found %d", len(v.schemas))
+	if len(v.schemas) != 18 {
+		v.fail("expected 18 schemas, found %d", len(v.schemas))
 	}
 
 	v.validateEvidence()

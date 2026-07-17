@@ -332,12 +332,20 @@ func newTestServer(t *testing.T) *mcpserver.Server {
 }
 
 func connectTestClient(t *testing.T, server *mcpserver.Server) (context.Context, *mcp.ClientSession) {
+	return connectTestClientWithCapabilities(t, server, nil)
+}
+
+func connectTestClientWithCapabilities(t *testing.T, server *mcpserver.Server, capabilities *mcp.ClientCapabilities) (context.Context, *mcp.ClientSession) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	t.Cleanup(cancel)
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	go func() { _ = server.Run(ctx, serverTransport) }()
-	client := mcp.NewClient(&mcp.Implementation{Name: "synthetic-client", Version: "0.0.0"}, nil)
+	var options *mcp.ClientOptions
+	if capabilities != nil {
+		options = &mcp.ClientOptions{Capabilities: capabilities}
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "synthetic-client", Version: "0.0.0"}, options)
 	session, err := client.Connect(ctx, clientTransport, nil)
 	if err != nil {
 		t.Fatal(err)

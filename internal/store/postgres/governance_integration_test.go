@@ -4,14 +4,20 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
+	"io"
+	"log/slog"
 	"math"
 	"os"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/audit"
+	"github.com/nijanthan-dev/codex-prompt-better/internal/mcpserver"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/metrics"
+	"github.com/nijanthan-dev/codex-prompt-better/internal/tools"
 	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
 )
 
@@ -42,6 +48,39 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 			Consent: contracts.AuditConsentGranted,
 		}
 	}
+	t.Run("MCP audit to report exact revision", func(t *testing.T) {
+		server, err := mcpserver.New(mcpserver.Options{MaxInputBytes: 64 * 1024, MaxConcurrent: 2, Timeout: 10 * time.Second, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tools.RegisterWithConfig(server, repo, tools.Configuration{ExecutionPolicy: contracts.ExecutionPolicyFollowUserIntent, SourceKinds: []string{"codex_jsonl"}}); err != nil {
+			t.Fatal(err)
+		}
+		serverTransport, clientTransport := mcp.NewInMemoryTransports()
+		go func() { _ = server.Run(ctx, serverTransport) }()
+		capabilities := &mcp.ClientCapabilities{}
+		capabilities.AddExtension("io.prompt-better/governance-report", map[string]any{"version": "1", "formats": []string{"chat"}})
+		client := mcp.NewClient(&mcp.Implementation{Name: "integration", Version: "1"}, &mcp.ClientOptions{Capabilities: capabilities})
+		session, err := client.Connect(ctx, clientTransport, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer session.Close()
+		request := projectRequest(start.Add(time.Hour))
+		auditResult, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "audit_project", Arguments: map[string]any{"schema_version": request.SchemaVersion, "kind": request.Kind, "scope": request.Scope, "reference": request.Reference, "configured_sources": request.ConfiguredSources, "starts_at": request.StartsAt.Format(time.RFC3339), "ends_at": request.EndsAt.Format(time.RFC3339), "as_of": request.AsOf.Format(time.RFC3339), "consent": request.Consent}})
+		if err != nil || auditResult.IsError {
+			t.Fatalf("audit=%#v error=%v", auditResult, err)
+		}
+		encoded, _ := json.Marshal(auditResult.StructuredContent)
+		var audit contracts.AuditProjectResult
+		if err := json.Unmarshal(encoded, &audit); err != nil {
+			t.Fatal(err)
+		}
+		reportResult, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "render_governance_report", Arguments: map[string]any{"schema_version": contracts.SchemaVersion, "kind": "request", "audit_reference": audit.AuditReference, "revision_hash": audit.RevisionHash, "format": "chat"}})
+		if err != nil || reportResult.IsError {
+			t.Fatalf("report=%#v error=%v", reportResult, err)
+		}
+	})
 	t.Run("single connection pool", func(t *testing.T) {
 		limits := DefaultPoolConfig()
 		limits.MaxConnections = 1

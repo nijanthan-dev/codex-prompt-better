@@ -41,14 +41,13 @@ Missing or incompatible lineage remains incomplete or unknown.
 
 `audit_project` accepts configured source kinds, portfolio/project/task/trajectory
 scope, a bounded UTC window, and immutable `as_of` watermark. It does not change `audit_session`,
-start collection, render #9 output, or apply recommendations. Unsupported task
+start collection, render output, or apply recommendations. Unsupported task
 identity returns `unsupported_capability`.
 
-`audit_project` additively returns `report_facts` (`report-facts-v1`) with the
-normalized, redacted semantic handoff required by #9. It does not render or
-cache that result. `render_governance_report` still accepts only the exact
-legacy session-audit reference cached in the same MCP session and provides no
-rich project renderer until #9.
+`audit_project` additively returns `report_facts` (`report-facts-v1`) and caches
+the eight most recent exact revisions in the same MCP session.
+`render_governance_report` preserves legacy session rendering when
+`revision_hash` is absent and otherwise renders the matching project revision.
 
 ## Bounds and errors
 
@@ -78,6 +77,9 @@ owned integration files and the unchanged owned MCP registration. It does not
 remove PostgreSQL data, collected evidence, binaries, or source checkouts.
 
 Marketplace entry/interface publication, package installation, release
-artifacts, automatic historical backfill, dashboards, rich reports, and
-automatic execution are not supported by this source integration;
+artifacts, automatic historical backfill, dashboards, and automatic execution
+are not supported by this source integration;
 marketplace/package work remains issue #10.
+Project reports add an optional exact `revision_hash`, retain eight revisions
+per MCP session, and follow [governance reporting](reporting.md). Legacy requests
+without a revision hash retain their frozen behavior.
