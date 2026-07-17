@@ -189,6 +189,115 @@
         "evidence_refs": {"type": "array", "maxItems": 100, "items": {"type": "string", "maxLength": 128}}
       }
     },
+    "report_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["starts_at", "ends_at", "as_of", "coverage", "baseline_version", "source_versions"],
+      "properties": {
+        "starts_at": {"type": "string", "format": "date-time"},
+        "ends_at": {"type": "string", "format": "date-time"},
+        "as_of": {"type": "string", "format": "date-time"},
+        "coverage": {"enum": ["complete", "partial", "missing", "unknown"]},
+        "baseline_version": {"type": "string", "minLength": 1, "maxLength": 40},
+        "source_versions": {"type": "array", "maxItems": 100, "items": {"type": "string", "maxLength": 128}}
+      }
+    },
+    "report_facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "display_identity", "privacy_suppressed", "previous_window", "rolling_windows", "scope_counts", "sources", "metrics", "quality_gate_state", "outliers", "recommendations", "provenance"],
+      "properties": {
+        "version": {"const": "report-facts-v1"},
+        "display_identity": {"type": "string", "minLength": 1, "maxLength": 128},
+        "privacy_suppressed": {"type": "boolean"},
+        "previous_window": {"oneOf": [{"$ref": "#/$defs/report_window"}, {"type": "null"}]},
+        "rolling_windows": {"type": "array", "maxItems": 7, "items": {"$ref": "#/$defs/report_window"}},
+        "scope_counts": {
+          "type": "object", "additionalProperties": false,
+          "required": ["included_trajectories", "excluded_trajectories", "included_turns", "excluded_turns", "included_tool_calls", "excluded_tool_calls", "included_evidence", "excluded_evidence"],
+          "properties": {
+            "included_trajectories": {"type": "integer", "minimum": 0},
+            "excluded_trajectories": {"type": ["integer", "null"], "minimum": 0},
+            "included_turns": {"type": "integer", "minimum": 0},
+            "excluded_turns": {"type": ["integer", "null"], "minimum": 0},
+            "included_tool_calls": {"type": "integer", "minimum": 0},
+            "excluded_tool_calls": {"type": ["integer", "null"], "minimum": 0},
+            "included_evidence": {"type": "integer", "minimum": 0},
+            "excluded_evidence": {"type": ["integer", "null"], "minimum": 0}
+          }
+        },
+        "sources": {
+          "type": "array", "maxItems": 20,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["source_kind", "version", "freshness", "coverage", "redaction_state", "knowledge_state"],
+            "properties": {
+              "source_kind": {"type": "string", "minLength": 1, "maxLength": 80},
+              "version": {"type": "string", "minLength": 1, "maxLength": 128},
+              "freshness": {"enum": ["current", "stale", "missing", "unknown"]},
+              "coverage": {"enum": ["complete", "partial", "missing", "unknown"]},
+              "redaction_state": {"enum": ["complete", "partial", "suppressed", "unknown"]},
+              "knowledge_state": {"enum": ["observed", "derived", "inferred", "unknown"]}
+            }
+          }
+        },
+        "metrics": {
+          "type": "array", "maxItems": 50,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["name", "display_label", "polarity"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1, "maxLength": 80},
+              "display_label": {"type": "string", "minLength": 1, "maxLength": 160},
+              "polarity": {"enum": ["contextual", "lower_better", "higher_better", "guardrail"]}
+            }
+          }
+        },
+        "quality_gate_state": {"enum": ["pass", "fail", "unknown"]},
+        "outliers": {
+          "type": "array", "maxItems": 10,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["metric", "scope", "impact", "coverage", "evidence_window", "recommendation_code"],
+            "properties": {
+              "metric": {"type": "string", "minLength": 1, "maxLength": 80},
+              "scope": {"enum": ["portfolio", "project", "task", "trajectory"]},
+              "impact": {"enum": ["improved", "worsened", "flat", "mixed", "insufficient"]},
+              "coverage": {"enum": ["complete", "partial", "missing", "unknown"]},
+              "evidence_window": {"$ref": "#/$defs/report_window"},
+              "recommendation_code": {"type": "string", "maxLength": 80}
+            }
+          }
+        },
+        "recommendations": {
+          "type": "array", "maxItems": 5,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["code", "violated_contract", "scope", "evidence_confidence", "expected_quality_impact", "broader_change_rationale"],
+            "properties": {
+              "code": {"type": "string", "minLength": 1, "maxLength": 80},
+              "violated_contract": {"type": "string", "minLength": 1, "maxLength": 300},
+              "scope": {"enum": ["portfolio", "project", "task", "trajectory"]},
+              "evidence_confidence": {"enum": ["high", "medium", "low", "unknown"]},
+              "expected_quality_impact": {"type": "string", "minLength": 1, "maxLength": 300},
+              "broader_change_rationale": {"type": "string", "minLength": 1, "maxLength": 300}
+            }
+          }
+        },
+        "provenance": {
+          "type": "array", "maxItems": 20,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["field", "knowledge_state", "provenance"],
+            "properties": {
+              "field": {"type": "string", "minLength": 1, "maxLength": 80},
+              "knowledge_state": {"enum": ["observed", "derived", "inferred", "unknown"]},
+              "provenance": {"type": "string", "minLength": 1, "maxLength": 160}
+            }
+          }
+        }
+      }
+    },
     "result": {
       "type": "object",
       "additionalProperties": false,
@@ -213,7 +322,8 @@
         "confounders": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/confounder"}},
         "guardrails": {"type": "array", "maxItems": 20, "items": {"$ref": "#/$defs/guardrail"}},
         "derivation_method": {"type": "string", "minLength": 1, "maxLength": 160},
-        "omitted_count": {"type": "integer", "minimum": 0}
+        "omitted_count": {"type": "integer", "minimum": 0},
+        "report_facts": {"$ref": "#/$defs/report_facts"}
       }
     }
   }

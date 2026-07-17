@@ -165,6 +165,23 @@ func TestAuditReplayEvaluation_Integration(t *testing.T) {
 	if len(candidate.GovernanceOverhead) == 0 {
 		t.Fatal("governance overhead not reported separately")
 	}
+	if candidate.ReportFacts == nil || candidate.ReportFacts.Version != "report-facts-v1" ||
+		candidate.ReportFacts.DisplayIdentity != request.Reference ||
+		candidate.ReportFacts.QualityGateState != "pass" ||
+		len(candidate.ReportFacts.Metrics) != len(candidate.Metrics) ||
+		len(candidate.ReportFacts.RollingWindows) != 7 ||
+		candidate.ReportFacts.ScopeCounts.IncludedTurns != 10 {
+		t.Fatalf("report handoff incomplete: %#v", candidate.ReportFacts)
+	}
+	if candidate.ReportFacts.ScopeCounts.ExcludedTrajectories != nil ||
+		candidate.ReportFacts.ScopeCounts.ExcludedTurns != nil ||
+		candidate.ReportFacts.ScopeCounts.ExcludedToolCalls != nil ||
+		candidate.ReportFacts.ScopeCounts.ExcludedEvidence != nil {
+		t.Fatalf("unknown exclusions were fabricated: %#v", candidate.ReportFacts.ScopeCounts)
+	}
+	if repeated.ReportFacts == nil || candidate.RevisionHash != repeated.RevisionHash {
+		t.Fatalf("report facts changed replay identity: %#v %#v", candidate.ReportFacts, repeated.ReportFacts)
+	}
 }
 
 func TestValidateRequestRejectsNonUUIDAndPortfolioAlias(t *testing.T) {

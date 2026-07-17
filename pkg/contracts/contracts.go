@@ -386,6 +386,82 @@ type GuardrailResult struct {
 	EvidenceRefs []string      `json:"evidence_refs"`
 }
 
+// GovernanceReportFacts is the additive, normalized handoff consumed by #9.
+// It contains no raw evidence or renderer-specific presentation.
+type GovernanceReportFacts struct {
+	Version           string                      `json:"version"`
+	DisplayIdentity   string                      `json:"display_identity"`
+	PrivacySuppressed bool                        `json:"privacy_suppressed"`
+	PreviousWindow    *ReportWindowReference      `json:"previous_window"`
+	RollingWindows    []ReportWindowReference     `json:"rolling_windows"`
+	ScopeCounts       ReportScopeCounts           `json:"scope_counts"`
+	Sources           []ReportSourceFacts         `json:"sources"`
+	Metrics           []ReportMetricFacts         `json:"metrics"`
+	QualityGateState  string                      `json:"quality_gate_state"`
+	Outliers          []ReportOutlierFacts        `json:"outliers"`
+	Recommendations   []ReportRecommendationFacts `json:"recommendations"`
+	Provenance        []ReportProvenanceFact      `json:"provenance"`
+}
+
+type ReportWindowReference struct {
+	StartsAt        time.Time     `json:"starts_at"`
+	EndsAt          time.Time     `json:"ends_at"`
+	AsOf            time.Time     `json:"as_of"`
+	Coverage        CoverageState `json:"coverage"`
+	BaselineVersion string        `json:"baseline_version"`
+	SourceVersions  []string      `json:"source_versions"`
+}
+
+type ReportScopeCounts struct {
+	IncludedTrajectories int  `json:"included_trajectories"`
+	ExcludedTrajectories *int `json:"excluded_trajectories"`
+	IncludedTurns        int  `json:"included_turns"`
+	ExcludedTurns        *int `json:"excluded_turns"`
+	IncludedToolCalls    int  `json:"included_tool_calls"`
+	ExcludedToolCalls    *int `json:"excluded_tool_calls"`
+	IncludedEvidence     int  `json:"included_evidence"`
+	ExcludedEvidence     *int `json:"excluded_evidence"`
+}
+
+type ReportSourceFacts struct {
+	SourceKind     string        `json:"source_kind"`
+	Version        string        `json:"version"`
+	Freshness      string        `json:"freshness"`
+	Coverage       CoverageState `json:"coverage"`
+	RedactionState string        `json:"redaction_state"`
+	KnowledgeState string        `json:"knowledge_state"`
+}
+
+type ReportMetricFacts struct {
+	Name         string `json:"name"`
+	DisplayLabel string `json:"display_label"`
+	Polarity     string `json:"polarity"`
+}
+
+type ReportOutlierFacts struct {
+	Metric             string                `json:"metric"`
+	Scope              AuditScope            `json:"scope"`
+	Impact             string                `json:"impact"`
+	Coverage           CoverageState         `json:"coverage"`
+	EvidenceWindow     ReportWindowReference `json:"evidence_window"`
+	RecommendationCode string                `json:"recommendation_code"`
+}
+
+type ReportRecommendationFacts struct {
+	Code                   string     `json:"code"`
+	ViolatedContract       string     `json:"violated_contract"`
+	Scope                  AuditScope `json:"scope"`
+	EvidenceConfidence     string     `json:"evidence_confidence"`
+	ExpectedQualityImpact  string     `json:"expected_quality_impact"`
+	BroaderChangeRationale string     `json:"broader_change_rationale"`
+}
+
+type ReportProvenanceFact struct {
+	Field          string `json:"field"`
+	KnowledgeState string `json:"knowledge_state"`
+	Provenance     string `json:"provenance"`
+}
+
 // AuditProjectResult is the bounded additive governance result.
 type AuditProjectResult struct {
 	SchemaVersion      string                  `json:"schema_version"`
@@ -408,6 +484,7 @@ type AuditProjectResult struct {
 	Guardrails         []GuardrailResult       `json:"guardrails"`
 	DerivationMethod   string                  `json:"derivation_method"`
 	OmittedCount       int                     `json:"omitted_count"`
+	ReportFacts        *GovernanceReportFacts  `json:"report_facts,omitempty"`
 }
 
 // ReportFormat is a supported governance report rendering.

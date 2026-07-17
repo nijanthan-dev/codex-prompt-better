@@ -20,6 +20,9 @@ scope, window, `as_of`, output limits, and opaque evidence references.
 - Persisted revisions are immutable. Late evidence creates another revision.
 - A metric name/version is immutable: a changed definition hash is rejected
   rather than silently reusing persisted metadata.
+- `report-facts-v1` is an optional additive `audit_project` block. It supplies
+  normalized, redacted semantic facts to #9 and participates in immutable
+  revision hashing; the renderer must not query storage to reconstruct them.
 
 ## Metric governance template
 
@@ -60,6 +63,13 @@ not guessed into a task or trajectory. At a bounded lineage edge, a selected cal
 whose parent is outside the scope/window is the host for that bounded result.
 Project recommendation feedback consumes project-window lifecycle rows only;
 ties are resolved by audit watermark, revision, and stable identity.
+
+The report handoff includes display identity, previous/rolling provenance,
+included counts with explicit unknown exclusions, per-source freshness and
+coverage, metric labels/polarity, aggregate quality-gate state, enriched
+outlier/action context, and field-level knowledge/provenance. Missing exclusion
+counts remain `null`; privacy-suppressed narrow scopes use an opaque identity
+and never expose evidence references or inferred source knowledge.
 
 ## Status and baseline contract
 
