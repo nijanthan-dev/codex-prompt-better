@@ -9,12 +9,13 @@ aligned with it.
 - Project name: Prompt Better
 - Display name: Prompt Better for Codex
 - Repository: `nijanthan-dev/codex-prompt-better`
-- Status: pre-alpha; v0.1.0 contract-preview source release, source CLI, and source MCP integration available; not packaged
+- Status: pre-alpha; v0.1.0 source release available; verified v0.2 packaging ready but unpublished
 
 ## GitHub About
 
 > Pre-alpha local-first prompt compiler and linter for OpenAI Codex; v0.1.0
-> contract-preview source release, Go CLI, and eight-tool source MCP integration available; not packaged.
+> contract-preview source release and eight-tool source MCP integration
+> available; verified v0.2 packaging ready but unpublished.
 
 ## Topics
 
@@ -44,8 +45,9 @@ risk-weighted execution boundaries, Codex session audit.
 ## Copy rules
 
 - Lead with the Codex-specific problem and planned product form.
-- State pre-alpha/not-installable status and distinguish the contract-preview source release near any capability summary.
-- Distinguish implemented source behavior from planned integration and packaging.
+- State pre-alpha/unpublished status and distinguish the v0.1 source release
+  from prepared v0.2 direct archives and ARM Homebrew support.
+- Distinguish implemented packaging machinery from publication owned by issue #11.
 - Keep local-only analytics, opt-in ingestion, and default-off raw retention clear.
 - Never imply OpenAI endorsement, automatic execution, permission bypass, remote
   telemetry, tax/legal/financial authority, or a working release before one exists.

@@ -8,7 +8,8 @@ reviewable instructions while measuring whether execution stayed in scope.
 > **Status:** pre-alpha. The v0.1.0 contract-preview source release exists.
 > Source now includes the deterministic CLI, PostgreSQL migrations and
 > collectors, eight-tool stdio MCP server, thin Codex skill, doctor, and safe
-> init. Installable artifacts and packages do not exist.
+> init. Verified v0.2 packaging machinery is ready, but no v0.2 artifact or
+> Homebrew formula is published until the release closeout.
 
 ## Vision
 
@@ -49,11 +50,14 @@ default. Synthetic fixtures are required in the public repository.
 
 ## Installation and usage
 
-No installable artifact or package is published yet. Developers can run the
-CLI and MCP server from a checkout with Go 1.25+. `prompt-better init` previews
-the source integration by default and requires `--apply` to mutate owned Codex
-files or the named MCP registration. See [installation](docs/installation.md),
-[CLI contract](docs/cli.md), and [MCP integration](docs/mcp.md).
+No v0.2 artifact or package is published yet. The prepared release contains
+four binaries for five OS/architecture targets, checksums, per-archive SPDX
+SBOMs, GitHub attestations, and a fail-closed installer. The ARM Homebrew
+formula builds from source; Darwin amd64 remains a verified direct archive.
+Developers can still run from a checkout with Go 1.25+. `prompt-better init`
+previews integration changes and requires `--apply`. See
+[installation](docs/installation.md), [CLI contract](docs/cli.md), and
+[MCP integration](docs/mcp.md).
 
 ## Local validation
 
@@ -72,8 +76,9 @@ tests, vet, and contracts:
 ```
 
 The script builds the project-specific `prompt-better-act:local` image, then
-runs formatting, tests, vet, race detection, integration tests, contract
-validation, a native smoke test, secret scanning, and cross-platform builds.
+runs formatting, ShellCheck, tests, vet, race detection, integration tests,
+contract validation, a native smoke test, secret scanning, cross-platform
+builds, deterministic packaging, SBOM inspection, and installer lifecycle tests.
 After the image is built, jobs use only the isolated Act network for local
 PostgreSQL services and do not fetch packages or contact external services.
 
@@ -82,7 +87,7 @@ PostgreSQL services and do not fetch packages or contact external services.
 - Replacing Codex reasoning, permissions, or user intent.
 - Calling another LLM by default.
 - Uploading prompts, session evidence, or analytics.
-- Executing improved prompts or shipping a service, dashboard, package, or release.
+- Executing improved prompts or shipping a service or dashboard.
 
 ## Community
 

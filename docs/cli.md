@@ -15,6 +15,12 @@ PostgreSQL socket or host.
   configured local PostgreSQL store.
 - `doctor`: report sanitized integration readiness; read-only.
 - `init`: preview/apply/uninstall the owned Codex integration.
+- `version [--format text|json]`: report release/build provenance.
+
+`prompt-better --version` is the text-form version alias. Source builds report
+`devel`; tagged release and Homebrew builds inject the `vX.Y.Z` tag, commit, and
+commit timestamp. JSON also reports the Go version, operating system, and
+architecture. No wall-clock build time is recorded.
 
 Input is positional text, standard input, or `--input FILE`. `--request-json`
 selects the frozen v1 request shape. Output is concise text by default;

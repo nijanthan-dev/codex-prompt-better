@@ -1,9 +1,10 @@
-# Installation plan
+# Installation
 
 Prompt Better is pre-alpha. Its v0.1.0 GitHub release freezes source contracts.
 The repository contains the CLI, migrations, collectors, stdio MCP server,
-source plugin, Codex skill, doctor, and safe init. There is no released binary,
-package, or installer. Do not treat source commands as a published artifact.
+source plugin, Codex skill, doctor, and safe init. v0.2 release packaging is
+implemented, but no v0.2 binary, installer asset, or Homebrew formula is
+published until issue #11 completes release verification.
 
 ## Source prerequisites
 
@@ -13,19 +14,70 @@ package, or installer. Do not treat source commands as a published artifact.
 - Go 1.25 or newer for source builds.
 - PostgreSQL 16 or newer, on the latest minor release for its major version.
 - Codex with local skill and stdio MCP support for the interactive integration.
-- Git; GitHub CLI only for GitHub evidence/features that the user configures.
+- Git; GitHub CLI for configured GitHub evidence and direct-archive provenance.
 
-PostgreSQL is not bundled or silently provisioned. The installer must not request
-or copy Codex session content. Package instructions will use release checksums and
-provenance after v0.2.0 artifacts exist.
+PostgreSQL is not bundled or silently provisioned. Package installation never
+requests or copies Codex session content.
 
-## Planned channels
+## Release channels
 
-1. Homebrew tap/formula and a checksum-verifying install script for macOS.
-2. Direct signed/checksummed release archives.
-3. Later WinGet and Linux packages after platform validation.
+When the reviewed v0.2 draft is published by issue #11:
 
-No package or installable artifact is published before the v0.2.0 closeout.
+- Verified direct archives support Darwin amd64/arm64, Linux amd64/arm64, and
+  Windows amd64. Each contains `prompt-better`, `prompt-better-mcp`,
+  `prompt-better-collector`, `prompt-better-admin`, the license, README, and
+  this installation guide.
+- The maintained Homebrew formula builds all four binaries from the immutable
+  source tag and supports macOS arm64 first. Darwin amd64 uses the direct archive.
+- WinGet and Linux package-manager publication remain deferred.
+
+## Verified direct installation
+
+Download `install.sh` from the matching GitHub release, inspect it, and verify
+its keyless provenance before running it:
+
+```sh
+gh attestation verify install.sh --repo nijanthan-dev/codex-prompt-better
+```
+
+Then run:
+
+```sh
+sh install.sh --version vX.Y.Z
+```
+
+The installer supports Darwin and Linux archives. Windows users verify the
+amd64 archive, checksum, and attestation with GitHub CLI, then extract the four
+`.exe` files directly.
+
+Use `--install-dir /absolute/path` to override `$HOME/.local/bin`. Installation
+requires `curl`, a SHA-256 tool, and GitHub CLI. Before changing the destination,
+the installer verifies the archive checksum, then runs `gh attestation verify`
+against `nijanthan-dev/codex-prompt-better`. Missing tools, provenance/network
+failures, tampering, wrong versions, unsupported platforms, unexpected archive
+entries, or unowned destination files fail closed. Do not pipe a remote script
+into a shell.
+
+One verified prior binary set is retained under
+`${XDG_STATE_HOME:-$HOME/.local/state}/prompt-better`:
+
+```sh
+sh install.sh --rollback
+sh install.sh --uninstall
+```
+
+Rollback and uninstall refuse modified binaries. Package uninstall removes only
+the four owned executables and installer state. It does not remove Prompt Better
+configuration, Codex registration, schedules, PostgreSQL data, collected
+evidence, or source checkouts. `prompt-better init --uninstall` is a separate
+configuration/integration operation.
+
+## Homebrew
+
+Issue #11 publishes `nijanthan-dev/homebrew-tap` only after the v0.2 draft assets
+and attestations pass review. The formula uses Go only at build time and does no
+post-install initialization, MCP registration, collection, telemetry, or data
+removal. PostgreSQL remains external.
 
 ## Source integration
 
@@ -78,8 +130,7 @@ registration cause safe refusal. Uninstall does not delete databases, collected
 evidence, source checkouts, or binaries.
 
 See [MCP integration](mcp.md) for tool behavior, limits, rollback, and privacy.
-Marketplace publication, marketplace interface metadata, packaged binaries, and
-installer channels remain issue #10 work.
+Marketplace publication and marketplace interface metadata remain separate work.
 
 ## Primary references
 

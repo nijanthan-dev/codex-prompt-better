@@ -18,6 +18,7 @@ import (
 
 	"github.com/nijanthan-dev/codex-prompt-better/internal/audit"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/boundary"
+	"github.com/nijanthan-dev/codex-prompt-better/internal/buildinfo"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/compiler"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/config"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/lint"
@@ -114,6 +115,9 @@ func Run(parent context.Context, args []string, streams Streams) int {
 	if command == "help" || command == "--help" || command == "-h" {
 		return writeUsage(streams.Output)
 	}
+	if command == "version" || command == "--version" {
+		return runVersion(args, streams)
+	}
 	if command == "doctor" {
 		return setup.RunDoctor(parent, args[1:], setup.Streams{Output: streams.Output, Error: streams.Error})
 	}
@@ -161,6 +165,41 @@ func Run(parent context.Context, args []string, streams Streams) int {
 	default:
 		return exitInternal
 	}
+}
+
+func runVersion(args []string, streams Streams) int {
+	fs := flag.NewFlagSet("version", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	format := "text"
+	fs.StringVar(&format, "format", "text", "text or json")
+	if args[0] == "--version" && len(args) != 1 {
+		return emitError(streams.Error, "text", contracts.NewError(
+			contracts.ErrorCodeInvalidSchema, "invalid version flags", "flags", false,
+		))
+	}
+	if args[0] == "version" && (fs.Parse(args[1:]) != nil || fs.NArg() != 0) {
+		return emitError(streams.Error, "text", contracts.NewError(
+			contracts.ErrorCodeInvalidSchema, "invalid version flags", "flags", false,
+		))
+	}
+	info := buildinfo.Current()
+	switch format {
+	case "text":
+		_, err := fmt.Fprintf(streams.Output, "prompt-better %s commit=%s built=%s go=%s %s/%s\n",
+			info.Version, info.Commit, info.BuildTimestamp, info.GoVersion, info.OS, info.Architecture)
+		if err != nil {
+			return exitInternal
+		}
+	case "json":
+		if err := json.NewEncoder(streams.Output).Encode(info); err != nil {
+			return exitInternal
+		}
+	default:
+		return emitError(streams.Error, "text", contracts.NewError(
+			contracts.ErrorCodeInvalidSchema, "unsupported version format", "format", false,
+		))
+	}
+	return exitOK
 }
 
 func requestedErrorFormat(opt options) string {
@@ -936,7 +975,7 @@ func runAudit(ctx context.Context, args []string, streams Streams) int {
 func writeUsage(output io.Writer) int {
 	_, err := fmt.Fprintln(
 		output,
-		"usage: prompt-better <improve_prompt|create_goal_prompt|create_review_fix_prompt|lint_prompt|audit|doctor|init> [flags] [text]",
+		"usage: prompt-better <improve_prompt|create_goal_prompt|create_review_fix_prompt|lint_prompt|audit|doctor|init|version> [flags] [text]",
 	)
 	if err != nil {
 		return exitInternal

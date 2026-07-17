@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nijanthan-dev/codex-prompt-better/internal/buildinfo"
 	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
 )
 
@@ -30,6 +31,37 @@ func TestMissingCommandIsInvalidButHelpSucceeds(t *testing.T) {
 	code, out, stderr = execute([]string{"help"}, "")
 	if code != exitOK || stderr != "" || !strings.Contains(out, "usage:") {
 		t.Fatalf("help: code=%d out=%q stderr=%q", code, out, stderr)
+	}
+}
+
+func TestVersionTextJSONAndAlias(t *testing.T) {
+	oldVersion, oldCommit, oldDate := buildinfo.Version, buildinfo.Commit, buildinfo.BuildDate
+	buildinfo.Version = "1.2.3"
+	buildinfo.Commit = "0123456789abcdef0123456789abcdef01234567"
+	buildinfo.BuildDate = "2026-07-17T00:00:00Z"
+	t.Cleanup(func() {
+		buildinfo.Version, buildinfo.Commit, buildinfo.BuildDate = oldVersion, oldCommit, oldDate
+	})
+
+	for _, args := range [][]string{{"version"}, {"--version"}} {
+		code, out, stderr := execute(args, "")
+		if code != exitOK || stderr != "" || !strings.HasPrefix(out, "prompt-better 1.2.3 commit=012345") {
+			t.Fatalf("args=%v code=%d out=%q stderr=%q", args, code, out, stderr)
+		}
+	}
+	code, out, stderr := execute([]string{"version", "--format", "json"}, "")
+	if code != exitOK || stderr != "" {
+		t.Fatalf("code=%d stderr=%q", code, stderr)
+	}
+	var got buildinfo.Info
+	if json.Unmarshal([]byte(out), &got) != nil || got.Version != "1.2.3" || got.Commit != buildinfo.Commit || got.BuildTimestamp != buildinfo.BuildDate {
+		t.Fatalf("unexpected JSON: %q", out)
+	}
+	for _, args := range [][]string{{"version", "--format", "yaml"}, {"--version", "extra"}} {
+		code, _, stderr = execute(args, "")
+		if code != exitInvalid || stderr == "" {
+			t.Fatalf("invalid args=%v code=%d stderr=%q", args, code, stderr)
+		}
 	}
 }
 

@@ -4,6 +4,8 @@
   "bump-minor-pre-major": true,
   "include-v-in-tag": true,
   "include-component-in-tag": false,
+  "draft": true,
+  "force-tag-creation": true,
   "packages": {
     ".": {
       "package-name": "codex-prompt-better",
