@@ -13,9 +13,8 @@ aligned with it.
 
 ## GitHub About
 
-> Pre-alpha local-first prompt compiler and linter for OpenAI Codex; v0.1.0
-> contract-preview source release and eight-tool source MCP integration
-> available; verified v0.2 packaging ready but unpublished.
+> Prompt Better helps you give Codex clearer instructions—and privately checks
+> whether the resulting work stayed within scope.
 
 ## Topics
 
@@ -44,12 +43,12 @@ risk-weighted execution boundaries, Codex session audit.
 
 ## Copy rules
 
-- Lead with the Codex-specific problem and planned product form.
+- Lead with the user outcome in plain language.
 - State pre-alpha/unpublished status and distinguish the v0.1 source release
   from prepared v0.2 direct archives and ARM Homebrew support.
 - Distinguish implemented packaging machinery from publication owned by issue #11.
 - Keep local-only analytics, opt-in ingestion, and default-off raw retention clear.
 - Never imply OpenAI endorsement, automatic execution, permission bypass, remote
   telemetry, tax/legal/financial authority, or a working release before one exists.
-- Prefer concrete terms—prompt compiler, prompt linter, MCP server, Go CLI—over
-  generic claims such as "better AI" or "perfect prompts."
+- Put technical product forms—prompt compiler, prompt linter, MCP server, Go CLI—
+  after the plain-language explanation.

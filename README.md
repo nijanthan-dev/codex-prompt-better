@@ -1,9 +1,9 @@
 # Prompt Better for Codex
 
-Prompt Better is a pre-alpha local-first prompt compiler, prompt linter, and
-governance toolkit for OpenAI Codex. Its cross-platform Go CLI/core, thin Codex
-skill, and local MCP server are designed to turn rough intent into bounded,
-reviewable instructions while measuring whether execution stayed in scope.
+Prompt Better helps you give Codex clearer instructions—and privately checks
+whether the resulting work stayed within scope. Its cross-platform Go CLI/core,
+thin Codex skill, and local MCP server turn rough intent into bounded,
+reviewable instructions and audit local execution evidence.
 
 > **Status:** pre-alpha. The v0.1.0 contract-preview source release exists.
 > Source now includes the deterministic CLI, PostgreSQL migrations and
