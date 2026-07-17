@@ -306,7 +306,67 @@
         "confounders": [],
         "guardrails": [],
         "derivation_method": "normalized_sql+metric-v1+baseline-v1",
-        "omitted_count": 0
+        "omitted_count": 0,
+        "report_facts": {
+          "version": "report-facts-v1",
+          "display_identity": "00000000-0000-4000-8000-000000000001",
+          "privacy_suppressed": false,
+          "previous_window": {
+            "starts_at": "2025-12-31T00:00:00Z",
+            "ends_at": "2026-01-01T00:00:00Z",
+            "as_of": "2026-01-02T00:00:00Z",
+            "coverage": "complete",
+            "baseline_version": "baseline-v1",
+            "source_versions": ["synthetic-source-version"]
+          },
+          "rolling_windows": [],
+          "scope_counts": {
+            "included_trajectories": 1,
+            "excluded_trajectories": 0,
+            "included_turns": 10,
+            "excluded_turns": null,
+            "included_tool_calls": 0,
+            "excluded_tool_calls": null,
+            "included_evidence": 1,
+            "excluded_evidence": null
+          },
+          "sources": [
+            {
+              "source_kind": "synthetic",
+              "version": "synthetic-source-version",
+              "freshness": "current",
+              "coverage": "complete",
+              "redaction_state": "complete",
+              "knowledge_state": "observed"
+            }
+          ],
+          "metrics": [
+            {
+              "name": "tokens_per_turn",
+              "display_label": "Tokens per turn",
+              "polarity": "contextual"
+            }
+          ],
+          "quality_gate_state": "pass",
+          "outliers": [],
+          "recommendations": [
+            {
+              "code": "no_action",
+              "violated_contract": "no violated contract with actionable evidence",
+              "scope": "project",
+              "evidence_confidence": "unknown",
+              "expected_quality_impact": "none",
+              "broader_change_rationale": "No model change; use the smallest scoped corrective action and verify it against protected guardrails."
+            }
+          ],
+          "provenance": [
+            {
+              "field": "metrics",
+              "knowledge_state": "derived",
+              "provenance": "normalized_sql+metric-v1"
+            }
+          ]
+        }
       },
       "error": {
         "schema_version": "1.0.0",

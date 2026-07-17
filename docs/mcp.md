@@ -44,9 +44,11 @@ scope, a bounded UTC window, and immutable `as_of` watermark. It does not change
 start collection, render #9 output, or apply recommendations. Unsupported task
 identity returns `unsupported_capability`.
 
-`render_governance_report` accepts only the exact audit reference cached in the
-same MCP session. It provides no governance metrics, diagnosis, dashboard, or
-rich renderer; those remain later roadmap work.
+`audit_project` additively returns `report_facts` (`report-facts-v1`) with the
+normalized, redacted semantic handoff required by #9. It does not render or
+cache that result. `render_governance_report` still accepts only the exact
+legacy session-audit reference cached in the same MCP session and provides no
+rich project renderer until #9.
 
 ## Bounds and errors
 

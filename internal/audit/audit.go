@@ -26,6 +26,15 @@ const (
 
 var uuidReference = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
+var recommendationByFinding = map[string]string{
+	"scope_attribution_gap":   "restore_scope_attribution",
+	"checkpoint_gap":          "complete_checkpoint_contract",
+	"passive_polling":         "wait_on_state_change",
+	"repeated_unchanged_call": "reuse_unchanged_evidence",
+	"missing_validation":      "validate_after_mutation",
+	"privacy_redaction_gap":   "restore_redaction_coverage",
+}
+
 type Snapshot struct {
 	Reference             string
 	Scope                 contracts.AuditScope
@@ -45,6 +54,9 @@ type Snapshot struct {
 	Guardrails            []contracts.GuardrailResult
 	WorkloadEffects       []contracts.WorkloadDecomposition
 	InvocationCounts      contracts.InvocationCounts
+	ReportScopeCounts     contracts.ReportScopeCounts
+	ReportSources         []contracts.ReportSourceFacts
+	PrivacySuppressed     bool
 	OmittedCount          int
 	RecommendationContext recommendation.Context `json:"-"`
 }
@@ -93,6 +105,8 @@ func (engine *Engine) Run(ctx context.Context, request contracts.AuditProjectReq
 		Feedback:                 snapshot.RecommendationContext.Feedback,
 		EvidenceRevisions:        findingEvidenceRevisions(findings),
 	})
+	outliers := outlier.Rank(calculated)
+	reportFacts := buildReportFacts(snapshot, calculated, findings, recommendations, outliers)
 	revisionHash, err := hash(snapshot, calculated, findings, recommendations)
 	if err != nil {
 		return contracts.AuditProjectResult{}, err
@@ -106,11 +120,140 @@ func (engine *Engine) Run(ctx context.Context, request contracts.AuditProjectReq
 		Window: snapshot.Window, Contributions: snapshot.Contributions,
 		WorkloadEffects:  snapshot.WorkloadEffects,
 		InvocationCounts: snapshot.InvocationCounts,
-		Outliers:         outlier.Rank(calculated),
+		Outliers:         outliers,
 		Confounders:      snapshot.ConfounderStrata, Guardrails: snapshot.Guardrails,
 		DerivationMethod: "normalized_sql+metric-v1+baseline-v1",
 		OmittedCount:     snapshot.OmittedCount,
+		ReportFacts:      &reportFacts,
 	}, nil
+}
+
+func buildReportFacts(snapshot Snapshot, calculated []contracts.MetricResult,
+	findings []contracts.AuditFinding, recommendations []contracts.AuditRecommendation,
+	outliers []contracts.NativeOutlier,
+) contracts.GovernanceReportFacts {
+	duration := snapshot.EndsAt.Sub(snapshot.StartsAt)
+	previous := contracts.ReportWindowReference{
+		StartsAt: snapshot.StartsAt.Add(-duration).UTC(), EndsAt: snapshot.StartsAt.UTC(),
+		AsOf: snapshot.AsOf.UTC(), Coverage: comparisonCoverage(calculated),
+		BaselineVersion: snapshot.Window.BaselineVersion,
+		SourceVersions:  append([]string{}, snapshot.Window.SourceVersions...),
+	}
+	rolling := make([]contracts.ReportWindowReference, 0, 7)
+	for offset := 2; offset <= 8; offset++ {
+		end := snapshot.EndsAt.Add(-time.Duration(offset-1) * duration)
+		rolling = append(rolling, contracts.ReportWindowReference{
+			StartsAt: end.Add(-duration).UTC(), EndsAt: end.UTC(),
+			AsOf: snapshot.AsOf.UTC(), Coverage: comparisonCoverage(calculated),
+			BaselineVersion: snapshot.Window.BaselineVersion,
+			SourceVersions:  append([]string{}, snapshot.Window.SourceVersions...),
+		})
+	}
+	definitions := map[string]metrics.Definition{}
+	for _, definition := range metrics.Definitions() {
+		definitions[definition.Name] = definition
+	}
+	metricFacts := make([]contracts.ReportMetricFacts, 0, len(calculated))
+	metricByName := map[string]contracts.MetricResult{}
+	for _, metric := range calculated {
+		definition := definitions[metric.Name]
+		metricFacts = append(metricFacts, contracts.ReportMetricFacts{
+			Name: metric.Name, DisplayLabel: definition.DisplayLabel,
+			Polarity: string(definition.Polarity),
+		})
+		metricByName[metric.Name] = metric
+	}
+	findingByRecommendation := map[string]contracts.AuditFinding{}
+	for _, finding := range findings {
+		findingByRecommendation[recommendationByFinding[finding.Code]] = finding
+	}
+	recommendationFacts := make([]contracts.ReportRecommendationFacts, 0, len(recommendations))
+	for _, item := range recommendations {
+		finding := findingByRecommendation[item.Code]
+		contract := finding.Cause
+		confidence := finding.Confidence
+		if item.Code == "no_action" {
+			contract, confidence = "no violated contract with actionable evidence", "unknown"
+		}
+		recommendationFacts = append(recommendationFacts, contracts.ReportRecommendationFacts{
+			Code: item.Code, ViolatedContract: contract, Scope: snapshot.Scope,
+			EvidenceConfidence: confidence, ExpectedQualityImpact: item.ExpectedMovement,
+			BroaderChangeRationale: "No model change; use the smallest scoped corrective action and verify it against protected guardrails.",
+		})
+	}
+	outlierFacts := make([]contracts.ReportOutlierFacts, 0, len(outliers))
+	for _, item := range outliers {
+		metric := metricByName[item.Metric]
+		outlierFacts = append(outlierFacts, contracts.ReportOutlierFacts{
+			Metric: item.Metric, Scope: snapshot.Scope, Impact: string(metric.Status),
+			Coverage: metric.Coverage, EvidenceWindow: contracts.ReportWindowReference{
+				StartsAt: snapshot.StartsAt.UTC(), EndsAt: snapshot.EndsAt.UTC(),
+				AsOf: snapshot.AsOf.UTC(), Coverage: metric.Coverage,
+				BaselineVersion: snapshot.Window.BaselineVersion,
+				SourceVersions:  append([]string{}, snapshot.Window.SourceVersions...),
+			}, RecommendationCode: linkedRecommendation(definitions[item.Metric], findings, recommendations),
+		})
+	}
+	return contracts.GovernanceReportFacts{
+		Version: "report-facts-v1", DisplayIdentity: snapshot.Reference,
+		PrivacySuppressed: snapshot.PrivacySuppressed,
+		PreviousWindow:    &previous, RollingWindows: rolling,
+		ScopeCounts: snapshot.ReportScopeCounts,
+		Sources:     snapshot.ReportSources, Metrics: metricFacts,
+		QualityGateState: qualityGateState(snapshot.Guardrails),
+		Outliers:         outlierFacts, Recommendations: recommendationFacts,
+		Provenance: []contracts.ReportProvenanceFact{
+			{Field: "metrics", KnowledgeState: "derived", Provenance: "normalized_sql+metric-v1"},
+			{Field: "window", KnowledgeState: "observed", Provenance: "normalized_runtime"},
+			{Field: "recommendations", KnowledgeState: "derived", Provenance: recommendation.Version},
+		},
+	}
+}
+
+func comparisonCoverage(metrics []contracts.MetricResult) contracts.CoverageState {
+	for _, metric := range metrics {
+		if metric.PreviousValue != nil || metric.RollingMedian != nil {
+			return metric.Coverage
+		}
+	}
+	return contracts.CoverageStateUnknown
+}
+
+func qualityGateState(guardrails []contracts.GuardrailResult) string {
+	if len(guardrails) == 0 {
+		return "unknown"
+	}
+	state := "pass"
+	for _, guardrail := range guardrails {
+		if guardrail.State == "fail" {
+			return "fail"
+		}
+		if guardrail.State != "pass" {
+			state = "unknown"
+		}
+	}
+	return state
+}
+
+func linkedRecommendation(definition metrics.Definition, findings []contracts.AuditFinding,
+	recommendations []contracts.AuditRecommendation,
+) string {
+	allowed := map[string]bool{}
+	for _, code := range definition.AllowedDiagnoses {
+		allowed[code] = true
+	}
+	for _, finding := range findings {
+		if !allowed[finding.Code] {
+			continue
+		}
+		code := recommendationByFinding[finding.Code]
+		for _, item := range recommendations {
+			if item.Code == code {
+				return code
+			}
+		}
+	}
+	return ""
 }
 
 // BoundResult enforces the encoded audit result budget without removing
@@ -214,6 +357,11 @@ func normalizeSnapshot(snapshot Snapshot) Snapshot {
 	}
 	if snapshot.RecommendationContext.MaterialEvidenceRevision == "" {
 		snapshot.RecommendationContext.MaterialEvidenceRevision = snapshot.Reference
+	}
+	if snapshot.ReportScopeCounts.IncludedTurns == 0 && snapshot.Metrics.CompletedTurns > 0 {
+		snapshot.ReportScopeCounts.IncludedTurns = snapshot.Metrics.CompletedTurns
+		snapshot.ReportScopeCounts.IncludedToolCalls = snapshot.Metrics.ToolCalls
+		snapshot.ReportScopeCounts.IncludedEvidence = snapshot.Metrics.AcceptedEvidence
 	}
 	return snapshot
 }

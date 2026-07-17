@@ -66,6 +66,19 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 	if result.Coverage != contracts.CoverageStateComplete || len(result.RevisionHash) != 64 {
 		t.Fatalf("unexpected audit identity: %#v", result)
 	}
+	if result.ReportFacts == nil || len(result.ReportFacts.Sources) != 1 ||
+		result.ReportFacts.Sources[0].SourceKind != "codex_jsonl" ||
+		result.ReportFacts.Sources[0].Version == "1" ||
+		result.ReportFacts.Sources[0].Freshness != "current" ||
+		result.ReportFacts.Sources[0].RedactionState != "complete" ||
+		result.ReportFacts.Sources[0].KnowledgeState != "observed" ||
+		result.ReportFacts.ScopeCounts.IncludedTrajectories != 1 ||
+		result.ReportFacts.ScopeCounts.IncludedTurns != 1 ||
+		result.ReportFacts.ScopeCounts.IncludedEvidence == 0 ||
+		result.ReportFacts.ScopeCounts.ExcludedTrajectories == nil ||
+		*result.ReportFacts.ScopeCounts.ExcludedTrajectories != 0 {
+		t.Fatalf("normalized report source handoff incomplete: %#v", result.ReportFacts)
+	}
 	if len(result.Contributions) != 1 || result.Contributions[0].Contribution != nil ||
 		result.Contributions[0].AttributionState != "privacy_suppressed" ||
 		len(result.Guardrails) != 3 ||
@@ -100,6 +113,11 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 	if err != nil || metricByName(t, taskResult.Metrics, "tokens_per_turn").NativeValue != nil ||
 		taskResult.Coverage != contracts.CoverageStatePartial {
 		t.Fatalf("task audit unavailable: %#v error=%v", taskResult, err)
+	}
+	if taskResult.ReportFacts == nil || !taskResult.ReportFacts.PrivacySuppressed ||
+		taskResult.ReportFacts.DisplayIdentity == "f5000000-0000-0000-0000-000000000001" ||
+		taskResult.ReportFacts.ScopeCounts.ExcludedTrajectories != nil {
+		t.Fatalf("task report suppression unavailable: %#v", taskResult.ReportFacts)
 	}
 	if _, err := repo.AuditProject(ctx, projectRequest(start.Add(time.Hour))); err != nil {
 		t.Fatalf("idempotent project re-audit failed: %v", err)
@@ -271,7 +289,7 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 		'f2000000-0000-0000-0000-000000000001',
 		'f1000000-0000-0000-0000-000000000001',
 		'f3000000-0000-0000-0000-000000000001','1.0.0',
-		decode(repeat('99',32),'hex'),10,'internal','not_needed','complete',
+		decode(repeat('99',32),'hex'),10,'internal','unknown','complete',
 		'runtime_observed','local',$1)`, start.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
@@ -335,6 +353,10 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 	if len(taskMetrics.EvidenceRefs) != 1 ||
 		taskMetrics.EvidenceRefs[0] != "f9000000-0000-0000-0000-000000000001" {
 		t.Fatalf("task evidence leaked sibling trajectory: %#v", taskMetrics.EvidenceRefs)
+	}
+	taskSources, err := auditSource.reportSources(ctx, taskRequest, filter, args)
+	if err != nil || len(taskSources) != 1 || taskSources[0].RedactionState != "complete" {
+		t.Fatalf("task source facts leaked sibling evidence: %#v error=%v", taskSources, err)
 	}
 	concurrentRequests := []contracts.AuditProjectRequest{
 		projectRequest(start.Add(4 * time.Hour)),

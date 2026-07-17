@@ -599,6 +599,14 @@ func (source projectAuditSource) Snapshot(ctx context.Context, request contracts
 	if err != nil {
 		return audit.Snapshot{}, err
 	}
+	reportSources, err := source.reportSources(ctx, request, filter, args)
+	if err != nil {
+		return audit.Snapshot{}, err
+	}
+	reportCounts, err := source.reportScopeCounts(ctx, request, filter, turnFilter, args)
+	if err != nil {
+		return audit.Snapshot{}, err
+	}
 	guardrails := currentGuardrails(metricsInput)
 	invocations, err := source.invocationCounts(ctx, filter, turnFilter, args)
 	if err != nil {
@@ -622,6 +630,11 @@ func (source projectAuditSource) Snapshot(ctx context.Context, request contracts
 		confounders = []contracts.ConfounderStratum{}
 		invocations = contracts.InvocationCounts{}
 		workloadEffects = []contracts.WorkloadDecomposition{}
+		reportCounts = contracts.ReportScopeCounts{}
+		for index := range reportSources {
+			reportSources[index].RedactionState = "suppressed"
+			reportSources[index].KnowledgeState = "unknown"
+		}
 	}
 	omitted := 0
 	contributions, omitted = boundedSlice(contributions, 100, omitted)
@@ -645,9 +658,159 @@ func (source projectAuditSource) Snapshot(ctx context.Context, request contracts
 		},
 		Contributions: contributions, ConfounderStrata: confounders,
 		Guardrails: guardrails, InvocationCounts: invocations,
-		WorkloadEffects: workloadEffects, RecommendationContext: recommendationContext,
+		ReportScopeCounts: reportCounts, ReportSources: reportSources,
+		PrivacySuppressed: privacySuppressed,
+		WorkloadEffects:   workloadEffects, RecommendationContext: recommendationContext,
 		OmittedCount: omitted,
 	}, nil
+}
+
+func (source projectAuditSource) reportScopeCounts(ctx context.Context,
+	request contracts.AuditProjectRequest, filter, turnFilter string, args []any,
+) (contracts.ReportScopeCounts, error) {
+	evidenceScope := evidenceScopePredicate(request)
+	query := fmt.Sprintf(`
+		WITH selected AS (
+			SELECT DISTINCT s.session_id,tr.trajectory_id
+			FROM prompt_better.sessions s
+			LEFT JOIN prompt_better.trajectories tr ON tr.session_id=s.session_id
+			WHERE %s
+		), scope_sessions AS (
+			SELECT DISTINCT session_id FROM selected
+		), included_turns AS (
+			SELECT t.turn_id FROM prompt_better.turns t
+			JOIN selected selected_scope ON selected_scope.trajectory_id=t.trajectory_id
+			WHERE t.observed_at >= $1 AND t.observed_at < $2
+			  AND t.observed_at <= $3::timestamptz AND %s
+		), candidate_turns AS (
+			SELECT t.turn_id FROM prompt_better.turns t
+			JOIN prompt_better.trajectories tr ON tr.trajectory_id=t.trajectory_id
+			JOIN scope_sessions scope ON scope.session_id=tr.session_id
+			WHERE t.observed_at >= $1 AND t.observed_at < $2
+			  AND t.observed_at <= $3::timestamptz
+		), included_tools AS (
+			SELECT DISTINCT coalesce(tool.external_alias_id::text,tool.tool_call_id::text) AS id
+			FROM prompt_better.tool_calls tool
+			JOIN prompt_better.responses response ON response.response_id=tool.response_id
+			JOIN included_turns turn_scope ON turn_scope.turn_id=response.turn_id
+			WHERE tool.started_at <= $3::timestamptz
+		), candidate_tools AS (
+			SELECT DISTINCT coalesce(tool.external_alias_id::text,tool.tool_call_id::text) AS id
+			FROM prompt_better.tool_calls tool
+			JOIN prompt_better.responses response ON response.response_id=tool.response_id
+			JOIN candidate_turns turn_scope ON turn_scope.turn_id=response.turn_id
+			WHERE tool.started_at <= $3::timestamptz
+		), included_evidence AS (
+			SELECT DISTINCT e.evidence_artifact_id
+			FROM prompt_better.sessions s
+			LEFT JOIN prompt_better.trajectories tr ON tr.session_id=s.session_id
+			JOIN prompt_better.evidence_artifacts e ON e.session_id=s.session_id
+			  AND e.observed_at >= $1 AND e.observed_at < $2
+			  AND e.observed_at <= $3::timestamptz AND e.deleted_at IS NULL
+			WHERE %s AND %s
+		), candidate_evidence AS (
+			SELECT DISTINCT e.evidence_artifact_id
+			FROM prompt_better.evidence_artifacts e
+			JOIN scope_sessions scope ON scope.session_id=e.session_id
+			WHERE e.observed_at >= $1 AND e.observed_at < $2
+			  AND e.observed_at <= $3::timestamptz AND e.deleted_at IS NULL
+		)
+		SELECT
+			(SELECT count(*) FROM selected WHERE trajectory_id IS NOT NULL),
+			(SELECT count(*) FROM prompt_better.trajectories tr
+			 JOIN scope_sessions scope ON scope.session_id=tr.session_id) -
+			 (SELECT count(*) FROM selected WHERE trajectory_id IS NOT NULL),
+			(SELECT count(*) FROM included_turns),
+			(SELECT count(*) FROM candidate_turns) - (SELECT count(*) FROM included_turns),
+			(SELECT count(*) FROM included_tools),
+			(SELECT count(*) FROM candidate_tools) - (SELECT count(*) FROM included_tools),
+			(SELECT count(*) FROM included_evidence),
+			(SELECT count(*) FROM candidate_evidence) - (SELECT count(*) FROM included_evidence)`,
+		filter, turnFilter, filter, evidenceScope)
+	var result contracts.ReportScopeCounts
+	var excludedTrajectories, excludedTurns, excludedTools, excludedEvidence int
+	if err := source.query.QueryRow(ctx, query, args...).Scan(
+		&result.IncludedTrajectories, &excludedTrajectories,
+		&result.IncludedTurns, &excludedTurns,
+		&result.IncludedToolCalls, &excludedTools,
+		&result.IncludedEvidence, &excludedEvidence,
+	); err != nil {
+		return contracts.ReportScopeCounts{}, databaseError("query audit report scope counts", err)
+	}
+	result.ExcludedTrajectories = &excludedTrajectories
+	result.ExcludedTurns = &excludedTurns
+	result.ExcludedToolCalls = &excludedTools
+	result.ExcludedEvidence = &excludedEvidence
+	return result, nil
+}
+
+func (source projectAuditSource) reportSources(ctx context.Context,
+	request contracts.AuditProjectRequest, filter string, args []any,
+) ([]contracts.ReportSourceFacts, error) {
+	evidenceScope := evidenceScopePredicate(request)
+	query := fmt.Sprintf(`
+		SELECT src.source_kind,
+			coalesce(nullif(max(version.adapter_version),''),'unknown'),
+			max(e.observed_at),
+			CASE
+				WHEN bool_or(version.coverage_state='missing') THEN 'missing'
+				WHEN bool_or(version.coverage_state='partial') THEN 'partial'
+				WHEN bool_or(version.coverage_state='unknown') OR count(version.source_version_id)=0 THEN 'unknown'
+				ELSE 'complete'
+			END,
+			count(e.evidence_artifact_id),
+			count(e.evidence_artifact_id) FILTER (
+				WHERE e.redaction_state IN ('applied','not_needed'))
+		FROM prompt_better.sessions s
+		LEFT JOIN prompt_better.trajectories tr ON tr.session_id=s.session_id
+		JOIN prompt_better.sources src ON src.source_id=s.source_id
+		LEFT JOIN prompt_better.source_versions version
+		  ON version.source_id=src.source_id
+		 AND version.valid_from <= $3::timestamptz
+		 AND (version.valid_to > $3::timestamptz OR version.valid_to IS NULL)
+		LEFT JOIN prompt_better.evidence_artifacts e
+		  ON e.session_id=s.session_id AND e.source_id=src.source_id
+		 AND e.observed_at >= $1 AND e.observed_at < $2
+		 AND e.observed_at <= $3::timestamptz AND e.deleted_at IS NULL
+		 AND %s
+		WHERE %s
+		GROUP BY src.source_kind
+		ORDER BY src.source_kind`, evidenceScope, filter)
+	rows, err := source.query.Query(ctx, query, args...)
+	if err != nil {
+		return nil, databaseError("query audit report sources", err)
+	}
+	defer rows.Close()
+	result := []contracts.ReportSourceFacts{}
+	for rows.Next() {
+		var item contracts.ReportSourceFacts
+		var lastObserved *time.Time
+		var evidenceCount, redactedCount int
+		if err := rows.Scan(&item.SourceKind, &item.Version, &lastObserved,
+			&item.Coverage, &evidenceCount, &redactedCount); err != nil {
+			return nil, databaseError("decode audit report source", err)
+		}
+		item.Freshness = "missing"
+		item.RedactionState = "unknown"
+		item.KnowledgeState = "unknown"
+		if lastObserved != nil {
+			item.Freshness = "current"
+			item.KnowledgeState = "observed"
+		}
+		if evidenceCount > 0 && redactedCount == evidenceCount {
+			item.RedactionState = "complete"
+		} else if redactedCount > 0 {
+			item.RedactionState = "partial"
+		}
+		if item.Version != "unknown" {
+			item.Version = opaqueAuditAlias(item.Version)
+		}
+		result = append(result, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, databaseError("iterate audit report sources", err)
+	}
+	return result, nil
 }
 
 func boundedSlice[T any](values []T, limit, omitted int) ([]T, int) {
