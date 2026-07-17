@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly root
 readonly image="prompt-better-act:local"
 readonly network="prompt-better-act-$$"
 readonly pg16="prompt-better-act-pg16-$$"
@@ -69,3 +70,7 @@ act workflow_dispatch \
   --platform "ubuntu-latest=${image}" \
   --pull=false \
   --workflows .act/workflows/ci.yml
+
+if [ "$(uname -s)" = Darwin ] && [ "$(uname -m)" = arm64 ]; then
+  "${root}/scripts/test-homebrew-formula.sh"
+fi

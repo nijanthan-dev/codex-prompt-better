@@ -14,6 +14,9 @@ jobs:
           go version
           gitleaks version
           govulncheck -version
+          goreleaser --version
+          syft version
+          shellcheck --version
       - name: Module consistency
         run: |
           root="$PWD"
@@ -25,6 +28,8 @@ jobs:
           cmp go.sum "${root}/go.sum"
       - name: Format
         run: test -z "$(gofmt -l .)"
+      - name: Shell
+        run: shellcheck scripts/*.sh
       - name: Review patterns
         run: go run ./scripts/validate_patterns.go
       - name: Test
@@ -72,6 +77,26 @@ jobs:
           go build -trimpath -o /tmp/prompt-better-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/prompt-better
           go build -trimpath -o /tmp/prompt-better-collector-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/prompt-better-collector
           go build -trimpath -o /tmp/prompt-better-mcp-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/prompt-better-mcp
+          go build -trimpath -o /tmp/prompt-better-admin-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/prompt-better-admin
+
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Snapshot A
+        run: scripts/package-release.sh snapshot /tmp/prompt-better-package-a
+      - name: Snapshot B
+        run: scripts/package-release.sh snapshot /tmp/prompt-better-package-b
+      - name: Reproducible output
+        run: |
+          find /tmp/prompt-better-package-a -maxdepth 1 -type f -printf '%f\n' | sort > /tmp/package-a-files
+          find /tmp/prompt-better-package-b -maxdepth 1 -type f -printf '%f\n' | sort > /tmp/package-b-files
+          cmp /tmp/package-a-files /tmp/package-b-files
+          while IFS= read -r name; do
+            cmp "/tmp/prompt-better-package-a/${name}" "/tmp/prompt-better-package-b/${name}"
+          done < /tmp/package-a-files
+          gitleaks dir --no-banner --redact /tmp/prompt-better-package-a
 
   postgres:
     name: PostgreSQL ${{ matrix.major }}

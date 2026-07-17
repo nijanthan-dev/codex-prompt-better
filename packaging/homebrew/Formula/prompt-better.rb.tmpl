@@ -1,0 +1,33 @@
+class PromptBetter < Formula
+  desc "Local deterministic prompt compilation and governance inspection for Codex"
+  homepage "https://github.com/nijanthan-dev/codex-prompt-better"
+  url "@SOURCE_URL@"
+  version "@VERSION@"
+  sha256 "@SHA256@"
+  license "MIT"
+
+  depends_on "go" => :build
+  depends_on arch: :arm64
+
+  def install
+    commit = "@COMMIT@"
+    build_date = "@BUILD_DATE@"
+    ldflags = [
+      "-s", "-w",
+      "-X github.com/nijanthan-dev/codex-prompt-better/internal/buildinfo.Version=v#{version}",
+      "-X github.com/nijanthan-dev/codex-prompt-better/internal/buildinfo.Commit=#{commit}",
+      "-X github.com/nijanthan-dev/codex-prompt-better/internal/buildinfo.BuildDate=#{build_date}"
+    ]
+    %w[prompt-better prompt-better-mcp prompt-better-collector prompt-better-admin].each do |name|
+      system "go", "build", "-trimpath", "-ldflags", ldflags.join(" "), "-o", bin/name, "./cmd/#{name}"
+    end
+  end
+
+  test do
+    assert_match version.to_s, shell_output("#{bin}/prompt-better --version")
+    assert_match '"enabled":false', shell_output("#{bin}/prompt-better-collector --status")
+    %w[prompt-better-admin prompt-better-mcp].each do |name|
+      assert_predicate bin/name, :executable?
+    end
+  end
+end

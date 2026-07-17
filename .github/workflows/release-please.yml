@@ -14,16 +14,77 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release-please:
+  release_please:
     name: Release Please
     runs-on: ubuntu-latest
     permissions:
       contents: write
       issues: write
       pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      release_sha: ${{ steps.release.outputs.sha }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: Create or update release PR
+        id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  package_release:
+    name: Package draft release
+    needs: release_please
+    if: needs.release_please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out exact release commit
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6.0.2
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.release_please.outputs.release_sha }}
+      - name: Verify release tag
+        env:
+          RELEASE_SHA: ${{ needs.release_please.outputs.release_sha }}
+          RELEASE_TAG: ${{ needs.release_please.outputs.tag_name }}
+        run: |
+          test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"
+          test "$(git rev-list -n 1 "${RELEASE_TAG}")" = "${RELEASE_SHA}"
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6.3.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.0.0
+        with:
+          distribution: goreleaser
+          version: v2.17.0
+          install-only: true
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          syft-version: v1.48.0
+      - name: Build release assets once
+        run: scripts/package-release.sh release
+      - name: Attest checksummed assets
+        uses: actions/attest-build-provenance@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.1.0
+        with:
+          subject-checksums: dist/checksums.txt
+      - name: Upload to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.release_please.outputs.tag_name }}
+        run: |
+          gh release upload "${RELEASE_TAG}" \
+            dist/prompt-better_*.tar.gz \
+            dist/prompt-better_*.zip \
+            dist/*.sbom.json \
+            dist/checksums.txt \
+            dist/install.sh \
+            dist/prompt-better.rb.tmpl

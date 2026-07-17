@@ -1,0 +1,76 @@
+version: 2
+project_name: prompt-better
+dist: dist
+
+builds:
+  - &build
+    id: prompt-better
+    main: ./cmd/prompt-better
+    binary: prompt-better
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/nijanthan-dev/codex-prompt-better/internal/buildinfo.Version={{ if .IsSnapshot }}devel{{ else }}{{ .Tag }}{{ end }}
+      - -X github.com/nijanthan-dev/codex-prompt-better/internal/buildinfo.Commit={{ .Commit }}
+      - -X github.com/nijanthan-dev/codex-prompt-better/internal/buildinfo.BuildDate={{ .Env.PROMPT_BETTER_BUILD_DATE }}
+    mod_timestamp: "{{ .Env.PROMPT_BETTER_BUILD_TIMESTAMP }}"
+  - <<: *build
+    id: prompt-better-mcp
+    main: ./cmd/prompt-better-mcp
+    binary: prompt-better-mcp
+  - <<: *build
+    id: prompt-better-collector
+    main: ./cmd/prompt-better-collector
+    binary: prompt-better-collector
+  - <<: *build
+    id: prompt-better-admin
+    main: ./cmd/prompt-better-admin
+    binary: prompt-better-admin
+
+archives:
+  - id: prompt-better
+    ids:
+      - prompt-better
+      - prompt-better-mcp
+      - prompt-better-collector
+      - prompt-better-admin
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "prompt-better_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds_info:
+      mtime: "{{ .Env.PROMPT_BETTER_BUILD_DATE }}"
+    files:
+      - src: LICENSE
+        info:
+          mtime: "{{ .Env.PROMPT_BETTER_BUILD_DATE }}"
+      - src: README.md
+        info:
+          mtime: "{{ .Env.PROMPT_BETTER_BUILD_DATE }}"
+      - src: docs/installation.md
+        info:
+          mtime: "{{ .Env.PROMPT_BETTER_BUILD_DATE }}"
+
+checksum:
+  disable: true
+
+sboms:
+  - id: archives
+    artifacts: archive
+    cmd: syft
+    args:
+      - $artifact
+      - --output
+      - spdx-json=$document
+
+changelog:
+  disable: true
