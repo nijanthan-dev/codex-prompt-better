@@ -309,13 +309,23 @@ func runUninstall(ctx context.Context, home, configPath string, apply bool, runn
 	if !apply {
 		return writeStatus(streams.Output, "preview", "uninstall")
 	}
+	staged := []stagedOwnedFile{}
+	for name, expectedHash := range manifest.Files {
+		file, err := stageOwnedFile(paths[name], expectedHash)
+		if err != nil {
+			restoreStagedFiles(staged)
+			return writeError(streams.Error, "owned file removal failed")
+		}
+		staged = append(staged, file)
+	}
 	if current != nil {
 		if _, err := runner.Run(ctx, "codex", "mcp", "remove", serverName); err != nil {
+			restoreStagedFiles(staged)
 			return writeError(streams.Error, "Codex MCP removal failed")
 		}
 	}
-	for name := range manifest.Files {
-		if err := os.Remove(paths[name]); err != nil && !errors.Is(err, os.ErrNotExist) {
+	for _, file := range staged {
+		if err := os.Remove(file.staged); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return writeError(streams.Error, "owned file removal failed")
 		}
 	}
@@ -323,6 +333,42 @@ func runUninstall(ctx context.Context, home, configPath string, apply bool, runn
 		return writeError(streams.Error, "ownership removal failed")
 	}
 	return writeStatus(streams.Output, "applied", "uninstall")
+}
+
+type stagedOwnedFile struct {
+	original string
+	staged   string
+}
+
+func stageOwnedFile(path, expectedHash string) (stagedOwnedFile, error) {
+	temporary, err := os.CreateTemp(filepath.Dir(path), ".prompt-better-uninstall-*")
+	if err != nil {
+		return stagedOwnedFile{}, err
+	}
+	staged := temporary.Name()
+	if err := temporary.Close(); err != nil {
+		os.Remove(staged)
+		return stagedOwnedFile{}, err
+	}
+	if err := os.Remove(staged); err != nil {
+		return stagedOwnedFile{}, err
+	}
+	if err := os.Rename(path, staged); err != nil {
+		return stagedOwnedFile{}, err
+	}
+	file := stagedOwnedFile{original: path, staged: staged}
+	content, err := readBounded(staged)
+	if err != nil || digest(content) != expectedHash {
+		_ = os.Rename(staged, path)
+		return stagedOwnedFile{}, errors.New("owned file changed during uninstall")
+	}
+	return file, nil
+}
+
+func restoreStagedFiles(files []stagedOwnedFile) {
+	for index := len(files) - 1; index >= 0; index-- {
+		_ = os.Rename(files[index].staged, files[index].original)
+	}
 }
 
 // RunDoctor parses and executes prompt-better doctor without mutation.
@@ -734,7 +780,21 @@ func atomicWrite(path string, data []byte) error {
 	if err := temporary.Close(); err != nil {
 		return err
 	}
-	return os.Rename(temporaryName, path)
+	if err := os.Link(temporaryName, path); err != nil {
+		return err
+	}
+	if err := os.Remove(temporaryName); err != nil {
+		return err
+	}
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	directory, err := os.Open(filepath.Dir(path))
+	if err != nil {
+		return err
+	}
+	defer directory.Close()
+	return directory.Sync()
 }
 
 func ownedName(home, configPath, path string) string {

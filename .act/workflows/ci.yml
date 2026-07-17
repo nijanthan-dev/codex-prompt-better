@@ -25,6 +25,8 @@ jobs:
           cmp go.sum "${root}/go.sum"
       - name: Format
         run: test -z "$(gofmt -l .)"
+      - name: Review patterns
+        run: go run ./scripts/validate_patterns.go
       - name: Test
         run: go test -count=1 ./...
       - name: Vet

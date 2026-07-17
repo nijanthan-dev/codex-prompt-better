@@ -12,7 +12,9 @@ func Rank(metrics []contracts.MetricResult) []contracts.NativeOutlier {
 	result := []contracts.NativeOutlier{}
 	for _, metric := range metrics {
 		if metric.NativeValue == nil || metric.RollingMedian == nil ||
-			metric.RollingMAD == nil || *metric.RollingMAD <= 0 {
+			metric.RollingMAD == nil || !finite(*metric.NativeValue) ||
+			!finite(*metric.RollingMedian) || !finite(*metric.RollingMAD) ||
+			*metric.RollingMAD <= 0 {
 			continue
 		}
 		magnitude := math.Abs(*metric.NativeValue-*metric.RollingMedian) / *metric.RollingMAD
@@ -37,3 +39,5 @@ func Rank(metrics []contracts.MetricResult) []contracts.NativeOutlier {
 	}
 	return result
 }
+
+func finite(value float64) bool { return !math.IsNaN(value) && !math.IsInf(value, 0) }

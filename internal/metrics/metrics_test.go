@@ -132,10 +132,26 @@ func TestCompute_GuardrailsUseObservableDenominators(t *testing.T) {
 	}
 }
 
-func TestCompute_RejectsNegativeGuardrailCounts(t *testing.T) {
+func TestCompute_RejectsInconsistentInputs(t *testing.T) {
 	t.Parallel()
-	if _, err := Compute(Input{ToolErrors: -1}); err == nil {
-		t.Fatal("negative guardrail count accepted")
+	tests := []struct {
+		name  string
+		input Input
+	}{
+		{name: "negative count", input: Input{ToolErrors: -1}},
+		{name: "attributed turns exceed completed", input: Input{CompletedTurns: 1, AttributedTurns: 2}},
+		{name: "repeated calls exceed calls", input: Input{ToolCalls: 1, RepeatedCalls: 2}},
+		{name: "redacted evidence exceeds accepted", input: Input{AcceptedEvidence: 1, RedactedEvidence: 2}},
+		{name: "non-cached tokens exceed total", input: Input{TotalTokens: 1, NonCachedInputTokens: 2}},
+		{name: "active time exceeds wall clock", input: Input{WallClockSeconds: 1, ActiveSeconds: 2}},
+		{name: "non-finite measurement", input: Input{TotalTokens: math.NaN()}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := Compute(test.input); err == nil {
+				t.Fatalf("inconsistent input accepted: %#v", test.input)
+			}
+		})
 	}
 }
 

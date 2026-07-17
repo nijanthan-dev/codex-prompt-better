@@ -17,6 +17,7 @@ type fakeRunner struct {
 	plugin       *registration
 	calls        [][]string
 	failAdd      bool
+	failRemove   bool
 }
 
 func (r *fakeRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
@@ -35,6 +36,9 @@ func (r *fakeRunner) Run(_ context.Context, name string, args ...string) ([]byte
 		r.registration = &registration{Command: args[separator], Args: append([]string(nil), args[separator+1:]...)}
 	}
 	if len(args) >= 3 && args[0] == "mcp" && args[1] == "remove" {
+		if r.failRemove {
+			return []byte("synthetic failure"), errors.New("failed")
+		}
 		r.registration = r.plugin
 	}
 	return nil, nil
@@ -146,6 +150,30 @@ func TestInstallAndUninstallRefuseModifiedOwnedFiles(t *testing.T) {
 	}
 }
 
+func TestUninstallRestoresOwnedFilesWhenRegistrationRemovalFails(t *testing.T) {
+	home := t.TempDir()
+	config, expected, _ := validateInstall("improve_only", []string{"git"}, "", sourceRoot(t), "")
+	configPath := filepath.Join(home, filepath.FromSlash(defaultConfigRel))
+	runner := &fakeRunner{}
+	streams := Streams{Output: &bytes.Buffer{}, Error: &bytes.Buffer{}}
+	if code := runInstall(context.Background(), home, configPath, config, expected, true, runner, streams); code != 0 {
+		t.Fatal(code)
+	}
+	runner.failRemove = true
+	if code := runUninstall(context.Background(), home, configPath, true, runner, streams); code == 0 {
+		t.Fatal("registration removal failure accepted")
+	}
+	for _, path := range []string{
+		configPath,
+		filepath.Join(home, filepath.FromSlash(skillRel)),
+		filepath.Join(home, filepath.FromSlash(manifestRel)),
+	} {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("owned file not restored: %s: %v", path, err)
+		}
+	}
+}
+
 func TestInstallRefusesInsecureOrLinkedExistingFile(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("POSIX permissions and symlinks")
@@ -181,6 +209,21 @@ func TestInstallRefusesInsecureOrLinkedExistingFile(t *testing.T) {
 	}
 	if code := runInstall(context.Background(), home, configPath, config, expected, true, &fakeRunner{}, streams); code == 0 {
 		t.Fatal("linked existing file claimed")
+	}
+}
+
+func TestAtomicWriteDoesNotReplaceExistingFile(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "owned")
+	if err := os.WriteFile(path, []byte("existing"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := atomicWrite(path, []byte("replacement")); err == nil {
+		t.Fatal("existing file replaced")
+	}
+	content, err := os.ReadFile(path)
+	if err != nil || string(content) != "existing" {
+		t.Fatalf("existing file changed: %q error=%v", content, err)
 	}
 }
 

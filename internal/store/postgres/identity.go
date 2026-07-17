@@ -65,7 +65,7 @@ func (r *Repository) RekeyProjectAlias(ctx context.Context, oldAliasID string, r
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrNotFound
 			}
-			return errors.New("read keyed project alias")
+			return databaseError("read keyed project alias", err)
 		}
 		if projectID != replacement.ProjectID || sourceID != replacement.SourceID {
 			return errors.New("rekey scope mismatch")
@@ -76,11 +76,11 @@ func (r *Repository) RekeyProjectAlias(ctx context.Context, oldAliasID string, r
 			replacement.ID, replacement.ProjectID, replacement.SourceID,
 			replacement.KeyVersionID, replacement.Kind, replacement.Digest,
 			replacement.CreatedAt); err != nil {
-			return errors.New("persist replacement project alias")
+			return databaseError("persist replacement project alias", err)
 		}
 		if _, err := tx.Exec(ctx, `DELETE FROM prompt_better.project_aliases
             WHERE project_alias_id=$1`, oldAliasID); err != nil {
-			return errors.New("delete replaced project alias")
+			return databaseError("delete replaced project alias", err)
 		}
 		return nil
 	})
@@ -106,12 +106,12 @@ func (r *Repository) DeleteKeyVersion(ctx context.Context, keyVersionID string, 
 	return r.WithSerializable(ctx, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `DELETE FROM prompt_better.project_aliases
             WHERE key_version_id=$1`, keyVersionID); err != nil {
-			return errors.New("delete keyed aliases")
+			return databaseError("delete keyed aliases", err)
 		}
 		tag, err := tx.Exec(ctx, `UPDATE prompt_better.key_versions
             SET state='deleted',deleted_at=$2 WHERE key_version_id=$1`, keyVersionID, at)
 		if err != nil {
-			return errors.New("delete key version metadata")
+			return databaseError("delete key version metadata", err)
 		}
 		if tag.RowsAffected() == 0 {
 			return ErrNotFound

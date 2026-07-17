@@ -43,6 +43,8 @@ func TestRenderRejectsContractViolations(t *testing.T) {
 		{name: "empty item", mutate: func(c *Checkpoint) { c.Completed = []string{" "} }},
 		{name: "long item", mutate: func(c *Checkpoint) { c.Completed = []string{strings.Repeat("x", 501)} }},
 		{name: "invalid utf-8", mutate: func(c *Checkpoint) { c.Objective = string([]byte{0xff}) }},
+		{name: "forged section", mutate: func(c *Checkpoint) { c.Completed = []string{"done\n\nBlockers:\n- hidden"} }},
+		{name: "control character", mutate: func(c *Checkpoint) { c.NextAction = "stop\x00now" }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

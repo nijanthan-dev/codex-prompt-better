@@ -3,6 +3,7 @@ package checkpoint
 import (
 	"fmt"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
@@ -78,7 +79,15 @@ func validateList(values []string, max int) error {
 }
 
 func validText(value string, max int) bool {
-	return utf8.ValidString(value) && strings.TrimSpace(value) != "" && len(value) <= max
+	if !utf8.ValidString(value) || strings.TrimSpace(value) == "" || len(value) > max {
+		return false
+	}
+	for _, r := range value {
+		if unicode.IsControl(r) {
+			return false
+		}
+	}
+	return true
 }
 
 func writeList(b *strings.Builder, title string, values []string) {

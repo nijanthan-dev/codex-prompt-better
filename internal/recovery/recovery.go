@@ -109,7 +109,7 @@ func (t Toolchain) RestoreFile(ctx context.Context, database, input string,
 	}
 	defer file.Close()
 	args := append([]string{}, t.RestorePrefix...)
-	args = append(args, "--exit-on-error", "--no-owner", "--no-privileges", "--dbname="+database)
+	args = append(args, "--exit-on-error", "--single-transaction", "--no-owner", "--no-privileges", "--dbname="+database)
 	command := exec.CommandContext(ctx, t.RestorePath, args...)
 	command.Env = append(os.Environ(), environment...)
 	stdin, err := command.StdinPipe()

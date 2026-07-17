@@ -16,13 +16,14 @@ type Event struct {
 }
 
 type Invocation struct {
-	LogicalCallID string
-	ParentCallID  string
-	Kinds         []string
-	Sources       []string
-	Attempts      int
-	HasResult     bool
-	Revised       bool
+	LogicalCallID  string
+	ParentCallID   string
+	Kinds          []string
+	Sources        []string
+	Attempts       int
+	HasResult      bool
+	Revised        bool
+	ParentConflict bool
 }
 
 type Summary struct {
@@ -47,6 +48,9 @@ func Correlate(events []Event) Summary {
 		if !ok {
 			invocation = &Invocation{LogicalCallID: event.LogicalCallID, ParentCallID: event.ParentCallID, Kinds: []string{}, Sources: []string{}}
 			byCall[event.LogicalCallID] = invocation
+		} else if invocation.ParentCallID != event.ParentCallID {
+			invocation.ParentCallID = ""
+			invocation.ParentConflict = true
 		}
 		invocation.Kinds = appendUnique(invocation.Kinds, event.Kind)
 		invocation.Sources = appendUnique(invocation.Sources, event.Source)

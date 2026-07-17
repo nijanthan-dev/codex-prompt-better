@@ -6,6 +6,7 @@ import (
 	"context"
 	"math"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -27,6 +28,7 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 		t.Fatal(err)
 	}
 	defer repo.Close()
+	auditSource := projectAuditSource{query: repo.pool}
 
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	insertGovernanceFixture(t, ctx, repo, start)
@@ -40,6 +42,23 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 			Consent: contracts.AuditConsentGranted,
 		}
 	}
+	t.Run("single connection pool", func(t *testing.T) {
+		limits := DefaultPoolConfig()
+		limits.MaxConnections = 1
+		limits.MinConnections = 1
+		singleConnectionRepo, err := OpenRepository(ctx, dsn, limits)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer singleConnectionRepo.Close()
+		result, err := singleConnectionRepo.AuditProject(ctx, projectRequest(start.Add(time.Hour)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.Window.Revision != 1 {
+			t.Fatalf("unexpected audit revision: %d", result.Window.Revision)
+		}
+	})
 	result, err := repo.AuditProject(ctx, projectRequest(start.Add(time.Hour)))
 	if err != nil {
 		t.Fatal(err)
@@ -158,6 +177,63 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 		WHERE action_code='no_action'`).Scan(&noActionCount); err != nil || noActionCount == 0 {
 		t.Fatalf("persisted no_action recommendations=%d error=%v", noActionCount, err)
 	}
+	if _, err := repo.pool.Exec(ctx, `UPDATE prompt_better.recommendations recommendation
+		SET action_code='wait_on_state_change',
+			recommendation_kind='wait_on_state_change',lifecycle_state='dismissed',
+			updated_at=$1,cooldown_until=$2
+		FROM prompt_better.findings finding
+		JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
+		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
+		WHERE recommendation.finding_id=finding.finding_id
+		  AND audit_window.window_kind='task'
+		  AND recommendation.action_code='no_action'`,
+		start.Add(4*time.Hour), start.Add(24*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	feedbackRequest := projectRequest(start.Add(5 * time.Hour))
+	projectFeedback, err := auditSource.recommendationContext(ctx, feedbackRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if projectFeedback.Feedback["passive_polling"].State == "dismissed" {
+		t.Fatalf("task recommendation leaked into project feedback: %#v", projectFeedback)
+	}
+	if _, err := repo.pool.Exec(ctx, `WITH ranked AS (
+		SELECT recommendation.recommendation_id,
+			row_number() OVER (ORDER BY audit_window.as_of DESC,
+				revision.revision_number DESC,recommendation.recommendation_id DESC) AS position
+		FROM prompt_better.recommendations recommendation
+		JOIN prompt_better.findings finding USING (finding_id)
+		JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
+		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
+		WHERE recommendation.action_code='wait_on_state_change'
+		  AND audit_window.window_kind='project'
+	)
+	UPDATE prompt_better.recommendations recommendation
+	SET lifecycle_state=CASE WHEN ranked.position=1 THEN 'dismissed' ELSE 'accepted' END,
+		updated_at=$1,cooldown_until=$2
+	FROM ranked WHERE ranked.recommendation_id=recommendation.recommendation_id`,
+		start.Add(4*time.Hour), start.Add(24*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	projectFeedback, err = auditSource.recommendationContext(ctx, feedbackRequest)
+	if err != nil || projectFeedback.Feedback["passive_polling"].State != "dismissed" {
+		t.Fatalf("latest tied project feedback not deterministic: %#v error=%v", projectFeedback, err)
+	}
+	if _, err := repo.pool.Exec(ctx, `UPDATE prompt_better.recommendations recommendation
+		SET action_code='no_action',recommendation_kind='no_action'
+		WHERE recommendation.recommendation_id=(
+			SELECT candidate.recommendation_id
+			FROM prompt_better.recommendations candidate
+			JOIN prompt_better.findings finding USING (finding_id)
+			JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
+			JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
+			WHERE candidate.action_code='wait_on_state_change'
+			  AND audit_window.window_kind='project'
+			ORDER BY audit_window.as_of DESC,revision.revision_number DESC
+			LIMIT 1)`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := repo.pool.Exec(ctx, `DELETE FROM prompt_better.recommendations
 		WHERE action_code<>'no_action'`); err != nil {
 		t.Fatal(err)
@@ -166,10 +242,7 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 		SET action_code=NULL WHERE recommendation_kind='no_action'`); err != nil {
 		t.Fatal(err)
 	}
-	feedback, err := (projectAuditSource{query: repo.pool}).recommendationContext(
-		ctx,
-		projectRequest(start.Add(2*time.Hour)),
-	)
+	feedback, err := auditSource.recommendationContext(ctx, feedbackRequest)
 	if err != nil || len(feedback.Feedback) != 0 || len(feedback.ExistingRuleCoverage) != 0 {
 		t.Fatalf("no_action leaked into feedback: %#v error=%v", feedback, err)
 	}
@@ -178,12 +251,159 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 		WHERE recommendation_kind='no_action'`); err != nil {
 		t.Fatal(err)
 	}
-	feedback, err = (projectAuditSource{query: repo.pool}).recommendationContext(
-		ctx,
-		projectRequest(start.Add(2*time.Hour)),
-	)
+	feedback, err = auditSource.recommendationContext(ctx, feedbackRequest)
 	if err != nil || len(feedback.Feedback) != 1 {
 		t.Fatalf("legacy actionable feedback missing: %#v error=%v", feedback, err)
+	}
+	if _, err := repo.pool.Exec(ctx, `INSERT INTO prompt_better.trajectories
+		(trajectory_id,session_id,source_id,started_at,knowledge_state)
+		VALUES ('f4000000-0000-0000-0000-000000000099',
+		'f3000000-0000-0000-0000-000000000001',
+		'f2000000-0000-0000-0000-000000000001',$1,'observed')`,
+		start.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.pool.Exec(ctx, `INSERT INTO prompt_better.evidence_artifacts
+		(evidence_artifact_id,source_id,project_id,session_id,schema_version,
+		 content_hash,content_length,classification,redaction_state,coverage_state,
+		 provenance,product_surface,observed_at)
+		VALUES ('f9000000-0000-0000-0000-000000000099',
+		'f2000000-0000-0000-0000-000000000001',
+		'f1000000-0000-0000-0000-000000000001',
+		'f3000000-0000-0000-0000-000000000001','1.0.0',
+		decode(repeat('99',32),'hex'),10,'internal','not_needed','complete',
+		'runtime_observed','local',$1)`, start.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.pool.Exec(ctx, `INSERT INTO prompt_better.evidence_links
+		(evidence_link_id,evidence_artifact_id,target_kind,target_id,link_kind,created_at)
+		VALUES ('f9100000-0000-0000-0000-000000000099',
+		'f9000000-0000-0000-0000-000000000099','trajectory',
+		'f4000000-0000-0000-0000-000000000099','observed_in',$1)`,
+		start.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.pool.Exec(ctx, `INSERT INTO prompt_better.governance_overhead
+		(governance_overhead_id,audit_revision_id,trajectory_id,overhead_kind,
+		 native_value,native_unit,required_state,observed_at)
+		VALUES ('fd000000-0000-0000-0000-000000000099',
+		'fc000000-0000-0000-0000-000000000001',
+		'f4000000-0000-0000-0000-000000000099','audit',90,'tokens','necessary',$1)`,
+		start.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	taskRequest := projectRequest(start.Add(time.Hour))
+	taskRequest.Scope = contracts.AuditScopeTask
+	taskRequest.Reference = "f5000000-0000-0000-0000-000000000001"
+	filter, turnFilter, args, err := auditFilter(taskRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	overhead, err := auditSource.overhead(ctx, filter, args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if overhead.TotalTokens != 10 || overhead.CompletedTurns != 1 {
+		t.Fatalf("task overhead leaked sibling trajectory: %#v", overhead)
+	}
+	if _, err := repo.pool.Exec(ctx, `INSERT INTO prompt_better.tool_calls
+		(tool_call_id,response_id,source_id,external_alias_id,caller_alias_id,
+		 call_path,tool_kind,started_at,outcome,knowledge_state)
+		VALUES ('f8000000-0000-0000-0000-000000000099',
+		'f7000000-0000-0000-0000-000000000001',
+		'f2000000-0000-0000-0000-000000000001',
+		'f8100000-0000-0000-0000-000000000099',
+		'f8100000-0000-0000-0000-000000000098',
+		'programmatic','synthetic',$1,'success','observed')`,
+		start.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	counts, err := auditSource.invocationCounts(
+		ctx, filter, turnFilter, args,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if counts.HostCalls != 1 || counts.LeafCalls != 1 ||
+		counts.HostResults != 1 || counts.LeafResults != 1 || counts.UnknownCalls != 6 {
+		t.Fatalf("bounded orphan-parent invocation counts: %#v", counts)
+	}
+	taskMetrics, err := auditSource.metrics(ctx, filter, turnFilter, args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(taskMetrics.EvidenceRefs) != 1 ||
+		taskMetrics.EvidenceRefs[0] != "f9000000-0000-0000-0000-000000000001" {
+		t.Fatalf("task evidence leaked sibling trajectory: %#v", taskMetrics.EvidenceRefs)
+	}
+	concurrentRequests := []contracts.AuditProjectRequest{
+		projectRequest(start.Add(4 * time.Hour)),
+		projectRequest(start.Add(5 * time.Hour)),
+	}
+	results := make([]contracts.AuditProjectResult, 2)
+	auditErrors := make([]error, 2)
+	var group sync.WaitGroup
+	for index := range results {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			results[index], auditErrors[index] = repo.AuditProject(ctx, concurrentRequests[index])
+		}()
+	}
+	group.Wait()
+	for index, auditErr := range auditErrors {
+		if auditErr != nil {
+			t.Fatalf("concurrent audit %d: %v", index, auditErr)
+		}
+	}
+	revisionDelta := results[0].Window.Revision - results[1].Window.Revision
+	if results[0].RevisionHash == results[1].RevisionHash ||
+		(revisionDelta != 1 && revisionDelta != -1) {
+		t.Fatalf("concurrent audit revisions not serialized: %#v %#v", results[0].Window, results[1].Window)
+	}
+
+	tag, err := repo.pool.Exec(ctx, `UPDATE prompt_better.metric_definitions
+		SET definition_hash=decode(repeat('ff',32),'hex')
+		WHERE metric_name='scope_attribution_coverage' AND metric_version=$1`,
+		metrics.DefinitionVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tag.RowsAffected() != 1 {
+		t.Fatalf("mutated metric definitions=%d", tag.RowsAffected())
+	}
+	_, err = repo.AuditProject(ctx, projectRequest(start.Add(time.Hour)))
+	if err == nil || err.Error() != "metric definition version conflicts with persisted content" {
+		t.Fatalf("definition drift error=%v", err)
+	}
+	failedConn, err := repo.pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var backendPID int
+	if err := failedConn.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&backendPID); err != nil {
+		failedConn.Release()
+		t.Fatal(err)
+	}
+	failedLockKey := "synthetic-failed-unlock"
+	if _, err := failedConn.Exec(ctx,
+		`SELECT pg_advisory_lock(hashtextextended($1,0))`, failedLockKey,
+	); err != nil {
+		failedConn.Release()
+		t.Fatal(err)
+	}
+	if _, err := repo.pool.Exec(ctx, `SELECT pg_terminate_backend($1)`, backendPID); err != nil {
+		failedConn.Release()
+		t.Fatal(err)
+	}
+	releaseAuditConnection(ctx, failedConn, failedLockKey)
+	healthyConn, err := repo.pool.Acquire(ctx)
+	if err != nil {
+		t.Fatalf("pool did not replace failed audit connection: %v", err)
+	}
+	defer healthyConn.Release()
+	if err := healthyConn.QueryRow(ctx, `SELECT 1`).Scan(new(int)); err != nil {
+		t.Fatalf("replacement audit connection unusable: %v", err)
 	}
 }
 
@@ -272,6 +492,15 @@ func insertGovernanceFixture(t *testing.T, ctx context.Context, repo *Repository
 			(evidence_artifact_id,source_id,project_id,session_id,schema_version,content_hash,content_length,classification,redaction_state,coverage_state,provenance,product_surface,observed_at)
 			VALUES ($1,$2,$3,$4,'1.0.0',decode(repeat('33',32),'hex'),10,'internal','not_needed','complete','runtime_observed','local',$5)`,
 			[]any{"f9000000-0000-0000-0000-000000000001", "f2000000-0000-0000-0000-000000000001", "f1000000-0000-0000-0000-000000000001", "f3000000-0000-0000-0000-000000000001", start.Add(time.Minute)}},
+		{`INSERT INTO prompt_better.evidence_links
+			(evidence_link_id,evidence_artifact_id,target_kind,target_id,link_kind,created_at)
+			VALUES ($1,$2,'trajectory',$3,'observed_in',$4)`,
+			[]any{
+				"f9100000-0000-0000-0000-000000000001",
+				"f9000000-0000-0000-0000-000000000001",
+				"f4000000-0000-0000-0000-000000000001",
+				start.Add(time.Minute),
+			}},
 		{`INSERT INTO prompt_better.usage_observations
 			(usage_observation_id,trajectory_id,evidence_artifact_id,metric_kind,value_numeric,usage_unit,product_surface,accounting_regime,provenance,source_adapter,observed_at,knowledge_state)
 			VALUES ($1,$2,$3,'total_tokens',100,'tokens','local','native','runtime_observed','synthetic',$4,'observed')`,

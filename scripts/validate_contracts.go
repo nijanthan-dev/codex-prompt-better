@@ -346,7 +346,13 @@ func validNumber(value float64, schema document) bool {
 	if minimum, ok := numberValue(schema["minimum"]); ok && value < minimum {
 		return false
 	}
+	if minimum, ok := numberValue(schema["exclusiveMinimum"]); ok && value <= minimum {
+		return false
+	}
 	if maximum, ok := numberValue(schema["maximum"]); ok && value > maximum {
+		return false
+	}
+	if maximum, ok := numberValue(schema["exclusiveMaximum"]); ok && value >= maximum {
 		return false
 	}
 	return true

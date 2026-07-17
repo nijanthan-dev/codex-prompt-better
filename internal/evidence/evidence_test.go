@@ -2,6 +2,7 @@ package evidence
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -17,6 +18,23 @@ func TestOpaqueID_IsKeyedAndStable(t *testing.T) {
 	other, _ := OpaqueID([]byte("different-key-material-32-bytes!"), "project", "alpha")
 	if first != second || first == other || first == "alpha" {
 		t.Fatal("keyed identity invariant failed")
+	}
+}
+
+func TestSanitize_RejectsFreeTextAndSortsRedactions(t *testing.T) {
+	t.Parallel()
+	key := []byte("synthetic-key-material-32-bytes!!")
+	if _, _, err := Sanitize("github", key, map[string]string{"state": "private value"}); !errors.Is(err, ErrSensitive) {
+		t.Fatalf("got %v, want sensitive rejection", err)
+	}
+	clean, redacted, err := Sanitize("github", key, map[string]string{
+		"state": "in_progress", "z_private": "value", "a_private": "value",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if clean["state"] != "in_progress" || !reflect.DeepEqual(redacted, []string{"a_private", "z_private"}) {
+		t.Fatalf("unexpected sanitized evidence: clean=%v redacted=%v", clean, redacted)
 	}
 }
 

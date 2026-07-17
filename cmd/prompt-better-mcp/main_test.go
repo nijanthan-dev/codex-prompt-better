@@ -19,7 +19,7 @@ func TestMCPHelperProcess(t *testing.T) {
 	if os.Getenv(helperEnvironment) != "1" {
 		return
 	}
-	if err := run(context.Background(), os.Stdin, os.Stdout, os.Stderr); err != nil {
+	if err := runWithArgs(context.Background(), nil, os.Stdin, os.Stdout, os.Stderr); err != nil {
 		os.Exit(2)
 	}
 	os.Exit(0)

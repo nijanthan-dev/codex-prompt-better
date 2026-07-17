@@ -1,6 +1,7 @@
 package baseline
 
 import (
+	"math"
 	"testing"
 
 	"github.com/nijanthan-dev/codex-prompt-better/internal/metrics"
@@ -27,7 +28,7 @@ func TestApply_StatusRules(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			current := rawMetric(test.current)
+			current := rawMetric(definition.Name, test.current)
 			test.comparison.Previous = window(test.previous)
 			if test.name != "guardrail blocks" {
 				test.comparison.Previous.GuardrailsPass = true
@@ -46,6 +47,26 @@ func TestApply_StatusRules(t *testing.T) {
 	}
 }
 
+func TestApply_NonFiniteEvidenceIsInsufficient(t *testing.T) {
+	t.Parallel()
+	definition := definitionByName(t, "non_cached_input_per_turn")
+	for _, value := range []float64{math.NaN(), math.Inf(1)} {
+		current := rawMetric(definition.Name, value)
+		result, err := Apply(current, definition, Comparison{})
+		if err != nil || result.Status != contracts.MetricStatusInsufficient ||
+			result.StatusReason != "current_incomplete" {
+			t.Fatalf("non-finite current accepted: %#v error=%v", result, err)
+		}
+		comparison := Comparison{
+			Previous: window(value), Rolling: []Window{window(1), window(1), window(1)},
+		}
+		result, err = Apply(rawMetric(definition.Name, 1), definition, comparison)
+		if err != nil || result.StatusReason != "previous_incompatible" {
+			t.Fatalf("non-finite baseline accepted: %#v error=%v", result, err)
+		}
+	}
+}
+
 func TestMedianEvenAndOdd(t *testing.T) {
 	t.Parallel()
 	if Median([]float64{4, 1, 3}) != 3 || Median([]float64{4, 1, 3, 2}) != 2.5 {
@@ -53,9 +74,42 @@ func TestMedianEvenAndOdd(t *testing.T) {
 	}
 }
 
-func rawMetric(value float64) contracts.MetricResult {
+func TestApply_ToolErrorGuardrailDirection(t *testing.T) {
+	t.Parallel()
+	definition := definitionByName(t, "tool_error_rate")
+	tests := []struct {
+		name     string
+		current  float64
+		baseline float64
+		want     contracts.MetricStatus
+	}{
+		{name: "rising errors worsen", current: 0.20, baseline: 0.10, want: contracts.MetricStatusWorsened},
+		{name: "falling errors improve", current: 0.05, baseline: 0.10, want: contracts.MetricStatusImproved},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			current := rawMetric(definition.Name, test.current)
+			comparison := Comparison{
+				Previous: window(test.baseline), Rolling: []Window{
+					window(test.baseline * 0.99), window(test.baseline), window(test.baseline * 1.01),
+				},
+				ConfoundersMatched: true, PersistenceCount: 2,
+			}
+			comparison.Previous.GuardrailsPass = true
+			result, err := Apply(current, definition, comparison)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Status != test.want {
+				t.Fatalf("status=%s want=%s", result.Status, test.want)
+			}
+		})
+	}
+}
+
+func rawMetric(name string, value float64) contracts.MetricResult {
 	return contracts.MetricResult{
-		Name: "non_cached_input_per_turn", Version: metrics.DefinitionVersion,
+		Name: name, Version: metrics.DefinitionVersion,
 		NativeValue: &value, Coverage: contracts.CoverageStateComplete,
 	}
 }

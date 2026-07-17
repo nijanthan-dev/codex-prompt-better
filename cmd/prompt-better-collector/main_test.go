@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -24,6 +26,29 @@ func TestRun_RequiresExplicitConfiguration(t *testing.T) {
 	t.Parallel()
 	if err := run(context.Background(), nil, &bytes.Buffer{}, time.Now); err == nil {
 		t.Fatal("implicit collection allowed")
+	}
+}
+
+func TestCollectRejectsTrailingAndOversizedConfiguration(t *testing.T) {
+	t.Parallel()
+	valid := `{"owner":"synthetic","sources":[{"kind":"git"}]}`
+	for _, test := range []struct {
+		name string
+		data string
+	}{
+		{name: "trailing value", data: valid + ` {}`},
+		{name: "oversized", data: valid + strings.Repeat(" ", 64*1024)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "collector.json")
+			if err := os.WriteFile(path, []byte(test.data), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := collect(context.Background(), path, &bytes.Buffer{}, time.Now); err == nil ||
+				err.Error() != "invalid collector configuration" {
+				t.Fatalf("malformed configuration error=%v", err)
+			}
+		})
 	}
 }
 

@@ -21,7 +21,7 @@ type ClassValue struct {
 // The identity is exact up to floating-point rounding.
 func Decompose(metric string, previous, current []ClassValue) contracts.WorkloadDecomposition {
 	classes := classUnion(previous, current)
-	if len(classes) == 0 {
+	if len(classes) == 0 || !validInputs(previous) || !validInputs(current) {
 		return contracts.WorkloadDecomposition{Metric: metric, Status: "insufficient", Classes: []string{}}
 	}
 	prev := index(previous)
@@ -56,6 +56,19 @@ func Decompose(metric string, previous, current []ClassValue) contracts.Workload
 		Status: status, Classes: classes,
 	}
 }
+
+func validInputs(values []ClassValue) bool {
+	for _, value := range values {
+		if value.Class == "" || !finite(value.Count) || !finite(value.Numerator) ||
+			!finite(value.Denominator) || value.Count < 0 || value.Numerator < 0 ||
+			value.Denominator < 0 || (value.Numerator > 0 && value.Denominator == 0) {
+			return false
+		}
+	}
+	return true
+}
+
+func finite(value float64) bool { return !math.IsNaN(value) && !math.IsInf(value, 0) }
 
 func classUnion(groups ...[]ClassValue) []string {
 	seen := map[string]bool{}

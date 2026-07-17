@@ -1,10 +1,33 @@
 package postgres
 
 import (
+	"context"
+	"errors"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
 )
+
+func TestDatabaseErrorPreservesClassificationWithoutExposingCause(t *testing.T) {
+	t.Parallel()
+	serialization := &pgconn.PgError{Code: "40001", Message: "synthetic private detail"}
+	err := databaseError("query governance state", serialization)
+	if err.Error() != "query governance state" {
+		t.Fatalf("error exposed cause: %q", err)
+	}
+	if !retryableTransactionFailure(err) {
+		t.Fatal("wrapped serialization failure was not classifiable")
+	}
+	deadlock := databaseError("query governance state", &pgconn.PgError{Code: "40P01"})
+	if !retryableTransactionFailure(deadlock) {
+		t.Fatal("wrapped deadlock was not classifiable")
+	}
+	canceled := databaseError("query governance state", context.Canceled)
+	if !errors.Is(canceled, context.Canceled) {
+		t.Fatal("wrapped cancellation was not classifiable")
+	}
+}
 
 func TestEvaluationOutcomePrecedence(t *testing.T) {
 	t.Parallel()

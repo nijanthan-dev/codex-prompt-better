@@ -1,6 +1,7 @@
 package eval
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,6 +78,22 @@ func TestDecodeCorpusCoversRequiredProductionCases(t *testing.T) {
 		if !covered {
 			t.Fatalf("required corpus tag %q missing", tag)
 		}
+	}
+}
+
+func TestEvaluationJSONRejectsTrailingDocuments(t *testing.T) {
+	t.Parallel()
+	corpus := `{"version":"1","cases":[{"id":"one","label":"one","tags":["good"],"metric_name":"validation_presence","coverage":"complete","expected_status":"flat","quality_gate":"pass"}]}`
+	if _, err := DecodeCorpus(bytes.NewBufferString(corpus + `{}`)); err == nil {
+		t.Fatal("trailing corpus document accepted")
+	}
+	path := filepath.Join(t.TempDir(), "trace.json")
+	trace := `{"version":"1","coverage":"complete"} {}`
+	if err := os.WriteFile(path, []byte(trace), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadRedactedTrace(path, true); err == nil {
+		t.Fatal("trailing trace document accepted")
 	}
 }
 

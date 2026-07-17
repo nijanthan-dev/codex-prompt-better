@@ -43,10 +43,6 @@ func runProcess(ctx context.Context, args []string, stdin io.Reader, stdout, std
 	}
 }
 
-func run(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer) error {
-	return runWithArgs(ctx, nil, stdin, stdout, stderr)
-}
-
 func runWithArgs(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	flags := flag.NewFlagSet("prompt-better-mcp", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)

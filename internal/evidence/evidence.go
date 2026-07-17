@@ -6,9 +6,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 const (
@@ -162,9 +164,26 @@ func Sanitize(sourceKind string, identityKey []byte, attributes map[string]strin
 			clean[field] = opaque
 			continue
 		}
+		if !safeMetadataValue(value) {
+			return nil, nil, ErrSensitive
+		}
 		clean[field] = value
 	}
+	sort.Strings(redacted)
 	return clean, redacted, nil
+}
+
+func safeMetadataValue(value string) bool {
+	if value == "" || len(value) > 128 {
+		return false
+	}
+	for _, r := range value {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || strings.ContainsRune("._:+-", r) {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func keyedAttribute(field string) bool {
