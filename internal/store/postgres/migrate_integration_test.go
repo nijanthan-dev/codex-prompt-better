@@ -43,8 +43,8 @@ func TestMigrationAndRoleBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version != latestSchemaVersion {
-		t.Fatalf("version = %d, want %d", version, latestSchemaVersion)
+	if version != LatestSchemaVersion {
+		t.Fatalf("version = %d, want %d", version, LatestSchemaVersion)
 	}
 	var engineDefault string
 	if err := db.QueryRowContext(ctx, `SELECT column_default
@@ -60,6 +60,86 @@ func TestMigrationAndRoleBootstrap(t *testing.T) {
 	assertCount(t, ctx, db, `SELECT count(*) FROM information_schema.tables WHERE table_schema = 'prompt_better' AND table_type = 'BASE TABLE'`, 47)
 	assertCount(t, ctx, db, `SELECT count(*) FROM information_schema.table_constraints WHERE constraint_schema = 'prompt_better' AND constraint_type = 'FOREIGN KEY'`, 90)
 	assertCount(t, ctx, db, `SELECT count(*) FROM information_schema.views WHERE table_schema = 'prompt_better'`, 9)
+	t.Run("trajectory evidence upgrade backfill", func(t *testing.T) {
+		if _, err := runner.provider.DownTo(ctx, 9); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.provider.DownTo(ctx, 8); err != nil {
+			t.Fatal(err)
+		}
+		statements := []string{
+			`INSERT INTO prompt_better.sources (source_id,source_kind,created_at)
+			 VALUES ('10000000-0000-0000-0000-000000000001','synthetic',now())`,
+			`INSERT INTO prompt_better.projects (project_id,created_at)
+			 VALUES ('10000000-0000-0000-0000-000000000002',now())`,
+			`INSERT INTO prompt_better.sessions
+			 (session_id,project_id,source_id,started_at,coverage_state,knowledge_state)
+			 VALUES ('10000000-0000-0000-0000-000000000003',
+			 '10000000-0000-0000-0000-000000000002',
+			 '10000000-0000-0000-0000-000000000001',now(),'complete','observed')`,
+			`INSERT INTO prompt_better.trajectories
+			 (trajectory_id,session_id,source_id,started_at,knowledge_state)
+			 VALUES ('10000000-0000-0000-0000-000000000004',
+			 '10000000-0000-0000-0000-000000000003',
+			 '10000000-0000-0000-0000-000000000001',now(),'observed')`,
+			`INSERT INTO prompt_better.evidence_artifacts
+			 (evidence_artifact_id,source_id,project_id,session_id,schema_version,
+			 content_hash,content_length,classification,redaction_state,coverage_state,
+			 provenance,product_surface,observed_at)
+			 VALUES ('10000000-0000-0000-0000-000000000005',
+			 '10000000-0000-0000-0000-000000000001',
+			 '10000000-0000-0000-0000-000000000002',
+			 '10000000-0000-0000-0000-000000000003','1.0.0',
+			 decode(repeat('11',32),'hex'),1,'internal','not_needed','complete',
+			 'runtime_observed','local',now())`,
+			`INSERT INTO prompt_better.usage_observations
+			 (usage_observation_id,trajectory_id,evidence_artifact_id,metric_kind,
+			 value_numeric,usage_unit,product_surface,accounting_regime,provenance,
+			 source_adapter,observed_at,knowledge_state)
+			 VALUES ('10000000-0000-0000-0000-000000000008',
+			 '10000000-0000-0000-0000-000000000004',
+			 '10000000-0000-0000-0000-000000000005','total_tokens',1,'tokens',
+			 'local','native','runtime_observed','synthetic',now(),'observed')`,
+		}
+		for _, statement := range statements {
+			if _, err := db.ExecContext(ctx, statement); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := runner.Up(ctx); err != nil {
+			t.Fatal(err)
+		}
+		assertCount(t, ctx, db, `SELECT count(*) FROM prompt_better.evidence_links
+			WHERE evidence_artifact_id='10000000-0000-0000-0000-000000000005'
+			  AND target_kind='trajectory'
+			  AND target_id='10000000-0000-0000-0000-000000000004'`, 1)
+		if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.sessions
+			(session_id,project_id,source_id,started_at,coverage_state,knowledge_state)
+			VALUES ('10000000-0000-0000-0000-000000000009',
+			'10000000-0000-0000-0000-000000000002',
+			'10000000-0000-0000-0000-000000000001',now(),'complete','observed')`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.evidence_artifacts
+			(evidence_artifact_id,source_id,project_id,session_id,schema_version,
+			 content_hash,content_length,classification,redaction_state,coverage_state,
+			 provenance,product_surface,observed_at)
+			VALUES ('10000000-0000-0000-0000-000000000010',
+			'10000000-0000-0000-0000-000000000001',
+			'10000000-0000-0000-0000-000000000002',
+			'10000000-0000-0000-0000-000000000003','1.0.0',
+			decode(repeat('33',32),'hex'),1,'internal','not_needed','partial',
+			'runtime_observed','local',now())`); err != nil {
+			t.Fatal(err)
+		}
+		var sessions, evidence, complete int
+		if err := db.QueryRowContext(ctx, `SELECT session_count,evidence_count,
+			complete_evidence_count FROM prompt_better.project_coverage
+			WHERE project_id='10000000-0000-0000-0000-000000000002'`).
+			Scan(&sessions, &evidence, &complete); err != nil || sessions != 2 || evidence != 2 || complete != 1 {
+			t.Fatalf("project coverage sessions=%d evidence=%d complete=%d error=%v", sessions, evidence, complete, err)
+		}
+	})
 	t.Run("constraints reject invalid and orphan rows", func(t *testing.T) {
 		if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.projects
             (project_id, created_at) VALUES
@@ -108,6 +188,28 @@ func TestMigrationAndRoleBootstrap(t *testing.T) {
 		}
 	})
 	t.Run("pre-release down and forward repair", func(t *testing.T) {
+		if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.audit_windows
+			(audit_window_id,project_id,window_kind,starts_at,ends_at,as_of,
+			 timezone_name,immutable_since)
+			VALUES ('10000000-0000-0000-0000-000000000006',
+			'10000000-0000-0000-0000-000000000002','synthetic',
+			now()-interval '1 hour',now(),now(),'UTC',now())`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.audit_revisions
+			(audit_revision_id,audit_window_id,revision_number,source_watermark_at,
+			 coverage_state,revision_hash,created_at,engine_version)
+			VALUES ('10000000-0000-0000-0000-000000000007',
+			'10000000-0000-0000-0000-000000000006',1,now(),'complete',
+			decode(repeat('22',32),'hex'),now(),'audit-v2')`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.provider.DownTo(ctx, 9); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.provider.DownTo(ctx, 8); err != nil {
+			t.Fatal(err)
+		}
 		if _, err := runner.provider.DownTo(ctx, 4); err == nil {
 			t.Fatal("migration 8 down accepted non-v1 audit history")
 		}
@@ -126,7 +228,7 @@ func TestMigrationAndRoleBootstrap(t *testing.T) {
 			t.Fatal(err)
 		}
 		version, err := runner.Version(ctx)
-		if err != nil || version != latestSchemaVersion {
+		if err != nil || version != LatestSchemaVersion {
 			t.Fatalf("repaired version=%d error=%v", version, err)
 		}
 	})

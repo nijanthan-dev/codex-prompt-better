@@ -18,6 +18,8 @@ scope, window, `as_of`, output limits, and opaque evidence references.
 - Threshold or policy changes require a new version, synthetic replay evidence,
   approval in review, and a documented rollback decision.
 - Persisted revisions are immutable. Late evidence creates another revision.
+- A metric name/version is immutable: a changed definition hash is rejected
+  rather than silently reusing persisted metadata.
 
 ## Metric governance template
 
@@ -48,6 +50,16 @@ never combined into an opaque score.
 | Lifecycle/gates | checkpoints, boundaries, stop/delegation/compaction events | structured events only; no message-text inference | latest event at or before `as_of` |
 | Confounders | source/project versions and `confounder_labels` | observed/configured/unknown; never inferred from private text | matched strata pin effective version identity |
 | Governance overhead | `governance_overhead` | excluded from user workload by default and reported separately | cannot trigger another audit or recommendation |
+
+Task scope first restricts lineage to trajectories containing the normalized
+task, then applies the task predicate to turn-linked evidence. Sibling
+trajectories in the same session cannot contribute overhead, state,
+confounders, evidence counts/references, or revision identity. Narrow-scope
+evidence requires an explicit opaque trajectory link; session-only evidence is
+not guessed into a task or trajectory. At a bounded lineage edge, a selected call
+whose parent is outside the scope/window is the host for that bounded result.
+Project recommendation feedback consumes project-window lifecycle rows only;
+ties are resolved by audit watermark, revision, and stable identity.
 
 ## Status and baseline contract
 

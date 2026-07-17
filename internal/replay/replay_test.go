@@ -1,6 +1,7 @@
 package replay
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -28,7 +29,7 @@ func TestComparePreservesUnknownAndContextualMovement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if comparison.Outcome != "regressed" ||
+	if comparison.Outcome != "mixed" ||
 		comparison.Statuses["non_cached_input_per_turn"] != contracts.MetricStatusImproved ||
 		comparison.Statuses["tokens_per_turn"] != contracts.MetricStatusMixed ||
 		comparison.Statuses["new_metric"] != contracts.MetricStatusInsufficient {
@@ -93,6 +94,62 @@ func TestCompareUsesPolarityVersionsAndCompleteMetricSet(t *testing.T) {
 		comparison.Statuses["non_cached_input_per_turn"] != contracts.MetricStatusInsufficient ||
 		comparison.Outcome != "regressed" {
 		t.Fatalf("polarity/version/removed metric semantics lost: %#v", comparison)
+	}
+}
+
+func TestCompareIncompleteEvidenceCannotPromote(t *testing.T) {
+	t.Parallel()
+	baseline := contracts.AuditProjectResult{
+		RevisionHash: "baseline",
+		Metrics: []contracts.MetricResult{
+			metric("non_cached_input_per_turn", 10),
+			metric("validation_presence", 1),
+		},
+	}
+	candidate := contracts.AuditProjectResult{
+		RevisionHash: "candidate",
+		Metrics: []contracts.MetricResult{
+			metric("non_cached_input_per_turn", 8),
+			{Name: "validation_presence", Version: "metric-v1", Coverage: contracts.CoverageStateMissing},
+		},
+		Guardrails: []contracts.GuardrailResult{
+			{Name: "validation_presence", State: "pass"},
+			{Name: "privacy_redaction_coverage", State: "unknown"},
+		},
+	}
+	comparison, err := Compare(baseline, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if comparison.Outcome != "mixed" || comparison.QualityGateState != "unknown" {
+		t.Fatalf("incomplete comparison could promote: %#v", comparison)
+	}
+}
+
+func TestCompareRejectsAmbiguousAndNonFiniteMetrics(t *testing.T) {
+	t.Parallel()
+	duplicate := contracts.AuditProjectResult{
+		RevisionHash: "baseline",
+		Metrics:      []contracts.MetricResult{metric("validation_presence", 1), metric("validation_presence", 1)},
+	}
+	if _, err := Compare(duplicate, contracts.AuditProjectResult{RevisionHash: "candidate"}); err == nil {
+		t.Fatal("duplicate baseline metric names accepted")
+	}
+	duplicate.RevisionHash = "candidate"
+	if _, err := Compare(contracts.AuditProjectResult{RevisionHash: "baseline"}, duplicate); err == nil {
+		t.Fatal("duplicate candidate metric names accepted")
+	}
+	nonFinite := metric("validation_presence", math.NaN())
+	comparison, err := Compare(
+		contracts.AuditProjectResult{
+			RevisionHash: "baseline",
+			Metrics:      []contracts.MetricResult{metric("validation_presence", 1)},
+		},
+		contracts.AuditProjectResult{RevisionHash: "candidate", Metrics: []contracts.MetricResult{nonFinite}},
+	)
+	if err != nil || comparison.Statuses["validation_presence"] != contracts.MetricStatusInsufficient ||
+		comparison.Outcome != "mixed" {
+		t.Fatalf("non-finite metric did not fail closed: %#v error=%v", comparison, err)
 	}
 }
 

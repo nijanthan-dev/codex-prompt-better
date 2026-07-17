@@ -56,6 +56,17 @@ func TestSchemaValidRejectsNonFiniteNumber(t *testing.T) {
 	}
 }
 
+func TestSchemaValidEnforcesExclusiveNumericBounds(t *testing.T) {
+	v := &validator{}
+	schema := document{
+		"type": "number", "exclusiveMinimum": float64(0), "exclusiveMaximum": float64(2),
+	}
+	if v.schemaValid(float64(0), schema, "") || v.schemaValid(float64(2), schema, "") ||
+		!v.schemaValid(float64(1), schema, "") {
+		t.Fatal("exclusive numeric bounds not enforced")
+	}
+}
+
 func TestPolicyPackSchemaRejectsUnknownAction(t *testing.T) {
 	root, err := findRoot()
 	if err != nil {

@@ -1,7 +1,9 @@
 # CLI contract
 
 Issue #3 provides a deterministic, local-only Go CLI. It does not call a model,
-execute an improved prompt, inspect Codex data, or access the network.
+execute an improved prompt, inspect Codex data, or contact external services.
+Database-backed commands may connect to the explicitly configured local
+PostgreSQL socket or host.
 
 ## Commands
 

@@ -1,6 +1,7 @@
 package eval
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -27,10 +28,8 @@ type CorpusCase struct {
 }
 
 func DecodeCorpus(reader io.Reader) (Corpus, error) {
-	decoder := json.NewDecoder(io.LimitReader(reader, 1<<20))
-	decoder.DisallowUnknownFields()
 	var corpus Corpus
-	if err := decoder.Decode(&corpus); err != nil {
+	if err := decodeStrictJSON(reader, &corpus); err != nil {
 		return Corpus{}, errors.New("decode evaluation corpus")
 	}
 	if corpus.Version == "" || len(corpus.Cases) == 0 {
@@ -66,10 +65,8 @@ func LoadRedactedTrace(path string, enabled bool) (RedactedTrace, error) {
 		return RedactedTrace{}, errors.New("redacted trace unavailable")
 	}
 	defer file.Close()
-	decoder := json.NewDecoder(io.LimitReader(file, 1<<20))
-	decoder.DisallowUnknownFields()
 	var trace RedactedTrace
-	if err := decoder.Decode(&trace); err != nil {
+	if err := decodeStrictJSON(file, &trace); err != nil {
 		return RedactedTrace{}, errors.New("invalid redacted trace")
 	}
 	if trace.Version == "" || trace.Coverage == "" {
@@ -81,4 +78,21 @@ func LoadRedactedTrace(path string, enabled bool) (RedactedTrace, error) {
 		}
 	}
 	return trace, nil
+}
+
+func decodeStrictJSON(reader io.Reader, destination any) error {
+	const maxBytes = 1 << 20
+	data, err := io.ReadAll(io.LimitReader(reader, maxBytes+1))
+	if err != nil || len(data) > maxBytes {
+		return errors.New("JSON input exceeds bounds")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destination); err != nil {
+		return err
+	}
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+		return errors.New("JSON input has trailing data")
+	}
+	return nil
 }

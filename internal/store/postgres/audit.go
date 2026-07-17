@@ -41,7 +41,7 @@ func (r *Repository) AuditSession(ctx context.Context, sessionID string, configu
 		FROM prompt_better.evidence_artifacts e
 		JOIN prompt_better.sources s ON s.source_id=e.source_id
 		WHERE e.session_id=$1 AND e.deleted_at IS NULL AND s.source_kind = ANY($2::text[])
-		ORDER BY e.observed_at, e.evidence_artifact_id LIMIT 101`, sessionID, configuredSources)
+		ORDER BY e.observed_at, e.evidence_artifact_id LIMIT 100`, sessionID, configuredSources)
 	if err != nil {
 		return contracts.AuditSessionResult{}, nil, contracts.NewError(contracts.ErrorCodeInternal, "audit evidence read failed", "reference", true)
 	}
@@ -51,7 +51,6 @@ func (r *Repository) AuditSession(ctx context.Context, sessionID string, configu
 	seenProvenance := map[contracts.ProvenanceLabel]bool{}
 	redaction := false
 	validatedSources := map[string]bool{sourceID: true}
-	omitted := 0
 	for rows.Next() {
 		var reference, evidenceSourceID, kind, evidenceCoverage, redactionState, label string
 		if err := rows.Scan(&reference, &evidenceSourceID, &kind, &evidenceCoverage, &redactionState, &label); err != nil {
@@ -63,10 +62,6 @@ func (r *Repository) AuditSession(ctx context.Context, sessionID string, configu
 				coverage = string(contracts.CoverageStatePartial)
 				dimensionIncomplete = true
 			}
-		}
-		if len(refs) == 100 {
-			omitted++
-			continue
 		}
 		refs = append(refs, reference)
 		if evidenceCoverage != "complete" {
@@ -82,7 +77,14 @@ func (r *Repository) AuditSession(ctx context.Context, sessionID string, configu
 	if err := rows.Err(); err != nil {
 		return contracts.AuditSessionResult{}, nil, contracts.NewError(contracts.ErrorCodeInternal, "audit evidence iteration failed", "reference", true)
 	}
-	var filtered int
+	var eligible, filtered int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*)
+		FROM prompt_better.evidence_artifacts e
+		JOIN prompt_better.sources s ON s.source_id=e.source_id
+		WHERE e.session_id=$1 AND e.deleted_at IS NULL
+		  AND s.source_kind = ANY($2::text[])`, sessionID, configuredSources).Scan(&eligible); err != nil {
+		return contracts.AuditSessionResult{}, nil, contracts.NewError(contracts.ErrorCodeInternal, "audit evidence count failed", "reference", true)
+	}
 	if err := r.pool.QueryRow(ctx, `SELECT count(*)
 		FROM prompt_better.evidence_artifacts e
 		JOIN prompt_better.sources s ON s.source_id=e.source_id
@@ -92,6 +94,7 @@ func (r *Repository) AuditSession(ctx context.Context, sessionID string, configu
 	if len(refs) == 0 {
 		coverage = string(contracts.CoverageStateMissing)
 	}
+	omitted := eligible - len(refs)
 	findings := []string{fmt.Sprintf("evidence_count:%d", len(refs))}
 	if asOf == nil {
 		findings = append(findings, "dimension_semantics:current")

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"math"
 	"sort"
 
 	"github.com/nijanthan-dev/codex-prompt-better/internal/metrics"
@@ -88,41 +89,76 @@ func Compare(baseline, candidate contracts.AuditProjectResult) (Comparison, erro
 	statuses := map[string]contracts.MetricStatus{}
 	baselineMetrics := map[string]contracts.MetricResult{}
 	for _, metric := range baseline.Metrics {
+		if _, exists := baselineMetrics[metric.Name]; exists {
+			return Comparison{}, errors.New("baseline metric names must be unique")
+		}
 		baselineMetrics[metric.Name] = metric
 	}
+	candidateNames := map[string]struct{}{}
 	outcome := "unchanged"
 	definitions := map[string]metrics.Definition{}
 	for _, definition := range metrics.Definitions() {
 		definitions[definition.Name] = definition
 	}
 	for _, current := range candidate.Metrics {
+		if _, exists := candidateNames[current.Name]; exists {
+			return Comparison{}, errors.New("candidate metric names must be unique")
+		}
+		candidateNames[current.Name] = struct{}{}
 		prior, ok := baselineMetrics[current.Name]
 		definition, defined := definitions[current.Name]
 		status := compareMetric(prior, current, definition, ok && defined)
 		statuses[current.Name] = status
-		if status == contracts.MetricStatusWorsened || status == contracts.MetricStatusMixed {
-			outcome = "regressed"
-		} else if status == contracts.MetricStatusImproved && outcome == "unchanged" {
-			outcome = "improved"
-		}
+		outcome = mergeOutcome(outcome, status)
 		delete(baselineMetrics, current.Name)
 	}
 	for name := range baselineMetrics {
 		statuses[name] = contracts.MetricStatusInsufficient
-		if outcome == "unchanged" || outcome == "improved" {
-			outcome = "regressed"
-		}
+		outcome = mergeOutcome(outcome, contracts.MetricStatusInsufficient)
 	}
 	return Comparison{
 		BaselineHash: baseline.RevisionHash, CandidateHash: candidate.RevisionHash,
 		Statuses: statuses, Outcome: outcome,
+		QualityGateState: qualityGateState(candidate.Guardrails),
 	}, nil
+}
+
+func mergeOutcome(outcome string, status contracts.MetricStatus) string {
+	switch status {
+	case contracts.MetricStatusWorsened:
+		return "regressed"
+	case contracts.MetricStatusMixed, contracts.MetricStatusInsufficient:
+		if outcome != "regressed" {
+			return "mixed"
+		}
+	case contracts.MetricStatusImproved:
+		if outcome == "unchanged" {
+			return "improved"
+		}
+	}
+	return outcome
+}
+
+func qualityGateState(guardrails []contracts.GuardrailResult) string {
+	if len(guardrails) == 0 {
+		return "unknown"
+	}
+	state := "pass"
+	for _, guardrail := range guardrails {
+		if guardrail.State == "fail" {
+			return "fail"
+		}
+		if guardrail.State != "pass" {
+			state = "unknown"
+		}
+	}
+	return state
 }
 
 func compareMetric(prior, current contracts.MetricResult, definition metrics.Definition,
 	found bool,
 ) contracts.MetricStatus {
-	if !found || prior.NativeValue == nil || current.NativeValue == nil ||
+	if !found || !finiteMetricValue(prior.NativeValue) || !finiteMetricValue(current.NativeValue) ||
 		prior.Version != current.Version ||
 		prior.Coverage != contracts.CoverageStateComplete ||
 		current.Coverage != contracts.CoverageStateComplete {
@@ -144,4 +180,8 @@ func compareMetric(prior, current contracts.MetricResult, definition metrics.Def
 		return contracts.MetricStatusImproved
 	}
 	return contracts.MetricStatusWorsened
+}
+
+func finiteMetricValue(value *float64) bool {
+	return value != nil && !math.IsNaN(*value) && !math.IsInf(*value, 0)
 }

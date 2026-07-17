@@ -36,6 +36,22 @@ func TestDecomposeInsufficient(t *testing.T) {
 	}
 }
 
+func TestDecomposeRejectsMalformedInputs(t *testing.T) {
+	t.Parallel()
+	invalid := []ClassValue{
+		{Class: "negative", Count: -1, Denominator: 1},
+		{Class: "non-finite", Count: math.Inf(1), Denominator: 1},
+		{Class: "zero denominator", Count: 1, Numerator: 1},
+		{Class: "", Count: 1, Denominator: 1},
+	}
+	for _, value := range invalid {
+		result := Decompose("synthetic", []ClassValue{{Class: "valid", Count: 1, Denominator: 1}}, []ClassValue{value})
+		if result.Status != "insufficient" || result.VolumeEffect != nil {
+			t.Fatalf("malformed input accepted: %#v => %#v", value, result)
+		}
+	}
+}
+
 func TestDecomposePermutationInvariantAndNoFalseSimpson(t *testing.T) {
 	t.Parallel()
 	previous := []ClassValue{

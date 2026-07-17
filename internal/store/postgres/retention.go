@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"time"
@@ -159,8 +160,17 @@ type RetentionApply struct {
 
 // ApplyRetention deletes exactly the planned batch after verified archive proof.
 func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (int64, error) {
-	if len(apply.Plan.Records) == 0 || apply.Receipt.VerifiedAt.IsZero() ||
-		apply.Receipt.PlaintextDigest != apply.Plan.Digest {
+	encodedPlan, err := EncodeArchive(apply.Plan)
+	if err != nil {
+		return 0, err
+	}
+	planDigest := sha256.Sum256(encodedPlan)
+	if len(apply.Plan.Records) == 0 || apply.Plan.Digest != planDigest ||
+		apply.Receipt.VerifiedAt.IsZero() ||
+		apply.Receipt.PlaintextDigest != planDigest ||
+		apply.Receipt.BatchID == "" || apply.Receipt.EncryptionKeyReference == "" ||
+		apply.Receipt.EncryptedDigest == ([sha256.Size]byte{}) ||
+		apply.Receipt.ArchiveReference != "sha256:"+hex.EncodeToString(apply.Receipt.EncryptedDigest[:]) {
 		return 0, errors.New("verified archive does not match retention plan")
 	}
 	ids := make([]string, len(apply.Plan.Records))
@@ -168,12 +178,12 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
 		ids[i] = record.EvidenceID
 	}
 	var applied int64
-	err := r.WithSerializable(ctx, func(tx pgx.Tx) error {
+	err = r.WithSerializable(ctx, func(tx pgx.Tx) error {
 		if err := tx.QueryRow(ctx, `SELECT applied_count FROM prompt_better.retention_actions
             WHERE action_key=$1 AND status='complete'`, apply.Plan.Digest[:]).Scan(&applied); err == nil {
 			return nil
 		} else if !errors.Is(err, pgx.ErrNoRows) {
-			return errors.New("read retention action")
+			return databaseError("read retention action", err)
 		}
 		var eligible int64
 		if err := tx.QueryRow(ctx, `SELECT count(*)
@@ -187,7 +197,7 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
               AND COALESCE(e.retained_until,
                   e.observed_at + p.retain_for_seconds * interval '1 second') <= $4`,
 			apply.Plan.PolicyID, apply.Plan.ProjectID, ids, apply.Plan.AsOf).Scan(&eligible); err != nil {
-			return errors.New("recheck retention plan")
+			return databaseError("recheck retention plan", err)
 		}
 		if eligible != int64(len(ids)) {
 			return errors.New("retention plan changed before apply")
@@ -198,7 +208,7 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
             VALUES ($1,$2,$3,$4,'apply',$5,$6,0,'running',statement_timestamp())`,
 			apply.ActionID, apply.Plan.PolicyID, apply.Plan.ProjectID, apply.Plan.Digest[:],
 			apply.Plan.AsOf, len(ids)); err != nil {
-			return errors.New("record retention action")
+			return databaseError("record retention action", err)
 		}
 		rangeStart, rangeEnd := apply.Plan.Records[0].ObservedAt, apply.Plan.Records[0].ObservedAt
 		for _, record := range apply.Plan.Records[1:] {
@@ -221,13 +231,13 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
 			apply.Receipt.ArchiveReference, apply.Receipt.EncryptionKeyReference,
 			rangeStart, rangeEnd, len(ids), apply.Receipt.PlaintextDigest[:],
 			apply.Receipt.EncryptedDigest[:], apply.Receipt.VerifiedAt); err != nil {
-			return errors.New("record archive batch")
+			return databaseError("record archive batch", err)
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.archive_entities
             (archive_entity_id, archive_batch_id, entity_kind, entity_count, integrity_digest)
             VALUES ($1,$2,'evidence_artifact',$3,$4)`, apply.ArchiveEntityID,
 			apply.Receipt.BatchID, len(ids), apply.Plan.Digest[:]); err != nil {
-			return errors.New("record archive entity")
+			return databaseError("record archive entity", err)
 		}
 		for _, target := range []struct{ table, kind string }{
 			{"audit_revisions", "audit_revision"},
@@ -238,13 +248,13 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
 				target.kind + `_id IN (SELECT target_id FROM prompt_better.evidence_links
                     WHERE evidence_artifact_id=ANY($1::uuid[]) AND target_kind=$2)`
 			if _, err := tx.Exec(ctx, query, ids, target.kind); err != nil {
-				return errors.New("delete derived retention data")
+				return databaseError("delete derived retention data", err)
 			}
 		}
 		tag, err := tx.Exec(ctx, `DELETE FROM prompt_better.evidence_artifacts
             WHERE evidence_artifact_id=ANY($1::uuid[])`, ids)
 		if err != nil {
-			return errors.New("delete retained evidence")
+			return databaseError("delete retained evidence", err)
 		}
 		applied = tag.RowsAffected()
 		if applied != int64(len(ids)) {
@@ -255,14 +265,14 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
                 SELECT 1 FROM prompt_better.evidence_artifacts e
                 WHERE e.project_id=a.project_id AND e.deleted_at IS NULL)`,
 			apply.Plan.ProjectID); err != nil {
-			return errors.New("delete unreferenced keyed aliases")
+			return databaseError("delete unreferenced keyed aliases", err)
 		}
 		if _, err := tx.Exec(ctx, `DELETE FROM prompt_better.tasks task
 			WHERE task.project_id=$1 AND NOT EXISTS (
 				SELECT 1 FROM prompt_better.evidence_artifacts evidence
 				WHERE evidence.project_id=task.project_id AND evidence.deleted_at IS NULL)`,
 			apply.Plan.ProjectID); err != nil {
-			return errors.New("delete retained task identities")
+			return databaseError("delete retained task identities", err)
 		}
 		if _, err := tx.Exec(ctx, `DELETE FROM prompt_better.state_epochs epoch
 			USING prompt_better.trajectories trajectory,
@@ -275,18 +285,18 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
 				WHERE evidence.project_id=session.project_id
 				  AND evidence.deleted_at IS NULL)`,
 			apply.Plan.ProjectID); err != nil {
-			return errors.New("delete retained state epochs")
+			return databaseError("delete retained state epochs", err)
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.deletion_audits
             (deletion_audit_id, retention_action_id, entity_kind, deleted_count,
              result_hash, recorded_at) VALUES ($1,$2,'evidence_artifact',$3,$4,statement_timestamp())`,
 			apply.DeletionAuditID, apply.ActionID, applied, apply.Plan.Digest[:]); err != nil {
-			return errors.New("record deletion audit")
+			return databaseError("record deletion audit", err)
 		}
 		if _, err := tx.Exec(ctx, `UPDATE prompt_better.retention_actions
             SET applied_count=$2, status='complete', completed_at=statement_timestamp()
             WHERE retention_action_id=$1`, apply.ActionID, applied); err != nil {
-			return errors.New("complete retention action")
+			return databaseError("complete retention action", err)
 		}
 		return nil
 	})

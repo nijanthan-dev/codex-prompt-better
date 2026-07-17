@@ -34,7 +34,7 @@ func TestRepositoryIntegration(t *testing.T) {
 
 	t.Run("doctor reports sanitized readiness", func(t *testing.T) {
 		result := repo.Doctor(ctx)
-		if !result.Ready || result.SchemaVersion != latestSchemaVersion || result.ServerVersion < 160000 {
+		if !result.Ready || result.SchemaVersion != LatestSchemaVersion || result.ServerVersion < 160000 {
 			t.Fatalf("unexpected doctor result: %+v", result)
 		}
 		if len(result.Problems) != 0 || result.Role == "" {
@@ -414,6 +414,26 @@ func TestRepositoryIntegration(t *testing.T) {
 		if err != nil || currentAudit.Coverage != contracts.CoverageStateComplete || len(currentAudit.EvidenceRefs) != 1 || len(provenance) != 1 {
 			t.Fatalf("current audit=%+v provenance=%v error=%v", currentAudit, provenance, err)
 		}
+		if _, err := repo.pool.Exec(ctx, `INSERT INTO prompt_better.evidence_artifacts
+			(evidence_artifact_id,source_id,project_id,session_id,schema_version,
+			 content_hash,content_length,classification,redaction_state,coverage_state,
+			 provenance,product_surface,observed_at)
+			SELECT md5('omission-' || value::text)::uuid,$1,$2,$3,'1.0.0',
+			decode(md5(value::text) || md5(value::text),'hex'),1,'internal',
+			'not_needed','complete','runtime_observed','local',$4
+			FROM generate_series(1,105) value`, atomicSource.ID, *item.ProjectID, sessionID, base); err != nil {
+			t.Fatal(err)
+		}
+		boundedAudit, _, err := repo.AuditSession(ctx, sessionID, []string{atomicSource.Kind}, nil)
+		if err != nil || len(boundedAudit.EvidenceRefs) != 100 ||
+			!containsString(boundedAudit.Findings, "evidence_omitted:6") {
+			t.Fatalf("bounded audit omission=%+v error=%v", boundedAudit, err)
+		}
+		if _, err := repo.pool.Exec(ctx, `DELETE FROM prompt_better.evidence_artifacts
+			WHERE evidence_artifact_id IN (
+				SELECT md5('omission-' || value::text)::uuid FROM generate_series(1,105) value)`); err != nil {
+			t.Fatal(err)
+		}
 		asOf := base.Add(time.Hour)
 		historicalAudit, _, err := repo.AuditSession(ctx, sessionID, []string{atomicSource.Kind}, &asOf)
 		if err != nil || historicalAudit.Coverage != contracts.CoverageStateComplete {
@@ -430,6 +450,12 @@ func TestRepositoryIntegration(t *testing.T) {
 		committed, err = repo.CommitCollection(ctx, batch)
 		if err != nil || committed {
 			t.Fatalf("replay commit=%t error=%v", committed, err)
+		}
+		alteredReplay := batch
+		alteredReplay.Evidence = append([]Evidence{}, item)
+		alteredReplay.Evidence[0].Runtime.Phase = "altered"
+		if _, err := repo.CommitCollection(ctx, alteredReplay); !errors.Is(err, ErrSourceConflict) {
+			t.Fatalf("altered normalized replay error=%v", err)
 		}
 		sameCursorConflict := batch
 		otherAtSameCursor := sha256.Sum256([]byte("same cursor conflict"))
@@ -591,6 +617,15 @@ func TestRepositoryIntegration(t *testing.T) {
 			t.Fatalf("current SCD2 rows = %d", current)
 		}
 	})
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func prepareDatabase(t *testing.T, ctx context.Context, dsn string) {

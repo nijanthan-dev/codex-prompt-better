@@ -72,6 +72,13 @@ version. Deploy it during a coordinated audit-writer drain because older binarie
 require schema 7 readiness. The down migration refuses to discard provenance
 after any non-v1 revision exists.
 
+Migration 9 backfills trajectory evidence provenance only from explicit
+usage/cache lineage. Historical session-only evidence stays session-scoped;
+trajectory ownership is never inferred from current session shape.
+
+Migration 10 computes project session and retained-evidence counts in separate
+aggregates, preventing join multiplication in coverage denominators.
+
 Audit persistence is idempotent by deterministic window/revision/result IDs.
 Late evidence changes the revision hash and creates the next immutable revision.
 Evaluation rows preserve separate fixture, config, model, compiler, policy,
@@ -104,19 +111,21 @@ enforcement, and selective current/as-of plans.
 - `prompt_better_reporter`: reads rare-cohort-safe views only.
 
 Role creation is an explicit administrator bootstrap. Application configuration
-contains role-specific connection references, never credentials. Production
-connections require TLS with verified host identity; local Unix sockets remain an
-operator-controlled exception.
+contains role-specific connection references, never credentials. Operators must
+use verified-host TLS for remote production connections; the repository accepts
+the supplied pgx DSN so local Unix sockets and isolated test networks can opt out.
 
 ## Recovery contract
 
 Backups are encrypted outside PostgreSQL before durable storage. The command
 returns plaintext/encrypted digests and byte count; the restored database carries
 its migration version. Operators record creation time and the non-secret external
-key reference beside the backup. Restore always targets a new isolated database,
-runs integrity checks before access, and never overwrites the source database. Lost
-identity keys make existing aliases intentionally unrecoverable; a restored
-database without its separately protected key store remains non-identifying.
+key reference beside the backup. The restore workflow targets a new isolated
+database and runs integrity checks before access. Lost identity keys make
+existing aliases intentionally unrecoverable. `RestoreFile` uses one database
+transaction, but the caller must provide that isolated target, must never pass
+the source DSN, and must run the documented checks. A restored database without
+its separately protected key store remains non-identifying.
 
 Each migration has a tested fresh, upgrade, failed-transaction, and forward-repair
 path. Destructive repair requires explicit operator approval and a verified
@@ -163,6 +172,21 @@ the gate.
 
 Migration 7's down path fails safely when nullable portfolio governance rows
 exist; it never silently deletes them. Export/repair first or use forward repair.
+
+Project-audit revision numbering is serialized with a session advisory lock.
+The lock and retryable serializable transaction share one pooled connection, so
+waiting writers acquire their snapshot after the prior writer commits and a
+one-connection pool remains supported. Cancellation, statement-level
+serialization failure, or commit failure cannot leave a session lock or partial
+revision. An unconfirmed unlock discards the physical connection so a session
+lock is never returned to the pool. Database failures retain their
+machine-classifiable cause while exposing only stable operation messages.
+An existing metric name/version must retain the same definition hash; drift is
+rejected and requires a new metric version.
+
+Collection links each normalized artifact to its opaque trajectory. Task and
+trajectory audits require that link for evidence counts, references, and
+revision provenance; ambiguous session-only artifacts stay outside narrow scopes.
 
 Recovery tests create an encrypted archive, prove plaintext is absent, restore
 into a newly created isolated database, then compare schema version, normalized

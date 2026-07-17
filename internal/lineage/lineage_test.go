@@ -20,3 +20,18 @@ func TestCorrelate_ExactlyOnceAcrossAdaptersAndNesting(t *testing.T) {
 		t.Fatalf("call/result correlation failed: %#v", result.Invocations)
 	}
 }
+
+func TestCorrelate_ConflictingParentsAreConservativeAndDeterministic(t *testing.T) {
+	t.Parallel()
+	events := []Event{
+		{Source: "one", SourceEventID: "one", LogicalCallID: "child", ParentCallID: "parent-a"},
+		{Source: "two", SourceEventID: "two", LogicalCallID: "child", ParentCallID: "parent-b"},
+	}
+	first := Correlate(events)
+	second := Correlate([]Event{events[1], events[0]})
+	if first.HostCount != 1 || second.HostCount != 1 ||
+		!first.Invocations[0].ParentConflict || !second.Invocations[0].ParentConflict ||
+		first.Invocations[0].ParentCallID != "" || second.Invocations[0].ParentCallID != "" {
+		t.Fatalf("conflicting lineage was order dependent: %#v %#v", first, second)
+	}
+}

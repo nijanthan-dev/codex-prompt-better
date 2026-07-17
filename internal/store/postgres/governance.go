@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/audit"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/baseline"
 	"github.com/nijanthan-dev/codex-prompt-better/internal/eval"
@@ -24,20 +26,18 @@ import (
 
 // AuditProject computes one bounded project audit from normalized PostgreSQL data.
 func (r *Repository) AuditProject(ctx context.Context, request contracts.AuditProjectRequest) (contracts.AuditProjectResult, error) {
-	lock, err := r.pool.Acquire(ctx)
-	if err != nil {
-		return contracts.AuditProjectResult{}, errors.New("acquire audit revision lock")
-	}
-	defer lock.Release()
 	windowKey := auditWindowKey(request)
-	if _, err := lock.Exec(ctx, `SELECT pg_advisory_lock(hashtextextended($1,0))`, windowKey); err != nil {
-		return contracts.AuditProjectResult{}, errors.New("lock audit revision")
+	conn, err := r.pool.Acquire(ctx)
+	if err != nil {
+		return contracts.AuditProjectResult{}, databaseError("acquire audit connection", err)
 	}
-	defer func() {
-		_, _ = lock.Exec(context.Background(), `SELECT pg_advisory_unlock(hashtextextended($1,0))`, windowKey)
-	}()
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock(hashtextextended($1,0))`, windowKey); err != nil {
+		conn.Release()
+		return contracts.AuditProjectResult{}, databaseError("lock audit revision", err)
+	}
+	defer releaseAuditConnection(ctx, conn, windowKey)
 	var canonical contracts.AuditProjectResult
-	err = r.WithSerializable(ctx, func(tx pgx.Tx) error {
+	err = withSerializable(ctx, conn, func(tx pgx.Tx) error {
 		engine, err := audit.New(projectAuditSource{query: tx})
 		if err != nil {
 			return err
@@ -59,6 +59,20 @@ func (r *Repository) AuditProject(ctx context.Context, request contracts.AuditPr
 		return contracts.AuditProjectResult{}, err
 	}
 	return audit.BoundResult(canonical)
+}
+
+func releaseAuditConnection(ctx context.Context, conn *pgxpool.Conn, windowKey string) {
+	cleanupCtx, cancel := databaseCleanupContext(ctx)
+	defer cancel()
+	var unlocked bool
+	if err := conn.QueryRow(cleanupCtx,
+		`SELECT pg_advisory_unlock(hashtextextended($1,0))`, windowKey,
+	).Scan(&unlocked); err == nil && unlocked {
+		conn.Release()
+		return
+	}
+	underlying := conn.Hijack()
+	_ = underlying.Close(cleanupCtx)
 }
 
 func auditWindowKey(request contracts.AuditProjectRequest) string {
@@ -103,7 +117,7 @@ func persistAuditProject(ctx context.Context, tx pgx.Tx,
 			ON CONFLICT (audit_window_id) DO NOTHING`,
 			windowID, projectID, string(request.Scope), request.StartsAt,
 			request.EndsAt, request.AsOf); err != nil {
-			return errors.New("persist project audit window")
+			return databaseError("persist project audit window", err)
 		}
 		var revisionNumber int
 		var priorRevisionID *string
@@ -118,7 +132,7 @@ func persistAuditProject(ctx context.Context, tx pgx.Tx,
 				windowID).Scan(&revisionNumber, &priorRevisionID)
 		}
 		if err != nil {
-			return errors.New("read project audit revision")
+			return databaseError("read project audit revision", err)
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.audit_revisions
 			(audit_revision_id,audit_window_id,revision_number,source_watermark_at,
@@ -127,7 +141,7 @@ func persistAuditProject(ctx context.Context, tx pgx.Tx,
 			ON CONFLICT (audit_revision_id) DO NOTHING`,
 			revisionID, windowID, revisionNumber, request.AsOf,
 			result.Coverage, revisionHash, priorRevisionID, audit.EngineVersion); err != nil {
-			return errors.New("persist project audit revision")
+			return databaseError("persist project audit revision", err)
 		}
 		if err := persistMetricDefinitions(ctx, tx); err != nil {
 			return err
@@ -162,7 +176,7 @@ func persistAuditProject(ctx context.Context, tx pgx.Tx,
 				confounderID, revisionID, confounder.Kind, confounder.State,
 				confounder.Provenance, confidenceValue(confounder.Confidence),
 				request.AsOf); err != nil {
-				return errors.New("persist project audit confounder")
+				return databaseError("persist project audit confounder", err)
 			}
 		}
 		findingIDs := map[string]string{}
@@ -183,7 +197,7 @@ func persistAuditProject(ctx context.Context, tx pgx.Tx,
 				finding.DetectorVersion, confidenceValue(finding.Confidence),
 				finding.Classification, request.AsOf, finding.Cause,
 				finding.ExceptionCheck, counterevidence); err != nil {
-				return errors.New("persist project audit finding")
+				return databaseError("persist project audit finding", err)
 			}
 			if err := persistEvidenceLinks(ctx, tx, revisionID, "finding", findingID,
 				finding.EvidenceRefs, request.AsOf); err != nil {
@@ -218,7 +232,7 @@ func persistAuditProject(ctx context.Context, tx pgx.Tx,
 				request.AsOf,
 				recommendation.TargetSurface, recommendation.Action,
 				recommendation.ExpectedMovement, protectedGuardrails, risks); err != nil {
-				return errors.New("persist project audit recommendation")
+				return databaseError("persist project audit recommendation", err)
 			}
 		}
 		return nil
@@ -247,7 +261,7 @@ func hasNewRevisionEvidence(ctx context.Context, tx pgx.Tx, revisionID string,
 			  AND prior_link.evidence_artifact_id=current_link.evidence_artifact_id))`,
 		revisionID, *priorRevisionID).Scan(&lateEvidence)
 	if err != nil {
-		return false, errors.New("compare audit revision evidence")
+		return false, databaseError("compare audit revision evidence", err)
 	}
 	return lateEvidence, nil
 }
@@ -273,19 +287,19 @@ func projectIDForAudit(ctx context.Context, db governanceQuerier,
 		  AND $3::timestamptz IS NOT NULL AND %s LIMIT 2`, filter)
 	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
-		return nil, errors.New("resolve audit project lineage")
+		return nil, databaseError("resolve audit project lineage", err)
 	}
 	defer rows.Close()
 	values := []string{}
 	for rows.Next() {
 		var value string
 		if err := rows.Scan(&value); err != nil {
-			return nil, errors.New("decode audit project lineage")
+			return nil, databaseError("decode audit project lineage", err)
 		}
 		values = append(values, value)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, errors.New("iterate audit project lineage")
+		return nil, databaseError("iterate audit project lineage", err)
 	}
 	if len(values) != 1 {
 		return nil, contracts.NewError(contracts.ErrorCodeCoverageIncomplete,
@@ -339,7 +353,7 @@ func persistEvaluationRun(ctx context.Context, tx pgx.Tx, revisionID string,
 		ON CONFLICT (evaluation_run_id) DO NOTHING`,
 		id, revisionID, request.AsOf, fixtureHash, configHash, modelHash,
 		compilerHash, policyHash, metricHash, runHash, run.Decision); err != nil {
-		return "", errors.New("persist project audit evaluation")
+		return "", databaseError("persist project audit evaluation", err)
 	}
 	return id, nil
 }
@@ -382,15 +396,29 @@ func persistMetricDefinitions(ctx context.Context, tx pgx.Tx) error {
 		}
 		digest := sha256.Sum256(encoded)
 		id := collectionBatchUUID("metric-definition:" + definition.Name + ":" + definition.Version)
-		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.metric_definitions
+		tag, err := tx.Exec(ctx, `INSERT INTO prompt_better.metric_definitions
 			(metric_definition_id,metric_name,metric_version,native_unit,polarity,
 			 minimum_sample,practical_change,definition_hash,definition_json,created_at)
 			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,statement_timestamp())
 			ON CONFLICT (metric_name,metric_version) DO NOTHING`,
 			id, definition.Name, definition.Version, definition.NativeUnit,
 			definition.Polarity, definition.MinimumSample, definition.PracticalChange,
-			digest[:], encoded); err != nil {
-			return errors.New("persist metric definition")
+			digest[:], encoded)
+		if err != nil {
+			return databaseError("persist metric definition", err)
+		}
+		if tag.RowsAffected() != 0 {
+			continue
+		}
+		var persistedHash []byte
+		if err := tx.QueryRow(ctx, `SELECT definition_hash
+			FROM prompt_better.metric_definitions
+			WHERE metric_name=$1 AND metric_version=$2`,
+			definition.Name, definition.Version).Scan(&persistedHash); err != nil {
+			return databaseError("read metric definition", err)
+		}
+		if !bytes.Equal(persistedHash, digest[:]) {
+			return errors.New("metric definition version conflicts with persisted content")
 		}
 	}
 	return nil
@@ -420,7 +448,7 @@ func persistMetricResult(ctx context.Context, tx pgx.Tx, revisionID, evaluationI
 		metric.PreviousValue, metric.RollingMedian, metric.RollingMAD,
 		metric.BaselineSampleCount, metric.WorkloadAdjustedResidual,
 		metric.StatusReason, metric.Confidence); err != nil {
-		return errors.New("persist project audit metric")
+		return databaseError("persist project audit metric", err)
 	}
 	return persistEvidenceLinks(ctx, tx, revisionID, "metric_result", id,
 		metric.EvidenceRefs, computedAt)
@@ -439,7 +467,7 @@ func persistEvidenceLinks(ctx context.Context, tx pgx.Tx, revisionID, kind, targ
 				WHERE evidence_artifact_id=$2)
 			ON CONFLICT (evidence_link_id) DO NOTHING`,
 			id, ref, kind, targetID, observedAt); err != nil {
-			return errors.New("persist audit evidence link")
+			return databaseError("persist audit evidence link", err)
 		}
 	}
 	return nil
@@ -452,6 +480,7 @@ func persistRevisionEvidence(ctx context.Context, tx pgx.Tx, revisionID string,
 	if err != nil {
 		return err
 	}
+	evidenceScope := evidenceScopePredicate(request)
 	revisionParameter := len(args) + 1
 	query := fmt.Sprintf(`
 		INSERT INTO prompt_better.evidence_links
@@ -463,12 +492,12 @@ func persistRevisionEvidence(ctx context.Context, tx pgx.Tx, revisionID string,
 		JOIN prompt_better.evidence_artifacts e ON e.session_id=s.session_id
 			AND e.observed_at >= $1 AND e.observed_at < $2
 			AND e.observed_at <= $3 AND e.deleted_at IS NULL
-		WHERE %s
+		WHERE %s AND %s
 		ON CONFLICT (evidence_link_id) DO NOTHING`,
-		revisionParameter, revisionParameter, filter)
+		revisionParameter, revisionParameter, filter, evidenceScope)
 	args = append(args, revisionID)
 	if _, err := tx.Exec(ctx, query, args...); err != nil {
-		return errors.New("persist audit revision evidence links")
+		return databaseError("persist audit revision evidence links", err)
 	}
 	return nil
 }
@@ -690,7 +719,7 @@ func (source projectAuditSource) contributions(ctx context.Context,
 		FROM project_values ORDER BY project_id`, filter, turnFilter)
 	rows, err := source.query.Query(ctx, query, args...)
 	if err != nil {
-		return nil, errors.New("query audit contributions")
+		return nil, databaseError("query audit contributions", err)
 	}
 	defer rows.Close()
 	result := []contracts.ScopeContribution{}
@@ -699,7 +728,7 @@ func (source projectAuditSource) contributions(ctx context.Context,
 		var numerator, total float64
 		var denominator int
 		if err := rows.Scan(&reference, &workloadClass, &numerator, &denominator, &total); err != nil {
-			return nil, errors.New("decode audit contributions")
+			return nil, databaseError("decode audit contributions", err)
 		}
 		var contribution *float64
 		coverage := contracts.CoverageStateComplete
@@ -719,7 +748,10 @@ func (source projectAuditSource) contributions(ctx context.Context,
 			AttributionState: attributionState,
 		})
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, databaseError("iterate audit contributions", err)
+	}
+	return result, nil
 }
 
 func (source projectAuditSource) confounders(ctx context.Context,
@@ -740,7 +772,7 @@ func (source projectAuditSource) confounders(ctx context.Context,
 		ORDER BY 1,2,3`, filter)
 	rows, err := source.query.Query(ctx, query, args...)
 	if err != nil {
-		return nil, errors.New("query audit confounders")
+		return nil, databaseError("query audit confounders", err)
 	}
 	defer rows.Close()
 	result := []contracts.ConfounderStratum{}
@@ -748,12 +780,15 @@ func (source projectAuditSource) confounders(ctx context.Context,
 		var item contracts.ConfounderStratum
 		var confidence float64
 		if err := rows.Scan(&item.Kind, &item.State, &item.Provenance, &confidence); err != nil {
-			return nil, errors.New("decode audit confounders")
+			return nil, databaseError("decode audit confounders", err)
 		}
 		item.Confidence = confidenceLabel(confidence)
 		result = append(result, item)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, databaseError("iterate audit confounders", err)
+	}
+	return result, nil
 }
 
 func (source projectAuditSource) previousConfoundersMatched(ctx context.Context,
@@ -795,10 +830,14 @@ func (source projectAuditSource) invocationCounts(ctx context.Context, filter, t
 			GROUP BY external_alias_id
 		)
 		SELECT
-			count(*) FILTER (WHERE caller_alias_id IS NULL),
+			count(*) FILTER (WHERE caller_alias_id IS NULL OR NOT EXISTS (
+				SELECT 1 FROM logical parent
+				WHERE parent.external_alias_id=logical.caller_alias_id)),
 			count(*) FILTER (WHERE NOT EXISTS (
 				SELECT 1 FROM logical child WHERE child.caller_alias_id=logical.external_alias_id)),
-			count(*) FILTER (WHERE caller_alias_id IS NULL AND has_result),
+			count(*) FILTER (WHERE has_result AND (caller_alias_id IS NULL OR NOT EXISTS (
+				SELECT 1 FROM logical parent
+				WHERE parent.external_alias_id=logical.caller_alias_id))),
 			count(*) FILTER (WHERE has_result AND NOT EXISTS (
 				SELECT 1 FROM logical child WHERE child.caller_alias_id=logical.external_alias_id)),
 			(SELECT count(*) FROM selected_tools WHERE external_alias_id IS NULL)
@@ -808,7 +847,7 @@ func (source projectAuditSource) invocationCounts(ctx context.Context, filter, t
 		&result.HostCalls, &result.LeafCalls, &result.HostResults,
 		&result.LeafResults, &result.UnknownCalls,
 	); err != nil {
-		return contracts.InvocationCounts{}, errors.New("query logical invocation counts")
+		return contracts.InvocationCounts{}, databaseError("query logical invocation counts", err)
 	}
 	return result, nil
 }
@@ -870,19 +909,22 @@ func (source projectAuditSource) workloadValues(ctx context.Context,
 		GROUP BY class_counts.workload_class ORDER BY class_counts.workload_class`, filter, turnFilter)
 	rows, err := source.query.Query(ctx, query, args...)
 	if err != nil {
-		return nil, errors.New("query workload strata")
+		return nil, databaseError("query workload strata", err)
 	}
 	defer rows.Close()
 	result := []workload.ClassValue{}
 	for rows.Next() {
 		var value workload.ClassValue
 		if err := rows.Scan(&value.Class, &value.Count, &value.Numerator); err != nil {
-			return nil, errors.New("decode workload stratum")
+			return nil, databaseError("decode workload stratum", err)
 		}
 		value.Denominator = value.Count
 		result = append(result, value)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, databaseError("iterate workload strata", err)
+	}
+	return result, nil
 }
 
 func (source projectAuditSource) recommendationContext(ctx context.Context,
@@ -911,21 +953,26 @@ func (source projectAuditSource) recommendationContext(ctx context.Context,
 			coalesce(recommendation.evidence_revision,'')
 		FROM prompt_better.recommendations recommendation
 		JOIN prompt_better.findings finding ON finding.finding_id=recommendation.finding_id
+		JOIN prompt_better.audit_revisions revision
+		  ON revision.audit_revision_id=finding.audit_revision_id
+		JOIN prompt_better.audit_windows audit_window
+		  ON audit_window.audit_window_id=revision.audit_window_id
 		WHERE recommendation.project_id=$1 AND recommendation.created_at <= $2
+		  AND audit_window.window_kind='project'
 		  AND coalesce(recommendation.action_code,recommendation.recommendation_kind) <> 'no_action'
 		  AND (recommendation.deleted_at IS NULL OR recommendation.deleted_at > $2)
-		GROUP BY recommendation.recommendation_id,finding.finding_kind,lifecycle_state,
-		 cooldown_until,recommendation.updated_at,recommendation.evidence_revision
-		ORDER BY recommendation.updated_at DESC`, request.Reference, request.AsOf)
+		ORDER BY recommendation.updated_at DESC,audit_window.as_of DESC,
+			revision.revision_number DESC,recommendation.recommendation_id DESC`,
+		request.Reference, request.AsOf)
 	if err != nil {
-		return recommendation.Context{}, errors.New("query recommendation feedback")
+		return recommendation.Context{}, databaseError("query recommendation feedback", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var code, state, evidenceRevision string
 		var cooldown time.Time
 		if err := rows.Scan(&code, &state, &cooldown, &evidenceRevision); err != nil {
-			return recommendation.Context{}, errors.New("decode recommendation feedback")
+			return recommendation.Context{}, databaseError("decode recommendation feedback", err)
 		}
 		if _, exists := result.Feedback[code]; !exists {
 			result.Feedback[code] = recommendation.Feedback{
@@ -934,7 +981,10 @@ func (source projectAuditSource) recommendationContext(ctx context.Context,
 			result.ExistingRuleCoverage[code] = state == "verified"
 		}
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return recommendation.Context{}, databaseError("iterate recommendation feedback", err)
+	}
+	return result, nil
 }
 
 func previousAuditWindow(request contracts.AuditProjectRequest) (contracts.AuditProjectRequest, bool) {
@@ -1131,19 +1181,19 @@ func (source projectAuditSource) dimensionSignature(ctx context.Context,
 		  AND t.observed_at <= $3 AND %s ORDER BY 1, 2`, filter)
 	rows, err := source.query.Query(ctx, query, args...)
 	if err != nil {
-		return "", errors.New("query audit dimension versions")
+		return "", databaseError("query audit dimension versions", err)
 	}
 	defer rows.Close()
 	parts := []string{}
 	for rows.Next() {
 		var projectVersion, sourceVersion string
 		if err := rows.Scan(&projectVersion, &sourceVersion); err != nil {
-			return "", errors.New("decode audit dimension versions")
+			return "", databaseError("decode audit dimension versions", err)
 		}
 		parts = append(parts, projectVersion+":"+sourceVersion)
 	}
 	if err := rows.Err(); err != nil {
-		return "", errors.New("iterate audit dimension versions")
+		return "", databaseError("iterate audit dimension versions", err)
 	}
 	if len(parts) == 0 {
 		return "", contracts.NewError(contracts.ErrorCodeCoverageIncomplete,
@@ -1175,19 +1225,19 @@ func (source projectAuditSource) confounderSignature(ctx context.Context,
 		WHERE %s AND label.label_kind IS NOT NULL ORDER BY 1,2,3`, filter)
 	rows, err := source.query.Query(ctx, query, args...)
 	if err != nil {
-		return "", errors.New("query audit confounder signature")
+		return "", databaseError("query audit confounder signature", err)
 	}
 	defer rows.Close()
 	parts := []string{}
 	for rows.Next() {
 		var kind, state, provenance string
 		if err := rows.Scan(&kind, &state, &provenance); err != nil {
-			return "", errors.New("decode audit confounder signature")
+			return "", databaseError("decode audit confounder signature", err)
 		}
 		parts = append(parts, kind+"="+state+"@"+provenance)
 	}
 	if err := rows.Err(); err != nil {
-		return "", errors.New("iterate audit confounder signature")
+		return "", databaseError("iterate audit confounder signature", err)
 	}
 	if len(parts) == 0 {
 		return "unknown", nil
@@ -1252,10 +1302,8 @@ func auditFilter(request contracts.AuditProjectRequest) (string, string, []any, 
 		return sourceFilter + " AND s.project_id = $5::uuid", "TRUE", append(base, request.Reference), nil
 	case contracts.AuditScopeTask:
 		return `EXISTS (
-			SELECT 1 FROM prompt_better.trajectories task_trajectory
-			JOIN prompt_better.turns task_turn
-			  ON task_turn.trajectory_id=task_trajectory.trajectory_id
-			WHERE task_trajectory.session_id=s.session_id
+			SELECT 1 FROM prompt_better.turns task_turn
+			WHERE task_turn.trajectory_id=tr.trajectory_id
 			  AND task_turn.task_id=$5::uuid) AND ` + sourceFilter,
 			"t.task_id = $5::uuid", append(base, request.Reference), nil
 	case contracts.AuditScopeTrajectory:
@@ -1263,6 +1311,21 @@ func auditFilter(request contracts.AuditProjectRequest) (string, string, []any, 
 	default:
 		return "", "", nil, contracts.NewError(contracts.ErrorCodeUnsupportedCapability, "audit scope unavailable", "scope", false)
 	}
+}
+
+func evidenceScopePredicate(request contracts.AuditProjectRequest) string {
+	if request.Scope != contracts.AuditScopeTask && request.Scope != contracts.AuditScopeTrajectory {
+		return "TRUE"
+	}
+	return trajectoryEvidencePredicate("tr")
+}
+
+func trajectoryEvidencePredicate(trajectoryAlias string) string {
+	return fmt.Sprintf(`EXISTS (
+		SELECT 1 FROM prompt_better.evidence_links scope_link
+		WHERE scope_link.evidence_artifact_id=e.evidence_artifact_id
+		  AND scope_link.target_kind='trajectory'
+		  AND scope_link.target_id=%s.trajectory_id)`, trajectoryAlias)
 }
 
 func (source projectAuditSource) metrics(
@@ -1274,6 +1337,12 @@ func (source projectAuditSource) metrics(
 	sessionLifecycle := "TRUE"
 	if turnFilter != "TRUE" || strings.Contains(filter, "tr.trajectory_id =") {
 		sessionLifecycle = "FALSE"
+	}
+	evidenceScope := "TRUE"
+	evidenceRefScope := "TRUE"
+	if sessionLifecycle == "FALSE" {
+		evidenceScope = trajectoryEvidencePredicate("selected_scope")
+		evidenceRefScope = trajectoryEvidencePredicate("tr")
 	}
 	query := fmt.Sprintf(`
 		WITH selected AS (
@@ -1415,24 +1484,24 @@ func (source projectAuditSource) metrics(
 			(SELECT count(*) FROM selected_phases WHERE ended_at IS NOT NULL),
 			(SELECT count(DISTINCT e.evidence_artifact_id)
 			 FROM prompt_better.evidence_artifacts e
-			 JOIN selected_sessions selected_scope ON selected_scope.session_id=e.session_id
+			 JOIN selected selected_scope ON selected_scope.session_id=e.session_id
 			 WHERE e.observed_at >= $1 AND e.observed_at < $2
-			   AND e.observed_at <= $3::timestamptz AND e.deleted_at IS NULL),
+			   AND e.observed_at <= $3::timestamptz AND e.deleted_at IS NULL AND %s),
 			(SELECT count(DISTINCT e.evidence_artifact_id)
 			 FROM prompt_better.evidence_artifacts e
-			 JOIN selected_sessions selected_scope ON selected_scope.session_id=e.session_id
+			 JOIN selected selected_scope ON selected_scope.session_id=e.session_id
 			 WHERE e.observed_at >= $1 AND e.observed_at < $2
 			   AND e.observed_at <= $3::timestamptz
-			   AND e.deleted_at IS NULL AND e.coverage_state='complete'),
+			   AND e.deleted_at IS NULL AND e.coverage_state='complete' AND %s),
 			(SELECT count(DISTINCT e.evidence_artifact_id)
 			 FROM prompt_better.evidence_artifacts e
-			 JOIN selected_sessions selected_scope ON selected_scope.session_id=e.session_id
+			 JOIN selected selected_scope ON selected_scope.session_id=e.session_id
 			 WHERE e.observed_at >= $1 AND e.observed_at < $2
 			   AND e.observed_at <= $3::timestamptz
 			   AND e.deleted_at IS NULL
-			   AND e.redaction_state IN ('applied','not_needed'))`,
+			   AND e.redaction_state IN ('applied','not_needed') AND %s)`,
 		filter, turnFilter, sessionLifecycle, sessionLifecycle,
-		sessionLifecycle, sessionLifecycle)
+		sessionLifecycle, sessionLifecycle, evidenceScope, evidenceScope, evidenceScope)
 	var input metrics.Input
 	var evidenceCount, completeEvidence, completePhases int
 	if err := source.query.QueryRow(ctx, query, args...).Scan(
@@ -1460,7 +1529,7 @@ func (source projectAuditSource) metrics(
 		&completeEvidence,
 		&input.RedactedEvidence,
 	); err != nil {
-		return metrics.Input{}, errors.New("query project audit metrics")
+		return metrics.Input{}, databaseError("query project audit metrics", err)
 	}
 	input.AcceptedEvidence = evidenceCount
 	input.ActiveRuntimeKnown = completePhases > 0
@@ -1470,7 +1539,7 @@ func (source projectAuditSource) metrics(
 	} else if completeEvidence != evidenceCount {
 		input.Coverage = contracts.CoverageStatePartial
 	}
-	evidenceRefs, err := source.evidenceRefs(ctx, filter, args)
+	evidenceRefs, err := source.evidenceRefs(ctx, filter, args, evidenceRefScope)
 	if err != nil {
 		return metrics.Input{}, err
 	}
@@ -1497,7 +1566,7 @@ func (source projectAuditSource) overhead(
 		&input.TotalTokens,
 		&input.CompletedTurns,
 	); err != nil {
-		return metrics.Input{}, errors.New("query governance overhead")
+		return metrics.Input{}, databaseError("query governance overhead", err)
 	}
 	input.Coverage = contracts.CoverageStateComplete
 	return input, nil
@@ -1507,6 +1576,7 @@ func (source projectAuditSource) evidenceRefs(
 	ctx context.Context,
 	filter string,
 	args []any,
+	evidenceScope string,
 ) ([]string, error) {
 	query := fmt.Sprintf(`
 		SELECT DISTINCT e.evidence_artifact_id::text
@@ -1515,21 +1585,24 @@ func (source projectAuditSource) evidenceRefs(
 		JOIN prompt_better.evidence_artifacts e ON e.session_id=s.session_id
 			AND e.observed_at >= $1 AND e.observed_at < $2
 			AND e.observed_at <= $3::timestamptz AND e.deleted_at IS NULL
-		WHERE %s ORDER BY 1 LIMIT 100`, filter)
+		WHERE %s AND %s ORDER BY 1 LIMIT 100`, filter, evidenceScope)
 	rows, err := source.query.Query(ctx, query, args...)
 	if err != nil {
-		return nil, errors.New("query project audit evidence")
+		return nil, databaseError("query project audit evidence", err)
 	}
 	defer rows.Close()
 	refs := []string{}
 	for rows.Next() {
 		var ref string
 		if err := rows.Scan(&ref); err != nil {
-			return nil, errors.New("decode project audit evidence")
+			return nil, databaseError("decode project audit evidence", err)
 		}
 		refs = append(refs, ref)
 	}
-	return refs, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, databaseError("iterate project audit evidence", err)
+	}
+	return refs, nil
 }
 
 func (source projectAuditSource) toolRefs(
@@ -1559,16 +1632,19 @@ func (source projectAuditSource) toolRefs(
 	toolArgs := append(append([]any{}, args...), kind)
 	rows, err := source.query.Query(ctx, query, toolArgs...)
 	if err != nil {
-		return nil, errors.New("query audit tool evidence")
+		return nil, databaseError("query audit tool evidence", err)
 	}
 	defer rows.Close()
 	refs := []string{}
 	for rows.Next() {
 		var ref string
 		if err := rows.Scan(&ref); err != nil {
-			return nil, errors.New("decode audit tool evidence")
+			return nil, databaseError("decode audit tool evidence", err)
 		}
 		refs = append(refs, ref)
 	}
-	return refs, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, databaseError("iterate audit tool evidence", err)
+	}
+	return refs, nil
 }

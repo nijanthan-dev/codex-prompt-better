@@ -144,7 +144,7 @@ func TestCollector_LargeSyntheticIncrementalRunIsBounded(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if elapsed := time.Since(started); elapsed > 5*time.Second {
+	if elapsed := time.Since(started); !raceEnabled && elapsed > 5*time.Second {
 		t.Fatalf("large synthetic collection took %v, budget 5s", elapsed)
 	}
 	cursor, _ := store.Cursor(context.Background(), "git")

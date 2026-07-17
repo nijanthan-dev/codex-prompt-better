@@ -37,7 +37,8 @@ func Apply(current contracts.MetricResult, definition metrics.Definition,
 	current.Status = contracts.MetricStatusInsufficient
 	current.StatusReason = "comparison_unavailable"
 	current.Confidence = "unknown"
-	if current.NativeValue == nil || current.Coverage != contracts.CoverageStateComplete {
+	if current.NativeValue == nil || !finite(*current.NativeValue) ||
+		current.Coverage != contracts.CoverageStateComplete {
 		current.StatusReason = "current_incomplete"
 		return current, nil
 	}
@@ -113,17 +114,18 @@ func Apply(current contracts.MetricResult, definition metrics.Definition,
 		current.Confidence = "medium"
 		return current, nil
 	}
+	lowerIsBetter := definition.Polarity == metrics.PolarityLowerBetter ||
+		(definition.Polarity == metrics.PolarityGuardrail && current.Name == "tool_error_rate")
 	improved := effectRolling > 0
-	if definition.Polarity == metrics.PolarityLowerBetter {
+	if lowerIsBetter {
 		improved = effectRolling < 0
 	}
 	if improved {
 		current.Status = contracts.MetricStatusImproved
-		current.StatusReason = "meaningful_matched_change"
 	} else {
 		current.Status = contracts.MetricStatusWorsened
-		current.StatusReason = "meaningful_matched_change"
 	}
+	current.StatusReason = "meaningful_matched_change"
 	current.Confidence = confidence(len(rolling), mad, median)
 	return current, nil
 }
@@ -139,9 +141,12 @@ func Median(values []float64) float64 {
 }
 
 func compatible(current contracts.MetricResult, window Window) bool {
-	return window.Value != nil && window.Coverage == contracts.CoverageStateComplete &&
+	return window.Value != nil && finite(*window.Value) &&
+		window.Coverage == contracts.CoverageStateComplete &&
 		window.MetricVersion == current.Version && window.Comparable
 }
+
+func finite(value float64) bool { return !math.IsNaN(value) && !math.IsInf(value, 0) }
 
 func compatibleValues(current contracts.MetricResult, windows []Window) []float64 {
 	values := []float64{}

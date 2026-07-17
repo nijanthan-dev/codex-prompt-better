@@ -8,8 +8,8 @@ recommendations, or infer missing evidence.
 
 `audit_project` accepts one explicitly consented `portfolio`, `project`, `task`,
 or `trajectory` window with an immutable `as_of` watermark. Portfolio reference
-is `all`; project and trajectory references are opaque local UUIDs. Task scope
-uses the opaque normalized task identity introduced by migration 6.
+is `all`; project, task, and trajectory references are opaque local UUIDs. Task
+scope uses the opaque normalized task identity introduced by migration 6.
 `audit_session` remains the frozen-v1 bounded evidence read.
 
 Every result includes native value/unit, raw numerator/denominator, sample count,
@@ -77,8 +77,10 @@ They never average project ratios. Contributions below the privacy cohort floor
 are withheld. Workload decomposition separately reports volume, class-mix, and
 within-class effects; contradictory aggregate and within-class direction is
 `simpson_mixed`. Logical host/leaf calls and results are deduplicated from keyed
-lineage identities. Native-unit outliers are ordered by robust within-metric
-deviation while retaining their original units; no cross-unit score exists.
+lineage identities. A selected logical call with an out-of-window parent is a
+host at the bounded scope edge, so host denominators remain complete.
+Native-unit outliers are ordered by robust within-metric deviation while
+retaining their original units; no cross-unit score exists.
 
 ## Replay and evaluation
 
@@ -86,6 +88,9 @@ Audit revision hashes include the normalized snapshot, metric version, findings,
 and recommendation output. Identical inputs produce identical hashes. Replay
 compares immutable revisions without mutating evidence. Contextual movement
 returns `mixed`; lower-better metrics change only with complete comparable data.
+Missing, incompatible, or insufficient metric evidence makes the aggregate
+comparison `mixed`, so partial evidence cannot promote a candidate. Duplicate
+metric names are rejected and non-finite values remain insufficient.
 
 Evaluation hashes fixture, configuration, and component inputs independently.
 Model, compiler, policy, and metric hashes remain separate. It promotes only an

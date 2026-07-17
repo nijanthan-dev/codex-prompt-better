@@ -2,6 +2,7 @@
 package runtime
 
 import (
+	"math"
 	"sort"
 	"time"
 )
@@ -54,6 +55,9 @@ func TextTokens(outputs []Output) (uint64, bool) {
 		if output.Tokens == nil {
 			known = false
 			continue
+		}
+		if math.MaxUint64-total < *output.Tokens {
+			return 0, false
 		}
 		total += *output.Tokens
 	}

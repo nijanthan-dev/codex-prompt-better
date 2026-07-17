@@ -3,6 +3,7 @@ package metrics
 
 import (
 	"errors"
+	"math"
 	"sort"
 
 	"github.com/nijanthan-dev/codex-prompt-better/pkg/contracts"
@@ -124,8 +125,8 @@ func Definitions() []Definition {
 }
 
 func Compute(input Input) ([]contracts.MetricResult, error) {
-	if hasNegativeCount(input) {
-		return nil, errors.New("metric counts must not be negative")
+	if invalidInput(input) {
+		return nil, errors.New("metric input is inconsistent")
 	}
 	results := []contracts.MetricResult{
 		ratio("scope_attribution_coverage", float64(input.AttributedTurns), input.CompletedTurns, input),
@@ -147,8 +148,11 @@ func Compute(input Input) ([]contracts.MetricResult, error) {
 	return results, nil
 }
 
-func hasNegativeCount(input Input) bool {
-	return input.CompletedTurns < 0 || input.AttributedTurns < 0 ||
+func invalidInput(input Input) bool {
+	invalidMeasurement := func(value float64) bool {
+		return value < 0 || math.IsNaN(value) || math.IsInf(value, 0)
+	}
+	negativeCount := input.CompletedTurns < 0 || input.AttributedTurns < 0 ||
 		input.BoundaryDecisions < 0 || input.BoundaryViolations < 0 ||
 		input.Checkpoints < 0 || input.CompleteCheckpoints < 0 ||
 		input.ToolCalls < 0 || input.ToolResults < 0 ||
@@ -157,6 +161,21 @@ func hasNegativeCount(input Input) bool {
 		input.ObservableMutations < 0 || input.ValidatedMutations < 0 ||
 		input.AcceptedEvidence < 0 || input.RedactedEvidence < 0 ||
 		input.CommentaryMessages < 0
+	countExceedsTotal := input.AttributedTurns > input.CompletedTurns ||
+		input.BoundaryViolations > input.BoundaryDecisions ||
+		input.CompleteCheckpoints > input.Checkpoints ||
+		input.PassiveWaitCalls > input.ToolCalls ||
+		input.OversizedResults > input.ToolResults ||
+		input.RepeatedCalls > input.ToolCalls || input.ToolErrors > input.ToolCalls ||
+		input.ValidatedMutations > input.ObservableMutations ||
+		input.RedactedEvidence > input.AcceptedEvidence
+	invalidDurationOrTokens := invalidMeasurement(input.TotalTokens) ||
+		invalidMeasurement(input.NonCachedInputTokens) ||
+		invalidMeasurement(input.WallClockSeconds) ||
+		invalidMeasurement(input.ActiveSeconds) ||
+		input.NonCachedInputTokens > input.TotalTokens ||
+		input.ActiveSeconds > input.WallClockSeconds
+	return negativeCount || countExceedsTotal || invalidDurationOrTokens
 }
 
 func perHundred(name string, numerator, denominator int, input Input) contracts.MetricResult {

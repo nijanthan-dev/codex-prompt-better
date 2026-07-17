@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -113,6 +114,17 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
 		DeletionAuditID: "80000000-0000-0000-0000-000000000032",
 		ArchiveEntityID: "80000000-0000-0000-0000-000000000033",
 		Plan:            plan, Receipt: receipt,
+	}
+	mutated := apply
+	mutated.Plan.Records = append([]store.ArchiveRecord{}, plan.Records...)
+	mutated.Plan.Records[0].ContentLength++
+	if applied, err := repo.ApplyRetention(ctx, mutated); err == nil || applied != 0 {
+		t.Fatalf("mutated archived plan applied=%d error=%v", applied, err)
+	}
+	forgedReference := apply
+	forgedReference.Receipt.ArchiveReference = "sha256:" + strings.Repeat("00", sha256.Size)
+	if applied, err := repo.ApplyRetention(ctx, forgedReference); err == nil || applied != 0 {
+		t.Fatalf("forged archive reference applied=%d error=%v", applied, err)
 	}
 	if applied, err := repo.ApplyRetention(ctx, apply); err != nil || applied != 1 {
 		t.Fatalf("apply count=%d error=%v", applied, err)

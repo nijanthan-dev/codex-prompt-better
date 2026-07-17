@@ -148,16 +148,15 @@ func TestAuditReplayEvaluation_Integration(t *testing.T) {
 		t.Fatalf("replay is not deterministic: %q != %q", candidate.RevisionHash, repeated.RevisionHash)
 	}
 	comparison, err := replay.Compare(baseline, candidate)
-	if err != nil || comparison.Outcome != "improved" {
+	if err != nil || comparison.Outcome != "mixed" || comparison.QualityGateState != "pass" {
 		t.Fatalf("comparison=%#v error=%v", comparison, err)
 	}
-	comparison.QualityGateState = "pass"
 	run, err := eval.NewRun("eval-v1", candidateSnapshot,
 		map[string]string{"mode": "synthetic"}, eval.Components{
 			Model: "synthetic-model", Compiler: "compiler-v1",
 			Policy: "policy-v1", Metrics: metrics.Definitions(),
 		}, comparison)
-	if err != nil || run.Decision != "promote" || len(run.RunHash) != 64 {
+	if err != nil || run.Decision != "hold" || len(run.RunHash) != 64 {
 		t.Fatalf("evaluation=%#v error=%v", run, err)
 	}
 	if len(candidate.Recommendations) != 1 || candidate.Recommendations[0].Code != "no_action" {

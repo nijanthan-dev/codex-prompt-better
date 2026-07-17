@@ -63,10 +63,18 @@ Desktop and [`act`](https://github.com/nektos/act):
 ./scripts/run-local-ci.sh
 ```
 
+For a fast pre-commit gate covering formatting, recurring review patterns,
+tests, vet, and contracts:
+
+```bash
+./scripts/pre-commit.sh
+```
+
 The script builds the project-specific `prompt-better-act:local` image, then
 runs formatting, tests, vet, race detection, integration tests, contract
 validation, a native smoke test, secret scanning, and cross-platform builds.
-The jobs run without network access after the image is built.
+After the image is built, jobs use only the isolated Act network for local
+PostgreSQL services and do not fetch packages or contact external services.
 
 ## Non-goals
 

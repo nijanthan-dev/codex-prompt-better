@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -67,10 +68,18 @@ func collect(ctx context.Context, configPath string, output io.Writer, now func(
 		return errors.New("collector configuration unavailable")
 	}
 	defer configFile.Close()
-	decoder := json.NewDecoder(io.LimitReader(configFile, 64*1024))
+	const maxConfigBytes = 64 * 1024
+	configData, err := io.ReadAll(io.LimitReader(configFile, maxConfigBytes+1))
+	if err != nil || len(configData) > maxConfigBytes {
+		return errors.New("invalid collector configuration")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(configData))
 	decoder.DisallowUnknownFields()
 	var config fileConfig
 	if err := decoder.Decode(&config); err != nil || config.Owner == "" || len(config.Sources) == 0 {
+		return errors.New("invalid collector configuration")
+	}
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
 		return errors.New("invalid collector configuration")
 	}
 	if err := validateConfig(config); err != nil {

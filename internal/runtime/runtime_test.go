@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"math"
 	"testing"
 	"time"
 )
@@ -15,6 +16,16 @@ func TestUnionDuration_ParallelAndBlockedExcluded(t *testing.T) {
 	}
 	if got := UnionDuration(intervals, map[string]bool{"active": true}); got != 15*time.Second {
 		t.Fatalf("got %v, want 15s", got)
+	}
+}
+
+func TestTextTokens_OverflowIsUnknown(t *testing.T) {
+	t.Parallel()
+	maximum, one := uint64(math.MaxUint64), uint64(1)
+	if got, known := TextTokens([]Output{
+		{Modality: "text", Tokens: &maximum}, {Modality: "context", Tokens: &one},
+	}); got != 0 || known {
+		t.Fatalf("overflow returned %d/%t", got, known)
 	}
 }
 

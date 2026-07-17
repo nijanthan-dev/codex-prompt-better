@@ -25,7 +25,12 @@ func TestResolve_ReportsOrderingUncertainty(t *testing.T) {
 		{Field: "state", Value: "one", SourceKind: "a", SourceSequence: 1, MonotonicNanos: 1, ObservedAt: now, Precedence: 1},
 		{Field: "state", Value: "two", SourceKind: "b", SourceSequence: 1, MonotonicNanos: 1, ObservedAt: now, Precedence: 1},
 	})
-	if !result.OrderingUncertain {
-		t.Fatal("equal ordering evidence treated as certain")
+	reversed := Resolve([]Assertion{
+		{Field: "state", Value: "two", SourceKind: "b", SourceSequence: 1, MonotonicNanos: 1, ObservedAt: now, Precedence: 1},
+		{Field: "state", Value: "one", SourceKind: "a", SourceSequence: 1, MonotonicNanos: 1, ObservedAt: now, Precedence: 1},
+	})
+	if !result.OrderingUncertain || result.Value != "" || result.WinningSource != "" ||
+		reversed.Value != "" || reversed.WinningSource != "" {
+		t.Fatalf("equal conflicting evidence resolved authoritatively: %#v %#v", result, reversed)
 	}
 }

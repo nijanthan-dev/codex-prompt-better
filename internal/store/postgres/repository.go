@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -16,7 +17,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const latestSchemaVersion = 8
+const (
+	// LatestSchemaVersion is the highest embedded migration version.
+	LatestSchemaVersion       = 10
+	maxTransactionAttempts    = 3
+	transactionCleanupTimeout = 5 * time.Second
+)
 
 var (
 	// ErrNotFound reports an absent normalized entity without exposing query data.
@@ -50,6 +56,26 @@ func DefaultPoolConfig() PoolConfig {
 // Repository owns parameterized transactional persistence and bounded queries.
 type Repository struct {
 	pool *pgxpool.Pool
+}
+
+type databaseOperationError struct {
+	operation string
+	cause     error
+}
+
+type transactionStarter interface {
+	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
+}
+
+func (err databaseOperationError) Error() string { return err.operation }
+func (err databaseOperationError) Unwrap() error { return err.cause }
+
+func databaseError(operation string, cause error) error {
+	return databaseOperationError{operation: operation, cause: cause}
+}
+
+func databaseCleanupContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), transactionCleanupTimeout)
 }
 
 // OpenRepository opens and verifies a bounded PostgreSQL pool.
@@ -115,7 +141,7 @@ func (r *Repository) Doctor(ctx context.Context) DoctorResult {
 	if err := r.pool.QueryRow(ctx, `SELECT COALESCE(max(version_id), 0)
         FROM public.schema_migrations WHERE is_applied`).Scan(&result.SchemaVersion); err != nil {
 		result.Problems = append(result.Problems, "schema_version_unavailable")
-	} else if result.SchemaVersion != latestSchemaVersion {
+	} else if result.SchemaVersion != LatestSchemaVersion {
 		result.Problems = append(result.Problems, "schema_version_mismatch")
 	}
 	result.Ready = len(result.Problems) == 0
@@ -205,7 +231,7 @@ func (r *Repository) PutProject(ctx context.Context, project Project) error {
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.projects
             (project_id, created_at) VALUES ($1, $2)
             ON CONFLICT (project_id) DO NOTHING`, project.ID, project.CreatedAt); err != nil {
-			return errors.New("persist project identity")
+			return databaseError("persist project identity", err)
 		}
 		var currentID string
 		var currentVersion int64
@@ -222,12 +248,12 @@ func (r *Repository) PutProject(ctx context.Context, project Project) error {
                 VALUES ($1,$2,1,$3,$4,$5,$6)`, project.VersionID, project.ID,
 				project.Classification, project.LifecycleState, hash[:], project.EffectiveAt)
 			if err != nil {
-				return errors.New("persist project dimension")
+				return databaseError("persist project dimension", err)
 			}
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("read current project dimension: %w", err)
+			return databaseError("read current project dimension", err)
 		}
 		if string(currentHash) == string(hash[:]) {
 			return nil
@@ -238,7 +264,7 @@ func (r *Repository) PutProject(ctx context.Context, project Project) error {
 		if _, err := tx.Exec(ctx, `UPDATE prompt_better.project_versions
             SET valid_to = $2 WHERE project_version_id = $1`, currentID,
 			project.EffectiveAt); err != nil {
-			return errors.New("close project dimension")
+			return databaseError("close project dimension", err)
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.project_versions
             (project_version_id, project_id, version_number, classification,
@@ -246,7 +272,7 @@ func (r *Repository) PutProject(ctx context.Context, project Project) error {
             VALUES ($1,$2,$3,$4,$5,$6,$7)`, project.VersionID, project.ID,
 			currentVersion+1, project.Classification, project.LifecycleState,
 			hash[:], project.EffectiveAt); err != nil {
-			return errors.New("persist project dimension")
+			return databaseError("persist project dimension", err)
 		}
 		return nil
 	})
@@ -330,7 +356,7 @@ func (r *Repository) PutSource(ctx context.Context, source Source) error {
             (source_id, source_kind, created_at) VALUES ($1, $2, $3)
             ON CONFLICT (source_id) DO NOTHING`, source.ID, source.Kind,
 			source.CreatedAt); err != nil {
-			return errors.New("persist source identity")
+			return databaseError("persist source identity", err)
 		}
 		var currentID string
 		var currentVersion int64
@@ -348,12 +374,12 @@ func (r *Repository) PutSource(ctx context.Context, source Source) error {
 				source.ID, source.AdapterVersion, source.ProductSurface,
 				source.CoverageState, source.Enabled, hash[:], source.EffectiveAt)
 			if err != nil {
-				return errors.New("persist source dimension")
+				return databaseError("persist source dimension", err)
 			}
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("read current source dimension: %w", err)
+			return databaseError("read current source dimension", err)
 		}
 		if string(currentHash) == string(hash[:]) {
 			return nil
@@ -364,7 +390,7 @@ func (r *Repository) PutSource(ctx context.Context, source Source) error {
 		if _, err := tx.Exec(ctx, `UPDATE prompt_better.source_versions
             SET valid_to = $2 WHERE source_version_id = $1`, currentID,
 			source.EffectiveAt); err != nil {
-			return errors.New("close source dimension")
+			return databaseError("close source dimension", err)
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.source_versions
             (source_version_id, source_id, version_number, adapter_version,
@@ -372,7 +398,7 @@ func (r *Repository) PutSource(ctx context.Context, source Source) error {
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, source.VersionID, source.ID,
 			currentVersion+1, source.AdapterVersion, source.ProductSurface,
 			source.CoverageState, source.Enabled, hash[:], source.EffectiveAt); err != nil {
-			return errors.New("persist source dimension")
+			return databaseError("persist source dimension", err)
 		}
 		return nil
 	})
@@ -512,8 +538,14 @@ func (r *Repository) CommitCollection(ctx context.Context, batch CollectionBatch
 		len(batch.Evidence) == 0 || len(batch.Evidence) > maxUsageBatch {
 		return false, errors.New("collection batch is outside bounds")
 	}
+	batchDigest, err := normalizedBatchDigest(batch.Evidence)
+	if err != nil {
+		return false, err
+	}
+	batchVersion := batch.CursorDigest + ":" + batchDigest
 	committed := false
-	err := r.WithSerializable(ctx, func(tx pgx.Tx) error {
+	err = r.WithSerializable(ctx, func(tx pgx.Tx) error {
+		committed = false
 		var current uint64
 		var storedGeneration, storedDigest string
 		var cursorValue, cursorState string
@@ -532,31 +564,24 @@ func (r *Repository) CommitCollection(ctx context.Context, batch CollectionBatch
 				return errors.New("invalid collection cursor")
 			}
 		} else if !errors.Is(err, pgx.ErrNoRows) {
-			return errors.New("lock collection cursor")
+			return databaseError("lock collection cursor", err)
 		}
 		if cursorState != "leased:"+batch.Fence || leaseExpires == nil {
 			return errors.New("collection lease fence rejected")
 		}
 		var leaseCurrent bool
-		if err := tx.QueryRow(ctx, `SELECT $1 > statement_timestamp()`, *leaseExpires).Scan(&leaseCurrent); err != nil || !leaseCurrent {
+		if err := tx.QueryRow(ctx, `SELECT $1 > statement_timestamp()`, *leaseExpires).Scan(&leaseCurrent); err != nil {
+			return databaseError("validate collection lease fence", err)
+		}
+		if !leaseCurrent {
 			return errors.New("collection lease fence rejected")
 		}
-		generationChanged := storedGeneration != "" && storedGeneration != batch.Generation
 		for _, item := range batch.Evidence {
 			if item.SourceID != batch.SourceID {
 				return errors.New("collection source mismatch")
 			}
-			if err := persistEvidenceLineage(ctx, tx, item); err != nil {
-				return err
-			}
 		}
-		// A second bounded pass resolves explicit parents that appeared later in
-		// the same batch without inventing placeholder lineage.
-		for _, item := range batch.Evidence {
-			if err := persistEvidenceLineage(ctx, tx, item); err != nil {
-				return err
-			}
-		}
+		generationChanged := storedGeneration != "" && storedGeneration != batch.Generation
 		if !generationChanged && batch.Next < current {
 			return ErrStaleCursor
 		}
@@ -569,7 +594,9 @@ func (r *Repository) CommitCollection(ctx context.Context, batch CollectionBatch
 				FROM prompt_better.source_assertions WHERE source_assertion_id=$1
 				AND source_id=$2 AND assertion_kind='collection_batch'`, collectionBatchUUID(batch.BatchID), batch.SourceID).
 				Scan(&storedDigestValue, &storedCount)
-			if err != nil || storedDigestValue != batch.CursorDigest || storedCount != fmt.Sprintf("count:%d", len(batch.Evidence)) {
+			legacyVersion := storedDigestValue == batch.CursorDigest
+			if err != nil || (!legacyVersion && storedDigestValue != batchVersion) ||
+				storedCount != fmt.Sprintf("count:%d", len(batch.Evidence)) {
 				return ErrSourceConflict
 			}
 			for _, item := range batch.Evidence {
@@ -581,6 +608,18 @@ func (r *Repository) CommitCollection(ctx context.Context, batch CollectionBatch
 				}
 			}
 			return nil
+		}
+		for _, item := range batch.Evidence {
+			if err := persistEvidenceLineage(ctx, tx, item); err != nil {
+				return err
+			}
+		}
+		// A second bounded pass resolves explicit parents that appeared later in
+		// the same batch without inventing placeholder lineage.
+		for _, item := range batch.Evidence {
+			if err := persistEvidenceLineage(ctx, tx, item); err != nil {
+				return err
+			}
 		}
 		for _, item := range batch.Evidence {
 			tag, err := tx.Exec(ctx, `INSERT INTO prompt_better.evidence_artifacts
@@ -600,10 +639,20 @@ func (r *Repository) CommitCollection(ctx context.Context, batch CollectionBatch
 				item.CoverageState, item.Provenance, item.ProductSurface,
 				item.ObservedAt, item.RetainedUntil)
 			if err != nil {
-				return errors.New("persist collection evidence")
+				return databaseError("persist collection evidence", err)
 			}
 			if tag.RowsAffected() == 0 {
 				return ErrSourceConflict
+			}
+			if item.Lineage.TrajectoryID != "" {
+				if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.evidence_links
+					(evidence_link_id,evidence_artifact_id,target_kind,target_id,link_kind,created_at)
+					VALUES ($1,$2,'trajectory',$3,'observed_in',$4)
+					ON CONFLICT (evidence_link_id) DO NOTHING`,
+					collectionBatchUUID(item.ID+":trajectory-evidence"), item.ID,
+					item.Lineage.TrajectoryID, item.ObservedAt); err != nil {
+					return databaseError("persist trajectory evidence link", err)
+				}
 			}
 			if err := persistRuntimeObservations(ctx, tx, item); err != nil {
 				return err
@@ -614,8 +663,8 @@ func (r *Repository) CommitCollection(ctx context.Context, batch CollectionBatch
 			 provenance, asserted_at, source_version)
 			VALUES ($1,$2,'collection_batch',$3,'runtime_observed',$4,$5)`,
 			collectionBatchUUID(batch.BatchID), batch.SourceID,
-			fmt.Sprintf("count:%d", len(batch.Evidence)), batch.ObservedAt, batch.CursorDigest); err != nil {
-			return errors.New("persist collection batch identity")
+			fmt.Sprintf("count:%d", len(batch.Evidence)), batch.ObservedAt, batchVersion); err != nil {
+			return databaseError("persist collection batch identity", err)
 		}
 		tag, err := tx.Exec(ctx, `INSERT INTO prompt_better.collection_cursors
             (collection_cursor_id, source_id, cursor_kind, cursor_value,
@@ -630,7 +679,7 @@ func (r *Repository) CommitCollection(ctx context.Context, batch CollectionBatch
 			  AND prompt_better.collection_cursors.lease_expires_at > statement_timestamp()`,
 			batch.CursorID, batch.SourceID, encodeCollectionCursor(batch.Generation, batch.CursorDigest, batch.Next), batch.ObservedAt, "leased:"+batch.Fence)
 		if err != nil {
-			return errors.New("advance collection cursor")
+			return databaseError("advance collection cursor", err)
 		}
 		if tag.RowsAffected() != 1 {
 			return errors.New("collection lease fence rejected")
@@ -639,6 +688,15 @@ func (r *Repository) CommitCollection(ctx context.Context, batch CollectionBatch
 		return nil
 	})
 	return committed, err
+}
+
+func normalizedBatchDigest(evidence []Evidence) (string, error) {
+	encoded, err := json.Marshal(evidence)
+	if err != nil {
+		return "", errors.New("encode normalized collection batch")
+	}
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:]), nil
 }
 
 func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error {
@@ -658,7 +716,7 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 				THEN EXCLUDED.coverage_state
 				ELSE prompt_better.sessions.coverage_state
 			END`, lineage.SessionID, item.ProjectID, item.SourceID, item.ObservedAt, item.CoverageState); err != nil {
-		return errors.New("persist collection session")
+		return databaseError("persist collection session", err)
 	}
 
 	parentTrajectoryID, err := existingLineageID(ctx, tx,
@@ -676,7 +734,7 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 				parent_trajectory_id=COALESCE(prompt_better.trajectories.parent_trajectory_id,
 				EXCLUDED.parent_trajectory_id)`, lineage.TrajectoryID, lineage.SessionID,
 			item.SourceID, parentTrajectoryID, item.ObservedAt); err != nil {
-			return errors.New("persist collection trajectory")
+			return databaseError("persist collection trajectory", err)
 		}
 	}
 
@@ -698,7 +756,7 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 				confidence=EXCLUDED.confidence`,
 			lineage.TaskID, item.ProjectID, item.SourceID,
 			attributionState, item.ObservedAt); err != nil {
-			return errors.New("persist collection task")
+			return databaseError("persist collection task", err)
 		}
 	}
 
@@ -711,7 +769,7 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 				task_id=COALESCE(prompt_better.turns.task_id,EXCLUDED.task_id)`,
 			lineage.TurnID, lineage.TrajectoryID, item.SourceID,
 			nullableString(lineage.TaskID), *lineage.TurnOrdinal, item.ObservedAt); err != nil {
-			return errors.New("persist collection turn")
+			return databaseError("persist collection turn", err)
 		}
 	}
 
@@ -747,7 +805,7 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 			nullableString(item.Runtime.ReasoningMode), nullableString(item.Runtime.Verbosity),
 			nullableString(item.Runtime.ServiceMode), nullableString(item.Runtime.SafeguardOutcome),
 			item.ObservedAt, completedAt); err != nil {
-			return errors.New("persist collection response")
+			return databaseError("persist collection response", err)
 		}
 	}
 
@@ -766,7 +824,7 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 			phaseID, lineage.TrajectoryID, nullableString(lineage.ResponseID),
 			item.Runtime.Phase, normalizedOrdinal(item.ID+":phase:"+item.Runtime.Phase),
 			item.ObservedAt, endedAt); err != nil {
-			return errors.New("persist collection phase")
+			return databaseError("persist collection phase", err)
 		}
 	}
 
@@ -787,7 +845,7 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 			nullableString(item.Runtime.Phase), normalizedOrdinal(item.ID+":item"),
 			nullableString(item.Runtime.OutputModality), item.ContentHash,
 			item.Runtime.OutputSizeBytes, item.ObservedAt); err != nil {
-			return errors.New("persist collection item")
+			return databaseError("persist collection item", err)
 		}
 	}
 
@@ -801,7 +859,7 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 			item.Runtime.StateEpochID, lineage.TrajectoryID, item.SourceID,
 			item.Runtime.StateEpochHash, defaultString(item.Runtime.MutationState, "unknown"),
 			item.ObservedAt); err != nil {
-			return errors.New("persist collection state epoch")
+			return databaseError("persist collection state epoch", err)
 		}
 	}
 
@@ -834,7 +892,7 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 			nullableString(item.Runtime.StateEpochID), item.Runtime.CanonicalCallHash,
 			nullableString(item.Runtime.ResultState), nullableString(item.Runtime.OutputModality),
 			item.Runtime.OutputSizeBytes, nullableString(item.Runtime.WaitState)); err != nil {
-			return errors.New("persist collection tool call")
+			return databaseError("persist collection tool call", err)
 		}
 	}
 	if item.Runtime.DelegationEvent != "" && lineage.TrajectoryID != "" {
@@ -846,7 +904,7 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 			collectionBatchUUID(item.ID+":delegation"), lineage.TrajectoryID,
 			nullableString(lineage.ParentTrajectoryID), item.SourceID,
 			item.Runtime.DelegationEvent, item.ObservedAt); err != nil {
-			return errors.New("persist delegation event")
+			return databaseError("persist delegation event", err)
 		}
 	}
 	if item.Runtime.CompactionEvent != "" && lineage.TrajectoryID != "" {
@@ -858,7 +916,7 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 			collectionBatchUUID(item.ID+":compaction"), lineage.TrajectoryID,
 			nullableString(lineage.ResponseID), item.SourceID,
 			item.Runtime.CompactionEvent, item.ObservedAt); err != nil {
-			return errors.New("persist compaction event")
+			return databaseError("persist compaction event", err)
 		}
 	}
 	if item.Runtime.StopEvent != "" && lineage.TrajectoryID != "" {
@@ -868,7 +926,7 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 			ON CONFLICT (stop_event_id) DO NOTHING`,
 			collectionBatchUUID(item.ID+":stop"), lineage.TrajectoryID,
 			item.Runtime.StopEvent, item.ObservedAt); err != nil {
-			return errors.New("persist stop event")
+			return databaseError("persist stop event", err)
 		}
 	}
 	if item.Runtime.CheckpointEvent != "" && lineage.SessionID != "" {
@@ -880,7 +938,7 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 			ON CONFLICT (checkpoint_id) DO NOTHING`,
 			collectionBatchUUID(item.ID+":checkpoint"), lineage.SessionID,
 			hash[:], item.ObservedAt); err != nil {
-			return errors.New("persist checkpoint event")
+			return databaseError("persist checkpoint event", err)
 		}
 	}
 	if item.Runtime.BoundaryEvent != "" {
@@ -891,7 +949,7 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 			collectionBatchUUID(item.ID+":boundary"), item.ProjectID,
 			nullableString(lineage.SessionID), item.Runtime.BoundaryEvent,
 			item.ObservedAt); err != nil {
-			return errors.New("persist boundary event")
+			return databaseError("persist boundary event", err)
 		}
 	}
 	return nil
@@ -912,7 +970,7 @@ func persistRuntimeObservations(ctx context.Context, tx pgx.Tx, item Evidence) e
 			defaultString(runtime.UsageUnit, "unknown"), item.ProductSurface,
 			defaultString(runtime.AccountingRegime, "unknown"), item.Provenance,
 			item.ObservedAt); err != nil {
-			return errors.New("persist collection usage")
+			return databaseError("persist collection usage", err)
 		}
 	}
 	if runtime.CacheKind != "" && runtime.CacheValue != nil {
@@ -928,7 +986,7 @@ func persistRuntimeObservations(ctx context.Context, tx pgx.Tx, item Evidence) e
 			defaultString(runtime.UsageUnit, "unknown"),
 			nullableString(runtime.CacheMode), runtime.CacheTTLSeconds,
 			item.Provenance, item.ObservedAt); err != nil {
-			return errors.New("persist collection cache")
+			return databaseError("persist collection cache", err)
 		}
 	}
 	if runtime.GovernanceOverhead && item.Lineage.TrajectoryID != "" {
@@ -942,7 +1000,7 @@ func persistRuntimeObservations(ctx context.Context, tx pgx.Tx, item Evidence) e
 			ON CONFLICT (governance_overhead_id) DO NOTHING`,
 			collectionBatchUUID(item.ID+":governance"), item.Lineage.TrajectoryID,
 			item.ObservedAt, item.ProjectID); err != nil {
-			return errors.New("persist governance overhead")
+			return databaseError("persist governance overhead", err)
 		}
 	}
 	return nil
@@ -963,7 +1021,7 @@ func existingLineageID(ctx context.Context, tx pgx.Tx, query, id string) (*strin
 	if err := tx.QueryRow(ctx, query, id).Scan(&existing); errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
-		return nil, errors.New("resolve collection parent lineage")
+		return nil, databaseError("resolve collection parent lineage", err)
 	}
 	return &existing, nil
 }
@@ -1193,32 +1251,43 @@ func (r *Repository) GetProjectCoverage(ctx context.Context, projectID string) (
 // WithSerializable runs a multi-statement operation atomically and rolls back on
 // callback, cancellation, serialization, or commit failure.
 func (r *Repository) WithSerializable(ctx context.Context, fn func(pgx.Tx) error) error {
+	return withSerializable(ctx, r.pool, fn)
+}
+
+func withSerializable(ctx context.Context, starter transactionStarter, fn func(pgx.Tx) error) error {
 	if fn == nil {
 		return errors.New("transaction callback is required")
 	}
-	for attempt := 1; attempt <= 3; attempt++ {
-		tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	for attempt := 1; attempt <= maxTransactionAttempts; attempt++ {
+		tx, err := starter.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 		if err != nil {
-			return errors.New("begin database transaction")
+			return databaseError("begin database transaction", err)
 		}
 		err = fn(tx)
 		if err == nil {
-			err = tx.Commit(ctx)
+			if commitErr := tx.Commit(ctx); commitErr != nil {
+				err = databaseError("commit database transaction", commitErr)
+			}
 		}
 		if err == nil {
 			return nil
 		}
-		_ = tx.Rollback(context.Background())
-		if !serializationFailure(err) || attempt == 3 {
+		rollbackCtx, cancel := databaseCleanupContext(ctx)
+		_ = tx.Rollback(rollbackCtx)
+		cancel()
+		if !retryableTransactionFailure(err) || attempt == maxTransactionAttempts {
 			return err
 		}
 	}
 	return errors.New("database transaction retry exhausted")
 }
 
-func serializationFailure(err error) bool {
+func retryableTransactionFailure(err error) bool {
 	var postgresError *pgconn.PgError
-	return errors.As(err, &postgresError) && postgresError.Code == "40001"
+	if !errors.As(err, &postgresError) {
+		return false
+	}
+	return postgresError.Code == "40001" || postgresError.Code == "40P01"
 }
 
 func dimensionHash(parts ...string) [32]byte {
