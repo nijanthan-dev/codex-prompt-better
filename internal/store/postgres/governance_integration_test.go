@@ -40,9 +40,10 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 	insertGovernanceFixture(t, ctx, repo, start)
 	if _, err := repo.pool.Exec(ctx, `INSERT INTO prompt_better.execution_events
 		(execution_event_id,event_kind,event_name,schema_version,project_id,content_hash,
-		 attributes,observed_at,knowledge_state)
+		 evidence_artifact_id,attributes,observed_at,knowledge_state)
 		VALUES ('f6000000-0000-0000-0000-000000000099','policy_snapshot','policy-v1','1',
 		 'f1000000-0000-0000-0000-000000000001',decode(repeat('ab',32),'hex'),
+		 'f9000000-0000-0000-0000-000000000001',
 		 '{"raw_retention_enabled":false,"telemetry_enabled":false}',$1,'observed')`, start); err != nil {
 		t.Fatal(err)
 	}
@@ -280,8 +281,9 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 			row_number() OVER (ORDER BY audit_window.as_of DESC,
 				revision.revision_number DESC,recommendation.recommendation_id DESC) AS position
 		FROM prompt_better.recommendations recommendation
-		JOIN prompt_better.findings finding USING (finding_id)
-		JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
+		JOIN prompt_better.findings finding ON finding.finding_id=recommendation.finding_id
+		JOIN prompt_better.audit_revisions revision
+		  ON revision.audit_revision_id=recommendation.audit_revision_id
 		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
 		WHERE recommendation.action_code='wait_on_state_change'
 		  AND audit_window.window_kind='project'
@@ -302,8 +304,9 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 		WHERE recommendation.recommendation_id=(
 			SELECT candidate.recommendation_id
 			FROM prompt_better.recommendations candidate
-			JOIN prompt_better.findings finding USING (finding_id)
-			JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
+			JOIN prompt_better.findings finding ON finding.finding_id=candidate.finding_id
+			JOIN prompt_better.audit_revisions revision
+			  ON revision.audit_revision_id=candidate.audit_revision_id
 			JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
 			WHERE candidate.action_code='wait_on_state_change'
 			  AND audit_window.window_kind='project'

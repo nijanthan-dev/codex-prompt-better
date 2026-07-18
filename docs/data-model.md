@@ -28,7 +28,7 @@ rejects drift and compares the result with the live PostgreSQL catalog.
 
 <!-- BEGIN GENERATED ERD -->
 
-_Generated from all ordered migration up-sections; schema fingerprint `26ab905047f9`._
+_Generated from all ordered migration up-sections; schema fingerprint `4d77d11861a5`._
 
 [![Complete physical ERD with columns, types, keys, and relationships](data-model-erd.svg)](data-model-erd.svg)
 
@@ -240,6 +240,7 @@ erDiagram
         uuid response_id FK
         uuid phase_id FK
         uuid source_id FK
+        uuid evidence_artifact_id FK
         uuid external_alias_id
         uuid related_event_id FK
         text outcome
@@ -252,6 +253,7 @@ erDiagram
         timestamptz observed_at
         text knowledge_state
     }
+    evidence_artifacts ||--o{ execution_events : "evidence_artifact_id to evidence_artifact_id"
     trajectories o|--o{ execution_events : "trajectory_id to parent_trajectory_id"
     phases o|--o{ execution_events : "phase_id to phase_id"
     projects o|--o{ execution_events : "project_id to project_id"
@@ -458,6 +460,7 @@ erDiagram
     }
     recommendations {
         uuid recommendation_id PK
+        uuid audit_revision_id FK
         uuid finding_id FK
         uuid project_id FK
         text recommendation_kind
@@ -497,6 +500,7 @@ erDiagram
     metric_definitions o|--o{ metric_results : "metric_definition_id to metric_definition_id"
     evidence_artifacts o|--o{ recommendation_events : "evidence_artifact_id to evidence_artifact_id"
     recommendations ||--o{ recommendation_events : "recommendation_id to recommendation_id"
+    audit_revisions ||--o{ recommendations : "audit_revision_id to audit_revision_id"
     findings o|--o{ recommendations : "finding_id to finding_id"
     projects o|--o{ recommendations : "project_id to project_id"
 ```
@@ -591,14 +595,14 @@ unmatched evidence rather than invent relationships.
 | `sessions` | Normalized Codex execution session metadata. | `project_id`; external identity through source refs. |
 | `tasks` | Opaque normalized task identity and attribution state. | project/source; turns. |
 | `state_epochs` | Redacted state-change boundary for repeat classification. | trajectory/source; tool calls. |
-| `execution_events` | Typed delegation, compaction, stop, checkpoint, boundary, plan, budget, policy, and capability facts. | project/session/trajectory/response/phase/source. |
+| `execution_events` | Typed delegation, compaction, stop, checkpoint, boundary, plan, budget, policy, and capability facts. | evidence/project/session/trajectory/response/phase/source. |
 | `tool_calls` | Sanitized tool metadata and state outcome. | response, source, state epoch. |
 | `evidence_artifacts` | Normalized envelope and classification. | `source_id`; optional project/session. |
 | `evidence_links` | Typed many-to-many provenance links. | artifact to target entity, with confidence. |
 | `observations` | Typed usage, cache, confounder, governance, attribution, and source assertions. | trajectory/response/artifact/audit/source. |
 | `metric_definitions` / `metric_results` | Versioned formulas and transparent results. | audit revision/evaluation; evidence through typed links. |
 | `audit_windows` / `audit_revisions` | Bounded immutable audit window and revision. | project/policy/watermark. |
-| `findings` / `recommendations` | Evidence-backed diagnosis and preview-only action lifecycle. | audit/evaluation/project. |
+| `findings` / `recommendations` | Evidence-backed diagnosis and preview-only action lifecycle, retained as one audit-revision unit. | audit revision/evaluation/project. |
 | `retention_actions` / `retention_action_entities` | Auditable archive/deletion outcome. | policy, project, archive batch, affected entity class. |
 
 ## Sensitive content

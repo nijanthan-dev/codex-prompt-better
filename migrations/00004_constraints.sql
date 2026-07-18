@@ -143,6 +143,7 @@ CREATE UNIQUE INDEX tool_calls_source_alias_uq ON tool_calls (source_id, externa
 
 ALTER TABLE execution_events
     ALTER event_kind SET NOT NULL, ALTER schema_version SET NOT NULL,
+    ALTER evidence_artifact_id SET NOT NULL,
     ALTER attributes SET NOT NULL, ALTER observed_at SET NOT NULL,
     ALTER knowledge_state SET NOT NULL,
     ADD CONSTRAINT execution_events_kind_ck CHECK (event_kind IN
@@ -188,6 +189,7 @@ ALTER TABLE execution_events
     ADD CONSTRAINT execution_events_response_fk FOREIGN KEY (response_id) REFERENCES responses ON DELETE SET NULL,
     ADD CONSTRAINT execution_events_phase_fk FOREIGN KEY (phase_id) REFERENCES phases ON DELETE SET NULL,
     ADD CONSTRAINT execution_events_source_fk FOREIGN KEY (source_id) REFERENCES sources ON DELETE CASCADE,
+    ADD CONSTRAINT execution_events_evidence_fk FOREIGN KEY (evidence_artifact_id) REFERENCES evidence_artifacts ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     ADD CONSTRAINT execution_events_related_fk FOREIGN KEY (related_event_id) REFERENCES execution_events ON DELETE SET NULL;
 
 ALTER TABLE evidence_artifacts
@@ -312,9 +314,11 @@ ALTER TABLE findings
     ADD CONSTRAINT findings_evaluation_fk FOREIGN KEY (evaluation_run_id) REFERENCES evaluation_runs ON DELETE CASCADE;
 
 ALTER TABLE recommendations
-    ALTER recommendation_kind SET NOT NULL, ALTER lifecycle_state SET NOT NULL,
+    ALTER audit_revision_id SET NOT NULL, ALTER recommendation_kind SET NOT NULL,
+    ALTER lifecycle_state SET NOT NULL,
     ALTER approval_required SET NOT NULL, ALTER protected_guardrails SET NOT NULL,
     ALTER risks SET NOT NULL, ALTER created_at SET NOT NULL, ALTER updated_at SET NOT NULL,
+    ADD CONSTRAINT recommendations_revision_fk FOREIGN KEY (audit_revision_id) REFERENCES audit_revisions ON DELETE CASCADE,
     ADD CONSTRAINT recommendations_finding_fk FOREIGN KEY (finding_id) REFERENCES findings ON DELETE CASCADE,
     ADD CONSTRAINT recommendations_project_fk FOREIGN KEY (project_id) REFERENCES projects ON DELETE CASCADE;
 

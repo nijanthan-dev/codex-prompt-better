@@ -52,16 +52,39 @@ func (r *Repository) PutRetentionPolicy(ctx context.Context, policy RetentionPol
 
 // ArchiveRecord is the normalized metadata allowed in encrypted archives.
 type ArchiveRecord struct {
-	EvidenceID     string    `json:"evidence_id"`
-	SourceID       string    `json:"source_id"`
-	ProjectID      string    `json:"project_id"`
-	ContentHash    []byte    `json:"content_hash"`
-	ContentLength  int64     `json:"content_length"`
-	Classification string    `json:"classification"`
-	CoverageState  string    `json:"coverage_state"`
-	Provenance     string    `json:"provenance"`
-	ProductSurface string    `json:"product_surface"`
-	ObservedAt     time.Time `json:"observed_at"`
+	EvidenceID      string     `json:"evidence_id"`
+	SourceID        string     `json:"source_id"`
+	ProjectID       string     `json:"project_id"`
+	SessionID       *string    `json:"session_id,omitempty"`
+	ExternalAliasID *string    `json:"external_alias_id,omitempty"`
+	SchemaVersion   string     `json:"schema_version"`
+	ContentHash     []byte     `json:"content_hash"`
+	ContentLength   int64      `json:"content_length"`
+	Classification  string     `json:"classification"`
+	RedactionState  string     `json:"redaction_state"`
+	CoverageState   string     `json:"coverage_state"`
+	Provenance      string     `json:"provenance"`
+	ProductSurface  string     `json:"product_surface"`
+	ObservedAt      time.Time  `json:"observed_at"`
+	RetainedUntil   *time.Time `json:"retained_until,omitempty"`
+}
+
+type archiveMatchRecord struct {
+	EvidenceID      string     `json:"evidence_id"`
+	SourceID        string     `json:"source_id"`
+	ProjectID       string     `json:"project_id"`
+	SessionID       *string    `json:"session_id"`
+	ExternalAliasID *string    `json:"external_alias_id"`
+	SchemaVersion   string     `json:"schema_version"`
+	ContentHashHex  string     `json:"content_hash_hex"`
+	ContentLength   int64      `json:"content_length"`
+	Classification  string     `json:"classification"`
+	RedactionState  string     `json:"redaction_state"`
+	CoverageState   string     `json:"coverage_state"`
+	Provenance      string     `json:"provenance"`
+	ProductSurface  string     `json:"product_surface"`
+	ObservedAt      time.Time  `json:"observed_at"`
+	RetainedUntil   *time.Time `json:"retained_until"`
 }
 
 // RetentionPlan is an immutable dry-run result and archive input.
@@ -87,8 +110,9 @@ func (r *Repository) PlanRetention(ctx context.Context, policyID string, asOf ti
 		return RetentionPlan{}, errors.New("read retention policy")
 	}
 	rows, err := r.pool.Query(ctx, `SELECT e.evidence_artifact_id, e.source_id,
-        e.project_id, e.content_hash, e.content_length, e.classification,
-        e.coverage_state, e.provenance, e.product_surface, e.observed_at
+		e.project_id, e.session_id, e.external_alias_id, e.schema_version,
+		e.content_hash, e.content_length, e.classification, e.redaction_state,
+		e.coverage_state, e.provenance, e.product_surface, e.observed_at, e.retained_until
         FROM prompt_better.evidence_artifacts e
         JOIN prompt_better.retention_policies p
           ON p.project_id=e.project_id AND p.classification=e.classification
@@ -106,9 +130,10 @@ func (r *Repository) PlanRetention(ctx context.Context, policyID string, asOf ti
 	for rows.Next() {
 		var record ArchiveRecord
 		if err := rows.Scan(&record.EvidenceID, &record.SourceID, &record.ProjectID,
+			&record.SessionID, &record.ExternalAliasID, &record.SchemaVersion,
 			&record.ContentHash, &record.ContentLength, &record.Classification,
-			&record.CoverageState, &record.Provenance, &record.ProductSurface,
-			&record.ObservedAt); err != nil {
+			&record.RedactionState, &record.CoverageState, &record.Provenance,
+			&record.ProductSurface, &record.ObservedAt, &record.RetainedUntil); err != nil {
 			return RetentionPlan{}, errors.New("scan retention plan")
 		}
 		plan.Records = append(plan.Records, record)
@@ -132,7 +157,7 @@ func EncodeArchive(plan RetentionPlan) ([]byte, error) {
 		ProjectID string          `json:"project_id"`
 		AsOf      time.Time       `json:"as_of"`
 		Records   []ArchiveRecord `json:"records"`
-	}{Format: "prompt-better-retention-v1", PolicyID: plan.PolicyID, ProjectID: plan.ProjectID,
+	}{Format: "prompt-better-retention-v2", PolicyID: plan.PolicyID, ProjectID: plan.ProjectID,
 		AsOf: plan.AsOf.UTC(), Records: plan.Records})
 	if err != nil {
 		return nil, errors.New("encode normalized archive")
@@ -177,6 +202,11 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
 	for i, record := range apply.Plan.Records {
 		ids[i] = record.EvidenceID
 	}
+	matchPayload, err := encodeArchiveMatchRecords(apply.Plan.Records)
+	if err != nil {
+		return 0, err
+	}
+	sessionIDs := archiveSessionIDs(apply.Plan.Records)
 	var applied int64
 	err = r.WithSerializable(ctx, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, retentionLockID(planDigest)); err != nil {
@@ -188,22 +218,12 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			return databaseError("read retention action", err)
 		}
-		var eligible int64
-		if err := tx.QueryRow(ctx, `SELECT count(*)
-            FROM prompt_better.evidence_artifacts e
-            JOIN prompt_better.retention_policies p
-              ON p.project_id=e.project_id AND p.classification=e.classification
-             AND p.retired_at IS NULL
-            WHERE p.retention_policy_id=$1 AND e.project_id=$2
-              AND e.evidence_artifact_id=ANY($3::uuid[])
-              AND e.deleted_at IS NULL AND NOT p.legal_hold
-              AND COALESCE(e.retained_until,
-                  e.observed_at + p.retain_for_seconds * interval '1 second') <= $4`,
-			apply.Plan.PolicyID, apply.Plan.ProjectID, ids, apply.Plan.AsOf).Scan(&eligible); err != nil {
-			return databaseError("recheck retention plan", err)
+		if err := validateArchivedPlan(ctx, tx, apply.Plan, matchPayload); err != nil {
+			return err
 		}
-		if eligible != int64(len(ids)) {
-			return errors.New("retention plan changed before apply")
+		taskIDs, err := retentionTaskIDs(ctx, tx, sessionIDs)
+		if err != nil {
+			return err
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.retention_actions
             (retention_action_id, retention_policy_id, project_id, action_key,
@@ -229,32 +249,15 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
             (archive_batch_id, project_id, retention_action_id, archive_reference,
              encryption_key_reference, format_version, range_start, range_end,
              entity_count, plaintext_digest, encrypted_digest, status, created_at, verified_at)
-            VALUES ($1,$2,$3,$4,$5,'1.0.0',$6,$7,$8,$9,$10,'verified',statement_timestamp(),$11)`,
+            VALUES ($1,$2,$3,$4,$5,'2.0.0',$6,$7,$8,$9,$10,'verified',statement_timestamp(),$11)`,
 			apply.Receipt.BatchID, apply.Plan.ProjectID, apply.ActionID,
 			apply.Receipt.ArchiveReference, apply.Receipt.EncryptionKeyReference,
 			rangeStart, rangeEnd, len(ids), apply.Receipt.PlaintextDigest[:],
 			apply.Receipt.EncryptedDigest[:], apply.Receipt.VerifiedAt); err != nil {
 			return databaseError("record archive batch", err)
 		}
-		for _, target := range []struct{ table, kind, dependents string }{
-			{"metric_results", "metric_result", ""},
-			{"findings", "finding", ""},
-			{"audit_revisions", "audit_revision", `
-				AND NOT EXISTS (SELECT 1 FROM prompt_better.metric_results dependent
-					WHERE dependent.audit_revision_id=target.audit_revision_id)
-				AND NOT EXISTS (SELECT 1 FROM prompt_better.findings dependent
-					WHERE dependent.audit_revision_id=target.audit_revision_id)`},
-		} {
-			query := `DELETE FROM prompt_better.` + target.table + ` target WHERE target.` +
-				target.kind + `_id IN (SELECT target_id FROM prompt_better.evidence_links
-					WHERE evidence_artifact_id=ANY($1::uuid[]) AND target_kind=$2)
-				AND NOT EXISTS (SELECT 1 FROM prompt_better.evidence_links retained_link
-					WHERE retained_link.target_kind=$2
-					  AND retained_link.target_id=target.` + target.kind + `_id
-					  AND NOT (retained_link.evidence_artifact_id=ANY($1::uuid[])))` + target.dependents
-			if _, err := tx.Exec(ctx, query, ids, target.kind); err != nil {
-				return databaseError("delete derived retention data", err)
-			}
+		if err := deleteExpiredAuditRevisions(ctx, tx, ids); err != nil {
+			return err
 		}
 		tag, err := tx.Exec(ctx, `DELETE FROM prompt_better.evidence_artifacts
             WHERE evidence_artifact_id=ANY($1::uuid[])`, ids)
@@ -272,25 +275,15 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
 			apply.Plan.ProjectID); err != nil {
 			return databaseError("delete unreferenced keyed aliases", err)
 		}
-		if _, err := tx.Exec(ctx, `DELETE FROM prompt_better.tasks task
-			WHERE task.project_id=$1 AND NOT EXISTS (
-				SELECT 1 FROM prompt_better.evidence_artifacts evidence
-				WHERE evidence.project_id=task.project_id AND evidence.deleted_at IS NULL)`,
-			apply.Plan.ProjectID); err != nil {
-			return databaseError("delete retained task identities", err)
+		if err := deleteExpiredExecutionLineage(ctx, tx, sessionIDs, taskIDs); err != nil {
+			return err
 		}
-		if _, err := tx.Exec(ctx, `DELETE FROM prompt_better.state_epochs epoch
-			USING prompt_better.trajectories trajectory,
-				prompt_better.sessions session
-			WHERE epoch.trajectory_id=trajectory.trajectory_id
-			  AND trajectory.session_id=session.session_id
-			  AND session.project_id=$1
-			  AND NOT EXISTS (
-				SELECT 1 FROM prompt_better.evidence_artifacts evidence
-				WHERE evidence.project_id=session.project_id
-				  AND evidence.deleted_at IS NULL)`,
+		if _, err := tx.Exec(ctx, `DELETE FROM prompt_better.audit_windows audit_window
+			WHERE audit_window.project_id=$1 AND NOT EXISTS (
+				SELECT 1 FROM prompt_better.audit_revisions revision
+				WHERE revision.audit_window_id=audit_window.audit_window_id)`,
 			apply.Plan.ProjectID); err != nil {
-			return databaseError("delete retained state epochs", err)
+			return databaseError("delete empty audit windows", err)
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.retention_action_entities
 			(retention_action_entity_id,retention_action_id,archive_batch_id,entity_kind,
@@ -311,6 +304,201 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
 		return 0, err
 	}
 	return applied, nil
+}
+
+func encodeArchiveMatchRecords(records []ArchiveRecord) ([]byte, error) {
+	matched := make([]archiveMatchRecord, len(records))
+	for i, record := range records {
+		matched[i] = archiveMatchRecord{
+			EvidenceID: record.EvidenceID, SourceID: record.SourceID, ProjectID: record.ProjectID,
+			SessionID: record.SessionID, ExternalAliasID: record.ExternalAliasID,
+			SchemaVersion: record.SchemaVersion, ContentHashHex: hex.EncodeToString(record.ContentHash),
+			ContentLength: record.ContentLength, Classification: record.Classification,
+			RedactionState: record.RedactionState, CoverageState: record.CoverageState,
+			Provenance: record.Provenance, ProductSurface: record.ProductSurface,
+			ObservedAt: record.ObservedAt, RetainedUntil: record.RetainedUntil,
+		}
+	}
+	payload, err := json.Marshal(matched)
+	if err != nil {
+		return nil, errors.New("encode retention match records")
+	}
+	return payload, nil
+}
+
+func archiveSessionIDs(records []ArchiveRecord) []string {
+	seen := make(map[string]struct{})
+	result := make([]string, 0, len(records))
+	for _, record := range records {
+		if record.SessionID == nil {
+			continue
+		}
+		if _, exists := seen[*record.SessionID]; exists {
+			continue
+		}
+		seen[*record.SessionID] = struct{}{}
+		result = append(result, *record.SessionID)
+	}
+	return result
+}
+
+func validateArchivedPlan(ctx context.Context, tx pgx.Tx, plan RetentionPlan, payload []byte) error {
+	rows, err := tx.Query(ctx, `WITH archived AS (
+		SELECT * FROM jsonb_to_recordset($1::jsonb) AS record(
+			evidence_id uuid, source_id uuid, project_id uuid, session_id uuid,
+			external_alias_id uuid, schema_version text, content_hash_hex text,
+			content_length bigint, classification text, redaction_state text,
+			coverage_state text, provenance text, product_surface text,
+			observed_at timestamptz, retained_until timestamptz))
+		SELECT evidence.evidence_artifact_id
+		FROM archived
+		JOIN prompt_better.evidence_artifacts evidence
+		  ON evidence.evidence_artifact_id=archived.evidence_id
+		 AND evidence.source_id=archived.source_id
+		 AND evidence.project_id=archived.project_id
+		 AND evidence.session_id IS NOT DISTINCT FROM archived.session_id
+		 AND evidence.external_alias_id IS NOT DISTINCT FROM archived.external_alias_id
+		 AND evidence.schema_version=archived.schema_version
+		 AND evidence.content_hash=decode(archived.content_hash_hex,'hex')
+		 AND evidence.content_length=archived.content_length
+		 AND evidence.classification=archived.classification
+		 AND evidence.redaction_state=archived.redaction_state
+		 AND evidence.coverage_state=archived.coverage_state
+		 AND evidence.provenance=archived.provenance
+		 AND evidence.product_surface=archived.product_surface
+		 AND evidence.observed_at=archived.observed_at
+		 AND evidence.retained_until IS NOT DISTINCT FROM archived.retained_until
+		JOIN prompt_better.retention_policies policy
+		  ON policy.project_id=evidence.project_id
+		 AND policy.classification=evidence.classification
+		 AND policy.retired_at IS NULL
+		WHERE policy.retention_policy_id=$2 AND evidence.project_id=$3
+		  AND evidence.deleted_at IS NULL AND NOT policy.legal_hold
+		  AND coalesce(evidence.retained_until,
+		      evidence.observed_at + policy.retain_for_seconds * interval '1 second') <= $4
+		FOR UPDATE OF evidence`, payload, plan.PolicyID, plan.ProjectID, plan.AsOf)
+	if err != nil {
+		return databaseError("recheck archived retention plan", err)
+	}
+	defer rows.Close()
+	matched := 0
+	for rows.Next() {
+		var evidenceID string
+		if err := rows.Scan(&evidenceID); err != nil {
+			return databaseError("decode archived retention match", err)
+		}
+		matched++
+	}
+	if err := rows.Err(); err != nil {
+		return databaseError("iterate archived retention plan", err)
+	}
+	if matched != len(plan.Records) {
+		return errors.New("retention plan changed before apply")
+	}
+	return nil
+}
+
+func retentionTaskIDs(ctx context.Context, tx pgx.Tx, sessionIDs []string) ([]string, error) {
+	if len(sessionIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := tx.Query(ctx, `SELECT DISTINCT turn.task_id::text
+		FROM prompt_better.turns turn
+		JOIN prompt_better.trajectories trajectory USING (trajectory_id)
+		WHERE trajectory.session_id=ANY($1::uuid[]) AND turn.task_id IS NOT NULL`, sessionIDs)
+	if err != nil {
+		return nil, databaseError("select expired task candidates", err)
+	}
+	defer rows.Close()
+	var result []string
+	for rows.Next() {
+		var taskID string
+		if err := rows.Scan(&taskID); err != nil {
+			return nil, databaseError("decode expired task candidate", err)
+		}
+		result = append(result, taskID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, databaseError("iterate expired task candidates", err)
+	}
+	return result, nil
+}
+
+func deleteExpiredAuditRevisions(ctx context.Context, tx pgx.Tx, evidenceIDs []string) error {
+	_, err := tx.Exec(ctx, `DELETE FROM prompt_better.audit_revisions revision
+		WHERE revision.audit_revision_id IN (
+			SELECT link.target_id FROM prompt_better.evidence_links link
+			WHERE link.evidence_artifact_id=ANY($1::uuid[])
+			  AND link.target_kind='audit_revision'
+			UNION
+			SELECT result.audit_revision_id
+			FROM prompt_better.metric_results result
+			JOIN prompt_better.evidence_links link
+			  ON link.target_kind='metric_result' AND link.target_id=result.metric_result_id
+			WHERE link.evidence_artifact_id=ANY($1::uuid[])
+			UNION
+			SELECT finding.audit_revision_id
+			FROM prompt_better.findings finding
+			JOIN prompt_better.evidence_links link
+			  ON link.target_kind='finding' AND link.target_id=finding.finding_id
+			WHERE link.evidence_artifact_id=ANY($1::uuid[])
+			UNION
+			SELECT observation.audit_revision_id
+			FROM prompt_better.observations observation
+			WHERE observation.audit_revision_id IS NOT NULL
+			  AND observation.evidence_artifact_id=ANY($1::uuid[])
+			UNION
+			SELECT recommendation.audit_revision_id
+			FROM prompt_better.recommendations recommendation
+			JOIN prompt_better.recommendation_events event USING (recommendation_id)
+			WHERE event.evidence_artifact_id=ANY($1::uuid[]))
+		AND NOT EXISTS (
+			SELECT 1 FROM prompt_better.evidence_links retained_link
+			WHERE NOT (retained_link.evidence_artifact_id=ANY($1::uuid[])) AND (
+				(retained_link.target_kind='audit_revision'
+				 AND retained_link.target_id=revision.audit_revision_id)
+				OR (retained_link.target_kind='metric_result' AND EXISTS (
+					SELECT 1 FROM prompt_better.metric_results result
+					WHERE result.metric_result_id=retained_link.target_id
+					  AND result.audit_revision_id=revision.audit_revision_id))
+				OR (retained_link.target_kind='finding' AND EXISTS (
+					SELECT 1 FROM prompt_better.findings finding
+					WHERE finding.finding_id=retained_link.target_id
+					  AND finding.audit_revision_id=revision.audit_revision_id))))
+		AND NOT EXISTS (
+			SELECT 1 FROM prompt_better.recommendations recommendation
+			JOIN prompt_better.recommendation_events event USING (recommendation_id)
+			WHERE recommendation.audit_revision_id=revision.audit_revision_id
+			  AND event.evidence_artifact_id IS NOT NULL
+			  AND NOT (event.evidence_artifact_id=ANY($1::uuid[])))
+		AND NOT EXISTS (
+			SELECT 1 FROM prompt_better.observations observation
+			WHERE observation.audit_revision_id=revision.audit_revision_id
+			  AND observation.evidence_artifact_id IS NOT NULL
+			  AND NOT (observation.evidence_artifact_id=ANY($1::uuid[])))`, evidenceIDs)
+	if err != nil {
+		return databaseError("delete expired audit revisions", err)
+	}
+	return nil
+}
+
+func deleteExpiredExecutionLineage(ctx context.Context, tx pgx.Tx, sessionIDs, taskIDs []string) error {
+	if len(sessionIDs) > 0 {
+		if _, err := tx.Exec(ctx, `DELETE FROM prompt_better.sessions session
+			WHERE session.session_id=ANY($1::uuid[]) AND NOT EXISTS (
+				SELECT 1 FROM prompt_better.evidence_artifacts evidence
+				WHERE evidence.session_id=session.session_id AND evidence.deleted_at IS NULL)`, sessionIDs); err != nil {
+			return databaseError("delete expired execution sessions", err)
+		}
+	}
+	if len(taskIDs) > 0 {
+		if _, err := tx.Exec(ctx, `DELETE FROM prompt_better.tasks task
+			WHERE task.task_id=ANY($1::uuid[]) AND NOT EXISTS (
+				SELECT 1 FROM prompt_better.turns turn WHERE turn.task_id=task.task_id)`, taskIDs); err != nil {
+			return databaseError("delete expired task identities", err)
+		}
+	}
+	return nil
 }
 
 func retentionLockID(digest [sha256.Size]byte) int64 {

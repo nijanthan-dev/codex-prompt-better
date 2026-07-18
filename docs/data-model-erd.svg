@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="2840" height="2931" viewBox="0 0 2840 2931" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="2840" height="2950" viewBox="0 0 2840 2950" role="img" aria-labelledby="title desc">
 <title id="title">Prompt Better PostgreSQL physical entity relationship diagram</title>
 <desc id="desc">All 32 tables, columns, PostgreSQL data types, primary keys, foreign keys, and column relationships.</desc>
-<metadata>schema-fingerprint:26ab905047f9</metadata>
+<metadata>schema-fingerprint:4d77d11861a5</metadata>
 <rect width="100%" height="100%" fill="#f8fafc"/>
 <path d="M530 119 C1670 119,1670 603,2810 603" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to archive_batches.project_id</title></path>
 <path d="M2810 323 C2810 323,2810 622,2810 622" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>retention_actions.retention_action_id to archive_batches.retention_action_id</title></path>
@@ -14,10 +14,11 @@
 <path d="M1100 119 C1385 119,1385 176,1670 176" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sessions.session_id to evidence_artifacts.session_id</title></path>
 <path d="M530 413 C1100 413,1100 138,1670 138" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to evidence_artifacts.source_id</title></path>
 <path d="M1670 119 C1670 119,1670 494,1670 494" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>evidence_artifacts.evidence_artifact_id to evidence_links.evidence_artifact_id</title></path>
+<path d="M1170 119 C1135 119,1135 2677,1100 2677" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>evidence_artifacts.evidence_artifact_id to execution_events.evidence_artifact_id</title></path>
 <path d="M1100 546 C1100 546,1100 2601,1100 2601" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>trajectories.trajectory_id to execution_events.parent_trajectory_id</title></path>
 <path d="M1100 1628 C1100 1628,1100 2639,1100 2639" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>phases.phase_id to execution_events.phase_id</title></path>
 <path d="M530 119 C815 119,815 2544,1100 2544" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to execution_events.project_id</title></path>
-<path d="M1100 2468 C1100 2468,1100 2696,1100 2696" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>execution_events.execution_event_id to execution_events.related_event_id</title></path>
+<path d="M1100 2468 C1100 2468,1100 2715,1100 2715" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>execution_events.execution_event_id to execution_events.related_event_id</title></path>
 <path d="M1100 954 C1100 954,1100 2620,1100 2620" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>responses.response_id to execution_events.response_id</title></path>
 <path d="M1100 119 C1100 119,1100 2563,1100 2563" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sessions.session_id to execution_events.session_id</title></path>
 <path d="M530 413 C815 413,815 2658,1100 2658" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to execution_events.source_id</title></path>
@@ -41,10 +42,11 @@
 <path d="M530 119 C530 119,530 987,530 987" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to project_aliases.project_id</title></path>
 <path d="M530 413 C530 413,530 1006,530 1006" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to project_aliases.source_id</title></path>
 <path d="M530 119 C530 119,530 228,530 228" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to project_versions.project_id</title></path>
-<path d="M1670 119 C1955 119,1955 2573,2240 2573" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>evidence_artifacts.evidence_artifact_id to recommendation_events.evidence_artifact_id</title></path>
-<path d="M2240 2046 C2240 2046,2240 2478,2240 2478" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>recommendations.recommendation_id to recommendation_events.recommendation_id</title></path>
-<path d="M2240 1747 C2240 1747,2240 2065,2240 2065" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>findings.finding_id to recommendations.finding_id</title></path>
-<path d="M530 119 C1385 119,1385 2084,2240 2084" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to recommendations.project_id</title></path>
+<path d="M1670 119 C1955 119,1955 2592,2240 2592" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>evidence_artifacts.evidence_artifact_id to recommendation_events.evidence_artifact_id</title></path>
+<path d="M2240 2046 C2240 2046,2240 2497,2240 2497" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>recommendations.recommendation_id to recommendation_events.recommendation_id</title></path>
+<path d="M2240 399 C2240 399,2240 2065,2240 2065" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>audit_revisions.audit_revision_id to recommendations.audit_revision_id</title></path>
+<path d="M2240 1747 C2240 1747,2240 2084,2240 2084" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>findings.finding_id to recommendations.finding_id</title></path>
+<path d="M530 119 C1385 119,1385 2103,2240 2103" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to recommendations.project_id</title></path>
 <path d="M1100 954 C1100 954,1100 1030,1100 1030" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>responses.response_id to responses.parent_response_id</title></path>
 <path d="M530 413 C815 413,815 992,1100 992" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to responses.source_id</title></path>
 <path d="M1100 750 C1100 750,1100 973,1100 973" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>turns.turn_id to responses.turn_id</title></path>
@@ -631,7 +633,7 @@
 <text x="610" y="2401" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">knowledge_state</text>
 <text x="885" y="2401" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
 <text x="1020" y="2401" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
-<rect x="600" y="2431" width="500" height="446" rx="6" fill="white" stroke="#cbd5e1"/>
+<rect x="600" y="2431" width="500" height="465" rx="6" fill="white" stroke="#cbd5e1"/>
 <path d="M600 2437 h500 v22 h-500 z" fill="#7c3aed"/>
 <text x="610" y="2450" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">execution_events</text>
 <text x="610" y="2472" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">execution_event_id</text>
@@ -673,44 +675,47 @@
 <text x="885" y="2662" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
 <text x="1020" y="2662" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
 <rect x="601" y="2668" width="498" height="19" fill="#f1f5f9"/>
-<text x="610" y="2681" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">external_alias_id</text>
+<text x="610" y="2681" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evidence_artifact_id</text>
 <text x="885" y="2681" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
-<text x="1020" y="2681" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
-<text x="610" y="2700" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">related_event_id</text>
+<text x="1020" y="2681" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<text x="610" y="2700" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">external_alias_id</text>
 <text x="885" y="2700" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
-<text x="1020" y="2700" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<text x="1020" y="2700" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
 <rect x="601" y="2706" width="498" height="19" fill="#f1f5f9"/>
-<text x="610" y="2719" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">outcome</text>
-<text x="885" y="2719" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
-<text x="1020" y="2719" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
-<text x="610" y="2738" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">state_value</text>
+<text x="610" y="2719" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">related_event_id</text>
+<text x="885" y="2719" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2719" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<text x="610" y="2738" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">outcome</text>
 <text x="885" y="2738" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
 <text x="1020" y="2738" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
 <rect x="601" y="2744" width="498" height="19" fill="#f1f5f9"/>
-<text x="610" y="2757" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">depth</text>
-<text x="885" y="2757" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="610" y="2757" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">state_value</text>
+<text x="885" y="2757" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
 <text x="1020" y="2757" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
-<text x="610" y="2776" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">numeric_value</text>
-<text x="885" y="2776" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">numeric</text>
+<text x="610" y="2776" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">depth</text>
+<text x="885" y="2776" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
 <text x="1020" y="2776" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
 <rect x="601" y="2782" width="498" height="19" fill="#f1f5f9"/>
-<text x="610" y="2795" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">confidence</text>
-<text x="885" y="2795" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">double precision</text>
+<text x="610" y="2795" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">numeric_value</text>
+<text x="885" y="2795" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">numeric</text>
 <text x="1020" y="2795" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
-<text x="610" y="2814" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">content_hash</text>
-<text x="885" y="2814" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="610" y="2814" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">confidence</text>
+<text x="885" y="2814" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">double precision</text>
 <text x="1020" y="2814" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
 <rect x="601" y="2820" width="498" height="19" fill="#f1f5f9"/>
-<text x="610" y="2833" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">attributes</text>
-<text x="885" y="2833" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">jsonb</text>
-<text x="1020" y="2833" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
-<text x="610" y="2852" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">observed_at</text>
-<text x="885" y="2852" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="610" y="2833" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">content_hash</text>
+<text x="885" y="2833" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="1020" y="2833" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="2852" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">attributes</text>
+<text x="885" y="2852" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">jsonb</text>
 <text x="1020" y="2852" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
 <rect x="601" y="2858" width="498" height="19" fill="#f1f5f9"/>
-<text x="610" y="2871" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">knowledge_state</text>
-<text x="885" y="2871" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="610" y="2871" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">observed_at</text>
+<text x="885" y="2871" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
 <text x="1020" y="2871" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="2890" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">knowledge_state</text>
+<text x="885" y="2890" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="2890" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
 <text x="1170" y="50" font-family="ui-sans-serif,system-ui" font-size="22" font-weight="700" fill="#0891b2">Evidence</text>
 <rect x="1170" y="82" width="500" height="332" rx="6" fill="white" stroke="#cbd5e1"/>
 <path d="M1170 88 h500 v22 h-500 z" fill="#0891b2"/>
@@ -1200,102 +1205,106 @@
 <text x="1750" y="1979" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">deleted_at</text>
 <text x="2025" y="1979" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
 <text x="2160" y="1979" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
-<rect x="1740" y="2009" width="500" height="389" rx="6" fill="white" stroke="#cbd5e1"/>
+<rect x="1740" y="2009" width="500" height="408" rx="6" fill="white" stroke="#cbd5e1"/>
 <path d="M1740 2015 h500 v22 h-500 z" fill="#c2410c"/>
 <text x="1750" y="2028" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">recommendations</text>
 <text x="1750" y="2050" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">recommendation_id</text>
 <text x="2025" y="2050" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
 <text x="2160" y="2050" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">PK</text>
 <rect x="1741" y="2056" width="498" height="19" fill="#f1f5f9"/>
-<text x="1750" y="2069" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">finding_id</text>
+<text x="1750" y="2069" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">audit_revision_id</text>
 <text x="2025" y="2069" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
-<text x="2160" y="2069" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK</text>
-<text x="1750" y="2088" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_id</text>
+<text x="2160" y="2069" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK NN</text>
+<text x="1750" y="2088" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">finding_id</text>
 <text x="2025" y="2088" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
 <text x="2160" y="2088" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK</text>
 <rect x="1741" y="2094" width="498" height="19" fill="#f1f5f9"/>
-<text x="1750" y="2107" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">recommendation_kind</text>
-<text x="2025" y="2107" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
-<text x="2160" y="2107" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
-<text x="1750" y="2126" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">lifecycle_state</text>
+<text x="1750" y="2107" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_id</text>
+<text x="2025" y="2107" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="2107" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK</text>
+<text x="1750" y="2126" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">recommendation_kind</text>
 <text x="2025" y="2126" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
 <text x="2160" y="2126" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
 <rect x="1741" y="2132" width="498" height="19" fill="#f1f5f9"/>
-<text x="1750" y="2145" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">approval_required</text>
-<text x="2025" y="2145" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">boolean</text>
+<text x="1750" y="2145" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">lifecycle_state</text>
+<text x="2025" y="2145" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
 <text x="2160" y="2145" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
-<text x="1750" y="2164" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">verification_kind</text>
-<text x="2025" y="2164" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
-<text x="2160" y="2164" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="2164" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">approval_required</text>
+<text x="2025" y="2164" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">boolean</text>
+<text x="2160" y="2164" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
 <rect x="1741" y="2170" width="498" height="19" fill="#f1f5f9"/>
-<text x="1750" y="2183" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">action_code</text>
+<text x="1750" y="2183" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">verification_kind</text>
 <text x="2025" y="2183" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
 <text x="2160" y="2183" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
-<text x="1750" y="2202" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">policy_version</text>
+<text x="1750" y="2202" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">action_code</text>
 <text x="2025" y="2202" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
 <text x="2160" y="2202" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
 <rect x="1741" y="2208" width="498" height="19" fill="#f1f5f9"/>
-<text x="1750" y="2221" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">cooldown_until</text>
-<text x="2025" y="2221" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1750" y="2221" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">policy_version</text>
+<text x="2025" y="2221" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
 <text x="2160" y="2221" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
-<text x="1750" y="2240" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evidence_revision</text>
-<text x="2025" y="2240" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1750" y="2240" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">cooldown_until</text>
+<text x="2025" y="2240" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
 <text x="2160" y="2240" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
 <rect x="1741" y="2246" width="498" height="19" fill="#f1f5f9"/>
-<text x="1750" y="2259" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">target_surface</text>
+<text x="1750" y="2259" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evidence_revision</text>
 <text x="2025" y="2259" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
 <text x="2160" y="2259" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
-<text x="1750" y="2278" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">action_text</text>
+<text x="1750" y="2278" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">target_surface</text>
 <text x="2025" y="2278" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
 <text x="2160" y="2278" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
 <rect x="1741" y="2284" width="498" height="19" fill="#f1f5f9"/>
-<text x="1750" y="2297" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">expected_movement</text>
+<text x="1750" y="2297" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">action_text</text>
 <text x="2025" y="2297" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
 <text x="2160" y="2297" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
-<text x="1750" y="2316" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">protected_guardrails</text>
-<text x="2025" y="2316" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">jsonb</text>
-<text x="2160" y="2316" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="2316" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">expected_movement</text>
+<text x="2025" y="2316" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="2316" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
 <rect x="1741" y="2322" width="498" height="19" fill="#f1f5f9"/>
-<text x="1750" y="2335" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">risks</text>
+<text x="1750" y="2335" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">protected_guardrails</text>
 <text x="2025" y="2335" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">jsonb</text>
 <text x="2160" y="2335" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
-<text x="1750" y="2354" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">created_at</text>
-<text x="2025" y="2354" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1750" y="2354" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">risks</text>
+<text x="2025" y="2354" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">jsonb</text>
 <text x="2160" y="2354" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
 <rect x="1741" y="2360" width="498" height="19" fill="#f1f5f9"/>
-<text x="1750" y="2373" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">updated_at</text>
+<text x="1750" y="2373" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">created_at</text>
 <text x="2025" y="2373" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
 <text x="2160" y="2373" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
-<text x="1750" y="2392" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">deleted_at</text>
+<text x="1750" y="2392" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">updated_at</text>
 <text x="2025" y="2392" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
-<text x="2160" y="2392" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
-<rect x="1740" y="2422" width="500" height="161" rx="6" fill="white" stroke="#cbd5e1"/>
-<path d="M1740 2428 h500 v22 h-500 z" fill="#c2410c"/>
-<text x="1750" y="2441" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">recommendation_events</text>
-<text x="1750" y="2463" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">recommendation_event_id</text>
-<text x="2025" y="2463" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
-<text x="2160" y="2463" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">PK</text>
-<rect x="1741" y="2469" width="498" height="19" fill="#f1f5f9"/>
-<text x="1750" y="2482" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">recommendation_id</text>
+<text x="2160" y="2392" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="2398" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2411" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">deleted_at</text>
+<text x="2025" y="2411" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="2411" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1740" y="2441" width="500" height="161" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M1740 2447 h500 v22 h-500 z" fill="#c2410c"/>
+<text x="1750" y="2460" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">recommendation_events</text>
+<text x="1750" y="2482" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">recommendation_event_id</text>
 <text x="2025" y="2482" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
-<text x="2160" y="2482" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK NN</text>
-<text x="1750" y="2501" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">event_kind</text>
-<text x="2025" y="2501" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
-<text x="2160" y="2501" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
-<rect x="1741" y="2507" width="498" height="19" fill="#f1f5f9"/>
-<text x="1750" y="2520" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">prior_state</text>
+<text x="2160" y="2482" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">PK</text>
+<rect x="1741" y="2488" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2501" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">recommendation_id</text>
+<text x="2025" y="2501" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="2501" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK NN</text>
+<text x="1750" y="2520" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">event_kind</text>
 <text x="2025" y="2520" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
-<text x="2160" y="2520" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
-<text x="1750" y="2539" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">next_state</text>
+<text x="2160" y="2520" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="2526" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2539" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">prior_state</text>
 <text x="2025" y="2539" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
 <text x="2160" y="2539" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
-<rect x="1741" y="2545" width="498" height="19" fill="#f1f5f9"/>
-<text x="1750" y="2558" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">observed_at</text>
-<text x="2025" y="2558" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
-<text x="2160" y="2558" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
-<text x="1750" y="2577" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evidence_artifact_id</text>
-<text x="2025" y="2577" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
-<text x="2160" y="2577" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK</text>
+<text x="1750" y="2558" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">next_state</text>
+<text x="2025" y="2558" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="2558" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="2564" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2577" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">observed_at</text>
+<text x="2025" y="2577" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="2577" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="2596" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evidence_artifact_id</text>
+<text x="2025" y="2596" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="2596" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK</text>
 <text x="2310" y="50" font-family="ui-sans-serif,system-ui" font-size="22" font-weight="700" fill="#15803d">Retention</text>
 <rect x="2310" y="82" width="500" height="180" rx="6" fill="white" stroke="#cbd5e1"/>
 <path d="M2310 88 h500 v22 h-500 z" fill="#15803d"/>
