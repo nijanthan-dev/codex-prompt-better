@@ -1,5 +1,8 @@
 # Issue 6 checkpoints
 
+> Superseded for persistence and schema topology by issue #57's schema-v2
+> baseline. Historical evidence below remains unchanged.
+
 Base: `af1d51800a1e3ba418a984a5d711583c8e5eaa78`.
 
 ## Step 1: contracts
