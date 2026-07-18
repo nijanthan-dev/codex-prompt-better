@@ -76,7 +76,7 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
 		asOf.Add(-31*24*time.Hour), "old")
 	putRetentionEvidence(t, ctx, repo, projectID, sourceID, youngID,
 		asOf.Add(-29*24*time.Hour), "young")
-	putDerivedRetentionRows(t, ctx, db, projectID, oldID, asOf)
+	putDerivedRetentionRows(t, ctx, db, projectID, oldID, youngID, asOf)
 	putNormalizedRetentionRows(t, ctx, db, projectID, sourceID, asOf)
 	if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.key_versions
         (key_version_id,key_reference,algorithm,state,created_at)
@@ -155,17 +155,17 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
 		WHERE session.project_id=$1`, projectID, 1)
 	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.audit_revisions revision
 		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
-		WHERE audit_window.project_id=$1`, projectID, 0)
+		WHERE audit_window.project_id=$1`, projectID, 1)
 	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.metric_results result
 		JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
 		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
-		WHERE audit_window.project_id=$1`, projectID, 0)
+		WHERE audit_window.project_id=$1`, projectID, 1)
 	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.findings finding
 		JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
 		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
-		WHERE audit_window.project_id=$1`, projectID, 0)
+		WHERE audit_window.project_id=$1`, projectID, 1)
 	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.recommendations
-		WHERE project_id=$1`, projectID, 0)
+		WHERE project_id=$1`, projectID, 1)
 
 	if err := repo.PutRetentionPolicy(ctx, store.RetentionPolicy{
 		ID: policyID, ProjectID: projectID, Version: "1.0.1", Classification: "internal",
@@ -210,6 +210,17 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
 		  ON trajectory.trajectory_id=epoch.trajectory_id
 		JOIN prompt_better.sessions session ON session.session_id=trajectory.session_id
 		WHERE session.project_id=$1`, projectID, 0)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.audit_revisions revision
+		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
+		WHERE audit_window.project_id=$1`, projectID, 0)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.metric_results result
+		JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
+		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
+		WHERE audit_window.project_id=$1`, projectID, 0)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.findings finding
+		JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
+		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
+		WHERE audit_window.project_id=$1`, projectID, 0)
 	if err := repo.MaintainAfterRetention(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +274,7 @@ func putNormalizedRetentionRows(t *testing.T, ctx context.Context, db *sql.DB,
 }
 
 func putDerivedRetentionRows(t *testing.T, ctx context.Context, db *sql.DB,
-	projectID, evidenceID string, asOf time.Time) {
+	projectID, expiredEvidenceID, retainedEvidenceID string, asOf time.Time) {
 	t.Helper()
 	statements := []struct {
 		query string
@@ -293,9 +304,21 @@ func putDerivedRetentionRows(t *testing.T, ctx context.Context, db *sql.DB,
             ('81000000-0000-0000-0000-000000000005','81000000-0000-0000-0000-000000000004',
              $1,'synthetic','proposed',true,$2,$2)`, []any{projectID, asOf}},
 		{`INSERT INTO prompt_better.evidence_links
-            (evidence_link_id,evidence_artifact_id,target_kind,target_id,link_kind,created_at)
-            VALUES ('81000000-0000-0000-0000-000000000006',$1,'audit_revision',
-             '81000000-0000-0000-0000-000000000002','supports',$2)`, []any{evidenceID, asOf}},
+			(evidence_link_id,evidence_artifact_id,target_kind,target_id,link_kind,created_at)
+			VALUES
+			('81000000-0000-0000-0000-000000000006',$1,'audit_revision',
+			 '81000000-0000-0000-0000-000000000002','supports',$3),
+			('81000000-0000-0000-0000-000000000007',$2,'audit_revision',
+			 '81000000-0000-0000-0000-000000000002','supports',$3),
+			('81000000-0000-0000-0000-000000000008',$1,'metric_result',
+			 '81000000-0000-0000-0000-000000000003','supports',$3),
+			('81000000-0000-0000-0000-000000000009',$2,'metric_result',
+			 '81000000-0000-0000-0000-000000000003','supports',$3),
+			('81000000-0000-0000-0000-000000000010',$1,'finding',
+			 '81000000-0000-0000-0000-000000000004','supports',$3),
+			('81000000-0000-0000-0000-000000000011',$2,'finding',
+			 '81000000-0000-0000-0000-000000000004','supports',$3)`,
+			[]any{expiredEvidenceID, retainedEvidenceID, asOf}},
 	}
 	for _, statement := range statements {
 		if _, err := db.ExecContext(ctx, statement.query, statement.args...); err != nil {

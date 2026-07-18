@@ -236,14 +236,22 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
 			apply.Receipt.EncryptedDigest[:], apply.Receipt.VerifiedAt); err != nil {
 			return databaseError("record archive batch", err)
 		}
-		for _, target := range []struct{ table, kind string }{
-			{"audit_revisions", "audit_revision"},
-			{"metric_results", "metric_result"},
-			{"findings", "finding"},
+		for _, target := range []struct{ table, kind, dependents string }{
+			{"metric_results", "metric_result", ""},
+			{"findings", "finding", ""},
+			{"audit_revisions", "audit_revision", `
+				AND NOT EXISTS (SELECT 1 FROM prompt_better.metric_results dependent
+					WHERE dependent.audit_revision_id=target.audit_revision_id)
+				AND NOT EXISTS (SELECT 1 FROM prompt_better.findings dependent
+					WHERE dependent.audit_revision_id=target.audit_revision_id)`},
 		} {
-			query := `DELETE FROM prompt_better.` + target.table + ` WHERE ` +
+			query := `DELETE FROM prompt_better.` + target.table + ` target WHERE target.` +
 				target.kind + `_id IN (SELECT target_id FROM prompt_better.evidence_links
-                    WHERE evidence_artifact_id=ANY($1::uuid[]) AND target_kind=$2)`
+					WHERE evidence_artifact_id=ANY($1::uuid[]) AND target_kind=$2)
+				AND NOT EXISTS (SELECT 1 FROM prompt_better.evidence_links retained_link
+					WHERE retained_link.target_kind=$2
+					  AND retained_link.target_id=target.` + target.kind + `_id
+					  AND NOT (retained_link.evidence_artifact_id=ANY($1::uuid[])))` + target.dependents
 			if _, err := tx.Exec(ctx, query, ids, target.kind); err != nil {
 				return databaseError("delete derived retention data", err)
 			}
