@@ -48,11 +48,11 @@ never combined into an opaque score.
 | Scope identity | `projects`, `project_versions`, `tasks`, `sessions`, `trajectories`, `turns` | attribution state/confidence preserved; ambiguous and unattributed stay explicit | resolve SCD2 versions effective at event time and not newer than audit `as_of` |
 | Responses/phases | `responses`, `items`, `phases` | absent completion or phase is unknown, never zero | only rows observed before source watermark |
 | Tool state | `tool_calls`, `state_epochs`, lineage event tables | canonical digest is redacted/keyed; missing state epoch disables duplicate classification | only state known at the immutable watermark |
-| Usage/cache | `usage_observations`, `cache_observations` | source-native kinds/units remain separate | revisions select observations available by `as_of` |
+| Usage/cache | `observations` kinds `usage` and `cache` | source-native kinds/units remain separate | revisions select observations available by `as_of` |
 | Runtime/waits | response/phase intervals and tool wait state | active runtime is unknown unless observable intervals are complete | interval endpoints must be known by watermark |
 | Lifecycle/gates | checkpoints, boundaries, stop/delegation/compaction events | structured events only; no message-text inference | latest event at or before `as_of` |
-| Confounders | source/project versions and `confounder_labels` | observed/configured/unknown; never inferred from private text | matched strata pin effective version identity |
-| Governance overhead | `governance_overhead` | excluded from user workload by default and reported separately | cannot trigger another audit or recommendation |
+| Confounders | source/project versions and `observations` kind `confounder` | observed/configured/unknown; never inferred from private text | matched strata pin effective version identity |
+| Governance overhead | `observations` kind `governance_overhead` | excluded from user workload by default and reported separately | cannot trigger another audit or recommendation |
 
 Task scope first restricts lineage to trajectories containing the normalized
 task, then applies the task predicate to turn-linked evidence. Sibling

@@ -476,7 +476,7 @@ func doctorChecks(ctx context.Context, home, configPath string, runner Runner) [
 	if dsn := os.Getenv(databaseEnv); dsn != "" {
 		databaseState = "unavailable"
 		dbctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		if repository, err := postgres.OpenRepository(dbctx, dsn, postgres.DefaultPoolConfig()); err == nil {
+		if repository, err := postgres.OpenLocalRepository(dbctx, dsn, postgres.RoleRuntime); err == nil {
 			result := repository.Doctor(dbctx)
 			if result.Ready {
 				databaseState = "ready"
@@ -487,6 +487,8 @@ func doctorChecks(ctx context.Context, home, configPath string, runner Runner) [
 						collectorState = "missing"
 					}
 				}
+			} else if slices.Contains(result.Problems, "schema_version_mismatch_backup_reset_required") {
+				databaseState = "reset_required"
 			}
 			repository.Close()
 		}

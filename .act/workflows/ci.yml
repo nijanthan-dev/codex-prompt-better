@@ -28,6 +28,8 @@ jobs:
           cmp go.sum "${root}/go.sum"
       - name: Format
         run: test -z "$(gofmt -l .)"
+      - name: Generated ERD
+        run: go run ./scripts/generate-erd.go --check
       - name: Shell
         run: shellcheck scripts/*.sh
       - name: Review patterns
@@ -114,9 +116,26 @@ jobs:
       - name: PostgreSQL integration
         env:
           TEST_DATABASE_URL: postgres://postgres:synthetic-test-only@${{ matrix.host }}:5432/prompt_better_test?sslmode=disable
+          TEST_RUNTIME_DATABASE_URL: postgres://prompt_better_runtime_test:synthetic-runtime-only@${{ matrix.host }}:5432/prompt_better_test?sslmode=disable&options=-c%20role%3Dprompt_better_runtime
+          TEST_COLLECTOR_DATABASE_URL: postgres://prompt_better_collector_test:synthetic-collector-only@${{ matrix.host }}:5432/prompt_better_test?sslmode=disable&options=-c%20role%3Dprompt_better_collector
           TEST_POSTGRES_MAJOR: ${{ matrix.major }}
-        run: go test -p=1 -count=1 -tags=integration ./internal/store/postgres ./internal/retention ./internal/recovery ./cmd/prompt-better-collector
+        run: |
+          psql "$TEST_DATABASE_URL" --set ON_ERROR_STOP=1 --file migrations/admin/roles.sql
+          psql "$TEST_DATABASE_URL" --set ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE prompt_better_runtime_test LOGIN PASSWORD 'synthetic-runtime-only'
+            NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+          CREATE ROLE prompt_better_collector_test LOGIN PASSWORD 'synthetic-collector-only'
+            NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+          GRANT prompt_better_runtime TO prompt_better_runtime_test;
+          GRANT prompt_better_collector TO prompt_better_collector_test;
+          SQL
+          go test -p=1 -count=1 -tags=integration ./internal/store/postgres ./internal/retention ./internal/recovery ./cmd/prompt-better-collector
+      - name: Verify ERD against PostgreSQL catalog
+        env:
+          TEST_DATABASE_URL: postgres://postgres:synthetic-test-only@${{ matrix.host }}:5432/prompt_better_test?sslmode=disable
+        run: go run ./scripts/generate-erd.go --check --database "$TEST_DATABASE_URL"
       - name: Doctor PostgreSQL readiness
         env:
           TEST_DATABASE_URL: postgres://postgres:synthetic-test-only@${{ matrix.host }}:5432/prompt_better_test?sslmode=disable
+          TEST_RUNTIME_DATABASE_URL: postgres://prompt_better_runtime_test:synthetic-runtime-only@${{ matrix.host }}:5432/prompt_better_test?sslmode=disable&options=-c%20role%3Dprompt_better_runtime
         run: go test -count=1 -tags=integration ./internal/setup

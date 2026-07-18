@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -151,11 +152,10 @@ type ArchiveReceipt struct {
 
 // RetentionApply identifies auditable rows for one archive-gated apply.
 type RetentionApply struct {
-	ActionID        string
-	DeletionAuditID string
-	ArchiveEntityID string
-	Plan            RetentionPlan
-	Receipt         ArchiveReceipt
+	ActionID       string
+	ActionEntityID string
+	Plan           RetentionPlan
+	Receipt        ArchiveReceipt
 }
 
 // ApplyRetention deletes exactly the planned batch after verified archive proof.
@@ -179,6 +179,9 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
 	}
 	var applied int64
 	err = r.WithSerializable(ctx, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, retentionLockID(planDigest)); err != nil {
+			return databaseError("lock retention action", err)
+		}
 		if err := tx.QueryRow(ctx, `SELECT applied_count FROM prompt_better.retention_actions
             WHERE action_key=$1 AND status='complete'`, apply.Plan.Digest[:]).Scan(&applied); err == nil {
 			return nil
@@ -233,12 +236,6 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
 			apply.Receipt.EncryptedDigest[:], apply.Receipt.VerifiedAt); err != nil {
 			return databaseError("record archive batch", err)
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.archive_entities
-            (archive_entity_id, archive_batch_id, entity_kind, entity_count, integrity_digest)
-            VALUES ($1,$2,'evidence_artifact',$3,$4)`, apply.ArchiveEntityID,
-			apply.Receipt.BatchID, len(ids), apply.Plan.Digest[:]); err != nil {
-			return databaseError("record archive entity", err)
-		}
 		for _, target := range []struct{ table, kind string }{
 			{"audit_revisions", "audit_revision"},
 			{"metric_results", "metric_result"},
@@ -287,11 +284,13 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
 			apply.Plan.ProjectID); err != nil {
 			return databaseError("delete retained state epochs", err)
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.deletion_audits
-            (deletion_audit_id, retention_action_id, entity_kind, deleted_count,
-             result_hash, recorded_at) VALUES ($1,$2,'evidence_artifact',$3,$4,statement_timestamp())`,
-			apply.DeletionAuditID, apply.ActionID, applied, apply.Plan.Digest[:]); err != nil {
-			return databaseError("record deletion audit", err)
+		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.retention_action_entities
+			(retention_action_entity_id,retention_action_id,archive_batch_id,entity_kind,
+			 planned_count,archived_count,deleted_count,archive_digest,deletion_digest,recorded_at)
+			VALUES ($1,$2,$3,'evidence_artifact',$4,$4,$5,$6,$6,statement_timestamp())`,
+			apply.ActionEntityID, apply.ActionID, apply.Receipt.BatchID, len(ids),
+			applied, apply.Plan.Digest[:]); err != nil {
+			return databaseError("record retention action entities", err)
 		}
 		if _, err := tx.Exec(ctx, `UPDATE prompt_better.retention_actions
             SET applied_count=$2, status='complete', completed_at=statement_timestamp()
@@ -306,10 +305,16 @@ func (r *Repository) ApplyRetention(ctx context.Context, apply RetentionApply) (
 	return applied, nil
 }
 
+func retentionLockID(digest [sha256.Size]byte) int64 {
+	return int64(binary.BigEndian.Uint64(digest[:8]))
+}
+
 // MaintainAfterRetention updates planner statistics without blocking a busy table.
 func (r *Repository) MaintainAfterRetention(ctx context.Context) error {
-	if _, err := r.pool.Exec(ctx, `VACUUM (ANALYZE, SKIP_LOCKED) prompt_better.evidence_artifacts`); err != nil {
-		return errors.New("maintain retained evidence table")
+	for _, table := range []string{"evidence_artifacts", "evidence_links", "observations"} {
+		if _, err := r.pool.Exec(ctx, `VACUUM (ANALYZE, SKIP_LOCKED) prompt_better.`+table); err != nil {
+			return errors.New("maintain retained evidence tables")
+		}
 	}
 	return nil
 }

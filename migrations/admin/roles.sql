@@ -22,6 +22,7 @@ $roles$;
 DO $database$
 BEGIN
     EXECUTE format('REVOKE ALL ON DATABASE %I FROM PUBLIC', current_database());
+    EXECUTE format('GRANT CONNECT ON DATABASE %I TO prompt_better_migrator,prompt_better_runtime,prompt_better_collector,prompt_better_reporter', current_database());
 END
 $database$;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;

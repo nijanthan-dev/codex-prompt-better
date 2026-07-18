@@ -91,7 +91,7 @@ func openAuditStore(ctx context.Context) (tools.AuditStore, func(), error) {
 	}
 	openContext, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	repository, err := postgres.OpenRepository(openContext, dsn, postgres.DefaultPoolConfig())
+	repository, err := postgres.OpenLocalRepository(openContext, dsn, postgres.RoleRuntime)
 	if err != nil {
 		return nil, nil, errors.New("audit store unavailable")
 	}

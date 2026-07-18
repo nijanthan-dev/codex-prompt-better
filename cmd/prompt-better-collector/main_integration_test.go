@@ -52,7 +52,11 @@ func TestConfiguredCollectionIntegration(t *testing.T) {
 	if err := os.WriteFile(configPath, []byte(config), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("PROMPT_BETTER_DATABASE_URL", dsn)
+	collectorDSN := os.Getenv("TEST_COLLECTOR_DATABASE_URL")
+	if collectorDSN == "" {
+		t.Fatal("TEST_COLLECTOR_DATABASE_URL is not set")
+	}
+	t.Setenv("PROMPT_BETTER_DATABASE_URL", collectorDSN)
 	t.Setenv("PROMPT_BETTER_IDENTITY_KEY", "synthetic-integration-key-32-bytes!!")
 	var output bytes.Buffer
 	if err := run(ctx, []string{"--config", configPath}, &output, func() time.Time {

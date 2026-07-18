@@ -1,0 +1,1462 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2840" height="2931" viewBox="0 0 2840 2931" role="img" aria-labelledby="title desc">
+<title id="title">Prompt Better PostgreSQL physical entity relationship diagram</title>
+<desc id="desc">All 32 tables, columns, PostgreSQL data types, primary keys, foreign keys, and column relationships.</desc>
+<metadata>schema-fingerprint:26ab905047f9</metadata>
+<rect width="100%" height="100%" fill="#f8fafc"/>
+<path d="M530 119 C1670 119,1670 603,2810 603" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to archive_batches.project_id</title></path>
+<path d="M2810 323 C2810 323,2810 622,2810 622" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>retention_actions.retention_action_id to archive_batches.retention_action_id</title></path>
+<path d="M2240 119 C2240 119,2240 418,2240 418" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>audit_windows.audit_window_id to audit_revisions.audit_window_id</title></path>
+<path d="M2240 399 C2240 399,2240 456,2240 456" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>audit_revisions.audit_revision_id to audit_revisions.prior_revision_id</title></path>
+<path d="M530 119 C1385 119,1385 138,2240 138" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to audit_windows.project_id</title></path>
+<path d="M530 413 C530 413,530 1191,530 1191" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to collection_cursors.source_id</title></path>
+<path d="M2240 399 C2240 399,2240 641,2240 641" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>audit_revisions.audit_revision_id to evaluation_runs.audit_revision_id</title></path>
+<path d="M530 119 C1100 119,1100 157,1670 157" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to evidence_artifacts.project_id</title></path>
+<path d="M1100 119 C1385 119,1385 176,1670 176" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sessions.session_id to evidence_artifacts.session_id</title></path>
+<path d="M530 413 C1100 413,1100 138,1670 138" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to evidence_artifacts.source_id</title></path>
+<path d="M1670 119 C1670 119,1670 494,1670 494" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>evidence_artifacts.evidence_artifact_id to evidence_links.evidence_artifact_id</title></path>
+<path d="M1100 546 C1100 546,1100 2601,1100 2601" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>trajectories.trajectory_id to execution_events.parent_trajectory_id</title></path>
+<path d="M1100 1628 C1100 1628,1100 2639,1100 2639" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>phases.phase_id to execution_events.phase_id</title></path>
+<path d="M530 119 C815 119,815 2544,1100 2544" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to execution_events.project_id</title></path>
+<path d="M1100 2468 C1100 2468,1100 2696,1100 2696" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>execution_events.execution_event_id to execution_events.related_event_id</title></path>
+<path d="M1100 954 C1100 954,1100 2620,1100 2620" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>responses.response_id to execution_events.response_id</title></path>
+<path d="M1100 119 C1100 119,1100 2563,1100 2563" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sessions.session_id to execution_events.session_id</title></path>
+<path d="M530 413 C815 413,815 2658,1100 2658" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to execution_events.source_id</title></path>
+<path d="M1100 546 C1100 546,1100 2582,1100 2582" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>trajectories.trajectory_id to execution_events.trajectory_id</title></path>
+<path d="M2240 399 C2240 399,2240 1766,2240 1766" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>audit_revisions.audit_revision_id to findings.audit_revision_id</title></path>
+<path d="M2240 622 C2240 622,2240 1785,2240 1785" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>evaluation_runs.evaluation_run_id to findings.evaluation_run_id</title></path>
+<path d="M1100 954 C1100 954,1100 1367,1100 1367" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>responses.response_id to items.response_id</title></path>
+<path d="M530 413 C815 413,815 1386,1100 1386" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to items.source_id</title></path>
+<path d="M2240 399 C2240 399,2240 1258,2240 1258" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>audit_revisions.audit_revision_id to metric_results.audit_revision_id</title></path>
+<path d="M2240 622 C2240 622,2240 1277,2240 1277" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>evaluation_runs.evaluation_run_id to metric_results.evaluation_run_id</title></path>
+<path d="M2240 978 C2240 978,2240 1296,2240 1296" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>metric_definitions.metric_definition_id to metric_results.metric_definition_id</title></path>
+<path d="M1740 399 C1705 399,1705 812,1670 812" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>audit_revisions.audit_revision_id to observations.audit_revision_id</title></path>
+<path d="M1670 119 C1670 119,1670 793,1670 793" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>evidence_artifacts.evidence_artifact_id to observations.evidence_artifact_id</title></path>
+<path d="M530 119 C1100 119,1100 717,1670 717" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to observations.project_id</title></path>
+<path d="M1100 954 C1385 954,1385 774,1670 774" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>responses.response_id to observations.response_id</title></path>
+<path d="M530 413 C1100 413,1100 736,1670 736" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to observations.source_id</title></path>
+<path d="M1100 546 C1385 546,1385 755,1670 755" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>trajectories.trajectory_id to observations.trajectory_id</title></path>
+<path d="M1100 954 C1100 954,1100 1666,1100 1666" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>responses.response_id to phases.response_id</title></path>
+<path d="M1100 546 C1100 546,1100 1647,1100 1647" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>trajectories.trajectory_id to phases.trajectory_id</title></path>
+<path d="M530 764 C530 764,530 1025,530 1025" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>key_versions.key_version_id to project_aliases.key_version_id</title></path>
+<path d="M530 119 C530 119,530 987,530 987" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to project_aliases.project_id</title></path>
+<path d="M530 413 C530 413,530 1006,530 1006" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to project_aliases.source_id</title></path>
+<path d="M530 119 C530 119,530 228,530 228" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to project_versions.project_id</title></path>
+<path d="M1670 119 C1955 119,1955 2573,2240 2573" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>evidence_artifacts.evidence_artifact_id to recommendation_events.evidence_artifact_id</title></path>
+<path d="M2240 2046 C2240 2046,2240 2478,2240 2478" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>recommendations.recommendation_id to recommendation_events.recommendation_id</title></path>
+<path d="M2240 1747 C2240 1747,2240 2065,2240 2065" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>findings.finding_id to recommendations.finding_id</title></path>
+<path d="M530 119 C1385 119,1385 2084,2240 2084" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to recommendations.project_id</title></path>
+<path d="M1100 954 C1100 954,1100 1030,1100 1030" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>responses.response_id to responses.parent_response_id</title></path>
+<path d="M530 413 C815 413,815 992,1100 992" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to responses.source_id</title></path>
+<path d="M1100 750 C1100 750,1100 973,1100 973" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>turns.turn_id to responses.turn_id</title></path>
+<path d="M2810 584 C2810 584,2810 940,2810 940" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>archive_batches.archive_batch_id to retention_action_entities.archive_batch_id</title></path>
+<path d="M2810 323 C2810 323,2810 921,2810 921" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>retention_actions.retention_action_id to retention_action_entities.retention_action_id</title></path>
+<path d="M530 119 C1670 119,1670 361,2810 361" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to retention_actions.project_id</title></path>
+<path d="M2810 119 C2810 119,2810 342,2810 342" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>retention_policies.retention_policy_id to retention_actions.retention_policy_id</title></path>
+<path d="M530 119 C1670 119,1670 138,2810 138" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to retention_policies.project_id</title></path>
+<path d="M530 119 C815 119,815 138,1100 138" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to sessions.project_id</title></path>
+<path d="M530 413 C815 413,815 157,1100 157" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to sessions.source_id</title></path>
+<path d="M530 413 C530 413,530 541,530 541" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to source_versions.source_id</title></path>
+<path d="M530 413 C815 413,815 1870,1100 1870" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to state_epochs.source_id</title></path>
+<path d="M1100 546 C1100 546,1100 1851,1100 1851" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>trajectories.trajectory_id to state_epochs.trajectory_id</title></path>
+<path d="M530 119 C815 119,815 323,1100 323" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>projects.project_id to tasks.project_id</title></path>
+<path d="M530 413 C815 413,815 342,1100 342" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to tasks.source_id</title></path>
+<path d="M1100 1348 C1100 1348,1100 2093,1100 2093" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>items.item_id to tool_calls.item_id</title></path>
+<path d="M1100 1628 C1100 1628,1100 2074,1100 2074" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>phases.phase_id to tool_calls.phase_id</title></path>
+<path d="M1100 954 C1100 954,1100 2055,1100 2055" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>responses.response_id to tool_calls.response_id</title></path>
+<path d="M530 413 C815 413,815 2131,1100 2131" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to tool_calls.source_id</title></path>
+<path d="M1100 1832 C1100 1832,1100 2112,1100 2112" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>state_epochs.state_epoch_id to tool_calls.state_epoch_id</title></path>
+<path d="M1100 546 C1100 546,1100 622,1100 622" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>trajectories.trajectory_id to trajectories.parent_trajectory_id</title></path>
+<path d="M1100 119 C1100 119,1100 565,1100 565" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sessions.session_id to trajectories.session_id</title></path>
+<path d="M530 413 C815 413,815 584,1100 584" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to trajectories.source_id</title></path>
+<path d="M530 413 C815 413,815 807,1100 807" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>sources.source_id to turns.source_id</title></path>
+<path d="M1100 304 C1100 304,1100 788,1100 788" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>tasks.task_id to turns.task_id</title></path>
+<path d="M1100 546 C1100 546,1100 769,1100 769" fill="none" stroke="#64748b" stroke-width="1" opacity="0.38"><title>trajectories.trajectory_id to turns.trajectory_id</title></path>
+<text x="30" y="50" font-family="ui-sans-serif,system-ui" font-size="22" font-weight="700" fill="#2563eb">Identity and collection</text>
+<rect x="30" y="82" width="500" height="66" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M30 88 h500 v22 h-500 z" fill="#2563eb"/>
+<text x="40" y="101" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">projects</text>
+<text x="40" y="123" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_id</text>
+<text x="315" y="123" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="450" y="123" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">PK</text>
+<rect x="31" y="129" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="142" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">created_at</text>
+<text x="315" y="142" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="450" y="142" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<rect x="30" y="172" width="500" height="180" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M30 178 h500 v22 h-500 z" fill="#2563eb"/>
+<text x="40" y="191" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">project_versions</text>
+<text x="40" y="213" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_version_id</text>
+<text x="315" y="213" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="450" y="213" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">PK</text>
+<rect x="31" y="219" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="232" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_id</text>
+<text x="315" y="232" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="450" y="232" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">FK NN</text>
+<text x="40" y="251" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">version_number</text>
+<text x="315" y="251" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="450" y="251" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<rect x="31" y="257" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="270" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">classification</text>
+<text x="315" y="270" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="450" y="270" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<text x="40" y="289" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">lifecycle_state</text>
+<text x="315" y="289" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="450" y="289" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<rect x="31" y="295" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="308" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">version_hash</text>
+<text x="315" y="308" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="450" y="308" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<text x="40" y="327" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">valid_from</text>
+<text x="315" y="327" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="450" y="327" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<rect x="31" y="333" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="346" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">valid_to</text>
+<text x="315" y="346" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="450" y="346" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb"></text>
+<rect x="30" y="376" width="500" height="85" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M30 382 h500 v22 h-500 z" fill="#2563eb"/>
+<text x="40" y="395" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">sources</text>
+<text x="40" y="417" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_id</text>
+<text x="315" y="417" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="450" y="417" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">PK</text>
+<rect x="31" y="423" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="436" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_kind</text>
+<text x="315" y="436" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="450" y="436" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<text x="40" y="455" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">created_at</text>
+<text x="315" y="455" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="450" y="455" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<rect x="30" y="485" width="500" height="218" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M30 491 h500 v22 h-500 z" fill="#2563eb"/>
+<text x="40" y="504" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">source_versions</text>
+<text x="40" y="526" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_version_id</text>
+<text x="315" y="526" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="450" y="526" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">PK</text>
+<rect x="31" y="532" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="545" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_id</text>
+<text x="315" y="545" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="450" y="545" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">FK NN</text>
+<text x="40" y="564" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">version_number</text>
+<text x="315" y="564" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="450" y="564" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<rect x="31" y="570" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="583" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">adapter_version</text>
+<text x="315" y="583" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="450" y="583" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb"></text>
+<text x="40" y="602" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">product_surface</text>
+<text x="315" y="602" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="450" y="602" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<rect x="31" y="608" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="621" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">coverage_state</text>
+<text x="315" y="621" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="450" y="621" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<text x="40" y="640" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">enabled</text>
+<text x="315" y="640" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">boolean</text>
+<text x="450" y="640" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<rect x="31" y="646" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="659" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">version_hash</text>
+<text x="315" y="659" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="450" y="659" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<text x="40" y="678" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">valid_from</text>
+<text x="315" y="678" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="450" y="678" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<rect x="31" y="684" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="697" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">valid_to</text>
+<text x="315" y="697" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="450" y="697" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb"></text>
+<rect x="30" y="727" width="500" height="180" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M30 733 h500 v22 h-500 z" fill="#2563eb"/>
+<text x="40" y="746" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">key_versions</text>
+<text x="40" y="768" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">key_version_id</text>
+<text x="315" y="768" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="450" y="768" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">PK</text>
+<rect x="31" y="774" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="787" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">key_reference</text>
+<text x="315" y="787" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="450" y="787" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<text x="40" y="806" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">algorithm</text>
+<text x="315" y="806" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="450" y="806" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<rect x="31" y="812" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="825" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">state</text>
+<text x="315" y="825" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="450" y="825" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<text x="40" y="844" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">created_at</text>
+<text x="315" y="844" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="450" y="844" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<rect x="31" y="850" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="863" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">activated_at</text>
+<text x="315" y="863" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="450" y="863" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb"></text>
+<text x="40" y="882" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">retired_at</text>
+<text x="315" y="882" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="450" y="882" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb"></text>
+<rect x="31" y="888" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="901" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">deleted_at</text>
+<text x="315" y="901" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="450" y="901" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb"></text>
+<rect x="30" y="931" width="500" height="180" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M30 937 h500 v22 h-500 z" fill="#2563eb"/>
+<text x="40" y="950" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">project_aliases</text>
+<text x="40" y="972" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_alias_id</text>
+<text x="315" y="972" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="450" y="972" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">PK</text>
+<rect x="31" y="978" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="991" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_id</text>
+<text x="315" y="991" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="450" y="991" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">FK NN</text>
+<text x="40" y="1010" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_id</text>
+<text x="315" y="1010" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="450" y="1010" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">FK NN</text>
+<rect x="31" y="1016" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="1029" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">key_version_id</text>
+<text x="315" y="1029" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="450" y="1029" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">FK NN</text>
+<text x="40" y="1048" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">alias_kind</text>
+<text x="315" y="1048" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="450" y="1048" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<rect x="31" y="1054" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="1067" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">alias_digest</text>
+<text x="315" y="1067" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="450" y="1067" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<text x="40" y="1086" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">created_at</text>
+<text x="315" y="1086" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="450" y="1086" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<rect x="31" y="1092" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="1105" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">deleted_at</text>
+<text x="315" y="1105" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="450" y="1105" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb"></text>
+<rect x="30" y="1135" width="500" height="180" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M30 1141 h500 v22 h-500 z" fill="#2563eb"/>
+<text x="40" y="1154" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">collection_cursors</text>
+<text x="40" y="1176" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">collection_cursor_id</text>
+<text x="315" y="1176" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="450" y="1176" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">PK</text>
+<rect x="31" y="1182" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="1195" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_id</text>
+<text x="315" y="1195" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="450" y="1195" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">FK NN</text>
+<text x="40" y="1214" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">cursor_kind</text>
+<text x="315" y="1214" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="450" y="1214" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<rect x="31" y="1220" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="1233" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">cursor_value</text>
+<text x="315" y="1233" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="450" y="1233" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<text x="40" y="1252" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">cursor_state</text>
+<text x="315" y="1252" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="450" y="1252" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<rect x="31" y="1258" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="1271" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">observed_at</text>
+<text x="315" y="1271" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="450" y="1271" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<text x="40" y="1290" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">lease_expires_at</text>
+<text x="315" y="1290" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="450" y="1290" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb"></text>
+<rect x="31" y="1296" width="498" height="19" fill="#f1f5f9"/>
+<text x="40" y="1309" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">updated_at</text>
+<text x="315" y="1309" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="450" y="1309" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#2563eb">NN</text>
+<text x="600" y="50" font-family="ui-sans-serif,system-ui" font-size="22" font-weight="700" fill="#7c3aed">Execution</text>
+<rect x="600" y="82" width="500" height="161" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M600 88 h500 v22 h-500 z" fill="#7c3aed"/>
+<text x="610" y="101" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">sessions</text>
+<text x="610" y="123" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">session_id</text>
+<text x="885" y="123" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="123" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">PK</text>
+<rect x="601" y="129" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="142" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_id</text>
+<text x="885" y="142" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="142" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<text x="610" y="161" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_id</text>
+<text x="885" y="161" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="161" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<rect x="601" y="167" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="180" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">started_at</text>
+<text x="885" y="180" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="180" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="199" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">ended_at</text>
+<text x="885" y="199" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="199" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="205" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="218" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">coverage_state</text>
+<text x="885" y="218" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="218" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="237" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">knowledge_state</text>
+<text x="885" y="237" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="237" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="600" y="267" width="500" height="218" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M600 273 h500 v22 h-500 z" fill="#7c3aed"/>
+<text x="610" y="286" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">tasks</text>
+<text x="610" y="308" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">task_id</text>
+<text x="885" y="308" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="308" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">PK</text>
+<rect x="601" y="314" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="327" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_id</text>
+<text x="885" y="327" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="327" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<text x="610" y="346" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_id</text>
+<text x="885" y="346" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="346" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<rect x="601" y="352" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="365" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">external_alias_id</text>
+<text x="885" y="365" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="365" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="384" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">task_kind</text>
+<text x="885" y="384" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="384" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="601" y="390" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="403" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">attribution_state</text>
+<text x="885" y="403" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="403" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="422" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">confidence</text>
+<text x="885" y="422" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">double precision</text>
+<text x="1020" y="422" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="428" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="441" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">algorithm_version</text>
+<text x="885" y="441" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="441" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="460" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">observed_at</text>
+<text x="885" y="460" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="460" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="601" y="466" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="479" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">knowledge_state</text>
+<text x="885" y="479" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="479" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="600" y="509" width="500" height="180" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M600 515 h500 v22 h-500 z" fill="#7c3aed"/>
+<text x="610" y="528" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">trajectories</text>
+<text x="610" y="550" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">trajectory_id</text>
+<text x="885" y="550" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="550" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">PK</text>
+<rect x="601" y="556" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="569" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">session_id</text>
+<text x="885" y="569" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="569" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<text x="610" y="588" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_id</text>
+<text x="885" y="588" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="588" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<rect x="601" y="594" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="607" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">external_alias_id</text>
+<text x="885" y="607" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="607" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="626" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">parent_trajectory_id</text>
+<text x="885" y="626" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="626" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<rect x="601" y="632" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="645" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">started_at</text>
+<text x="885" y="645" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="645" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="664" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">ended_at</text>
+<text x="885" y="664" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="664" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="670" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="683" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">knowledge_state</text>
+<text x="885" y="683" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="683" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="600" y="713" width="500" height="180" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M600 719 h500 v22 h-500 z" fill="#7c3aed"/>
+<text x="610" y="732" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">turns</text>
+<text x="610" y="754" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">turn_id</text>
+<text x="885" y="754" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="754" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">PK</text>
+<rect x="601" y="760" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="773" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">trajectory_id</text>
+<text x="885" y="773" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="773" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<text x="610" y="792" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">task_id</text>
+<text x="885" y="792" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="792" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<rect x="601" y="798" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="811" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_id</text>
+<text x="885" y="811" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="811" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<text x="610" y="830" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">external_alias_id</text>
+<text x="885" y="830" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="830" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="836" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="849" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">ordinal</text>
+<text x="885" y="849" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="1020" y="849" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="868" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">observed_at</text>
+<text x="885" y="868" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="868" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="601" y="874" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="887" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">knowledge_state</text>
+<text x="885" y="887" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="887" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="600" y="917" width="500" height="370" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M600 923 h500 v22 h-500 z" fill="#7c3aed"/>
+<text x="610" y="936" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">responses</text>
+<text x="610" y="958" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">response_id</text>
+<text x="885" y="958" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="958" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">PK</text>
+<rect x="601" y="964" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="977" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">turn_id</text>
+<text x="885" y="977" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="977" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<text x="610" y="996" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_id</text>
+<text x="885" y="996" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="996" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<rect x="601" y="1002" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1015" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">external_alias_id</text>
+<text x="885" y="1015" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="1015" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="1034" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">parent_response_id</text>
+<text x="885" y="1034" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="1034" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<rect x="601" y="1040" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1053" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">model_name</text>
+<text x="885" y="1053" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1053" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="1072" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">model_variant</text>
+<text x="885" y="1072" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1072" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="1078" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1091" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">reasoning_effort</text>
+<text x="885" y="1091" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1091" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="1110" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">reasoning_mode</text>
+<text x="885" y="1110" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1110" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="1116" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1129" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">reasoning_context</text>
+<text x="885" y="1129" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1129" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="1148" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">verbosity</text>
+<text x="885" y="1148" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1148" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="1154" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1167" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">service_mode</text>
+<text x="885" y="1167" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1167" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="1186" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">cache_mode</text>
+<text x="885" y="1186" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1186" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="1192" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1205" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">cache_ttl_seconds</text>
+<text x="885" y="1205" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="1020" y="1205" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="1224" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">safeguard_outcome</text>
+<text x="885" y="1224" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1224" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="1230" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1243" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">started_at</text>
+<text x="885" y="1243" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="1243" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="1262" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">completed_at</text>
+<text x="885" y="1262" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="1262" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="1268" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1281" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">knowledge_state</text>
+<text x="885" y="1281" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1281" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="600" y="1311" width="500" height="256" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M600 1317 h500 v22 h-500 z" fill="#7c3aed"/>
+<text x="610" y="1330" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">items</text>
+<text x="610" y="1352" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">item_id</text>
+<text x="885" y="1352" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="1352" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">PK</text>
+<rect x="601" y="1358" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1371" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">response_id</text>
+<text x="885" y="1371" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="1371" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<text x="610" y="1390" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_id</text>
+<text x="885" y="1390" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="1390" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<rect x="601" y="1396" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1409" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">external_alias_id</text>
+<text x="885" y="1409" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="1409" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="1428" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">item_kind</text>
+<text x="885" y="1428" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1428" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="601" y="1434" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1447" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">assistant_phase</text>
+<text x="885" y="1447" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1447" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="1466" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">ordinal</text>
+<text x="885" y="1466" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="1020" y="1466" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="601" y="1472" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1485" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">image_detail</text>
+<text x="885" y="1485" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1485" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="1504" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">content_hash</text>
+<text x="885" y="1504" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="1020" y="1504" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="1510" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1523" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">content_length</text>
+<text x="885" y="1523" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="1020" y="1523" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="1542" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">observed_at</text>
+<text x="885" y="1542" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="1542" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="601" y="1548" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1561" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">knowledge_state</text>
+<text x="885" y="1561" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1561" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="600" y="1591" width="500" height="180" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M600 1597 h500 v22 h-500 z" fill="#7c3aed"/>
+<text x="610" y="1610" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">phases</text>
+<text x="610" y="1632" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">phase_id</text>
+<text x="885" y="1632" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="1632" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">PK</text>
+<rect x="601" y="1638" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1651" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">trajectory_id</text>
+<text x="885" y="1651" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="1651" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<text x="610" y="1670" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">response_id</text>
+<text x="885" y="1670" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="1670" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<rect x="601" y="1676" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1689" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">phase_kind</text>
+<text x="885" y="1689" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1689" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="1708" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">ordinal</text>
+<text x="885" y="1708" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="1020" y="1708" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="601" y="1714" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1727" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">started_at</text>
+<text x="885" y="1727" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="1727" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="1746" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">ended_at</text>
+<text x="885" y="1746" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="1746" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="1752" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1765" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">knowledge_state</text>
+<text x="885" y="1765" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1765" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="600" y="1795" width="500" height="180" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M600 1801 h500 v22 h-500 z" fill="#7c3aed"/>
+<text x="610" y="1814" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">state_epochs</text>
+<text x="610" y="1836" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">state_epoch_id</text>
+<text x="885" y="1836" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="1836" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">PK</text>
+<rect x="601" y="1842" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1855" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">trajectory_id</text>
+<text x="885" y="1855" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="1855" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<text x="610" y="1874" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_id</text>
+<text x="885" y="1874" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="1874" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<rect x="601" y="1880" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1893" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">state_hash</text>
+<text x="885" y="1893" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="1020" y="1893" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="1912" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">mutation_state</text>
+<text x="885" y="1912" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1912" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="601" y="1918" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1931" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">started_at</text>
+<text x="885" y="1931" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="1931" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="1950" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">ended_at</text>
+<text x="885" y="1950" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="1950" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="1956" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="1969" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">knowledge_state</text>
+<text x="885" y="1969" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="1969" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="600" y="1999" width="500" height="408" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M600 2005 h500 v22 h-500 z" fill="#7c3aed"/>
+<text x="610" y="2018" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">tool_calls</text>
+<text x="610" y="2040" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">tool_call_id</text>
+<text x="885" y="2040" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2040" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">PK</text>
+<rect x="601" y="2046" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2059" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">response_id</text>
+<text x="885" y="2059" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2059" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<text x="610" y="2078" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">phase_id</text>
+<text x="885" y="2078" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2078" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<rect x="601" y="2084" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2097" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">item_id</text>
+<text x="885" y="2097" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2097" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<text x="610" y="2116" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">state_epoch_id</text>
+<text x="885" y="2116" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2116" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<rect x="601" y="2122" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2135" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_id</text>
+<text x="885" y="2135" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2135" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK NN</text>
+<text x="610" y="2154" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">external_alias_id</text>
+<text x="885" y="2154" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2154" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="2160" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2173" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">caller_alias_id</text>
+<text x="885" y="2173" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2173" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="2192" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">program_output_alias_id</text>
+<text x="885" y="2192" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2192" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="2198" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2211" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">canonical_call_hash</text>
+<text x="885" y="2211" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="1020" y="2211" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="2230" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">call_path</text>
+<text x="885" y="2230" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="2230" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="601" y="2236" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2249" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">tool_kind</text>
+<text x="885" y="2249" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="2249" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="2268" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">result_state</text>
+<text x="885" y="2268" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="2268" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="2274" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2287" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">output_modality</text>
+<text x="885" y="2287" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="2287" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="2306" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">output_size_bytes</text>
+<text x="885" y="2306" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="1020" y="2306" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="2312" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2325" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">wait_state</text>
+<text x="885" y="2325" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="2325" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="2344" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">started_at</text>
+<text x="885" y="2344" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="2344" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="601" y="2350" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2363" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">completed_at</text>
+<text x="885" y="2363" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="2363" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="2382" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">outcome</text>
+<text x="885" y="2382" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="2382" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="2388" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2401" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">knowledge_state</text>
+<text x="885" y="2401" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="2401" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="600" y="2431" width="500" height="446" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M600 2437 h500 v22 h-500 z" fill="#7c3aed"/>
+<text x="610" y="2450" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">execution_events</text>
+<text x="610" y="2472" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">execution_event_id</text>
+<text x="885" y="2472" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2472" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">PK</text>
+<rect x="601" y="2478" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2491" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">event_kind</text>
+<text x="885" y="2491" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="2491" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="2510" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">event_name</text>
+<text x="885" y="2510" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="2510" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="2516" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2529" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">schema_version</text>
+<text x="885" y="2529" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="2529" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="2548" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_id</text>
+<text x="885" y="2548" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2548" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<rect x="601" y="2554" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2567" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">session_id</text>
+<text x="885" y="2567" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2567" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<text x="610" y="2586" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">trajectory_id</text>
+<text x="885" y="2586" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2586" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<rect x="601" y="2592" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2605" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">parent_trajectory_id</text>
+<text x="885" y="2605" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2605" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<text x="610" y="2624" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">response_id</text>
+<text x="885" y="2624" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2624" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<rect x="601" y="2630" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2643" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">phase_id</text>
+<text x="885" y="2643" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2643" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<text x="610" y="2662" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_id</text>
+<text x="885" y="2662" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2662" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<rect x="601" y="2668" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2681" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">external_alias_id</text>
+<text x="885" y="2681" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2681" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="2700" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">related_event_id</text>
+<text x="885" y="2700" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1020" y="2700" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">FK</text>
+<rect x="601" y="2706" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2719" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">outcome</text>
+<text x="885" y="2719" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="2719" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="2738" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">state_value</text>
+<text x="885" y="2738" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="2738" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="2744" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2757" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">depth</text>
+<text x="885" y="2757" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="1020" y="2757" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="2776" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">numeric_value</text>
+<text x="885" y="2776" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">numeric</text>
+<text x="1020" y="2776" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="2782" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2795" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">confidence</text>
+<text x="885" y="2795" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">double precision</text>
+<text x="1020" y="2795" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<text x="610" y="2814" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">content_hash</text>
+<text x="885" y="2814" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="1020" y="2814" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed"></text>
+<rect x="601" y="2820" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2833" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">attributes</text>
+<text x="885" y="2833" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">jsonb</text>
+<text x="1020" y="2833" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="610" y="2852" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">observed_at</text>
+<text x="885" y="2852" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1020" y="2852" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<rect x="601" y="2858" width="498" height="19" fill="#f1f5f9"/>
+<text x="610" y="2871" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">knowledge_state</text>
+<text x="885" y="2871" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1020" y="2871" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#7c3aed">NN</text>
+<text x="1170" y="50" font-family="ui-sans-serif,system-ui" font-size="22" font-weight="700" fill="#0891b2">Evidence</text>
+<rect x="1170" y="82" width="500" height="332" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M1170 88 h500 v22 h-500 z" fill="#0891b2"/>
+<text x="1180" y="101" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">evidence_artifacts</text>
+<text x="1180" y="123" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evidence_artifact_id</text>
+<text x="1455" y="123" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1590" y="123" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">PK</text>
+<rect x="1171" y="129" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="142" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_id</text>
+<text x="1455" y="142" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1590" y="142" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">FK NN</text>
+<text x="1180" y="161" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_id</text>
+<text x="1455" y="161" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1590" y="161" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">FK</text>
+<rect x="1171" y="167" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="180" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">session_id</text>
+<text x="1455" y="180" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1590" y="180" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">FK</text>
+<text x="1180" y="199" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">external_alias_id</text>
+<text x="1455" y="199" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1590" y="199" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2"></text>
+<rect x="1171" y="205" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="218" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">schema_version</text>
+<text x="1455" y="218" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="218" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<text x="1180" y="237" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">content_hash</text>
+<text x="1455" y="237" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="1590" y="237" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<rect x="1171" y="243" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="256" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">content_length</text>
+<text x="1455" y="256" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="1590" y="256" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<text x="1180" y="275" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">classification</text>
+<text x="1455" y="275" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="275" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<rect x="1171" y="281" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="294" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">redaction_state</text>
+<text x="1455" y="294" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="294" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<text x="1180" y="313" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">coverage_state</text>
+<text x="1455" y="313" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="313" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<rect x="1171" y="319" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="332" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">provenance</text>
+<text x="1455" y="332" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="332" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<text x="1180" y="351" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">product_surface</text>
+<text x="1455" y="351" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="351" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<rect x="1171" y="357" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="370" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">observed_at</text>
+<text x="1455" y="370" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1590" y="370" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<text x="1180" y="389" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">retained_until</text>
+<text x="1455" y="389" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1590" y="389" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2"></text>
+<rect x="1171" y="395" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="408" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">deleted_at</text>
+<text x="1455" y="408" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1590" y="408" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2"></text>
+<rect x="1170" y="438" width="500" height="161" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M1170 444 h500 v22 h-500 z" fill="#0891b2"/>
+<text x="1180" y="457" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">evidence_links</text>
+<text x="1180" y="479" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evidence_link_id</text>
+<text x="1455" y="479" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1590" y="479" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">PK</text>
+<rect x="1171" y="485" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="498" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evidence_artifact_id</text>
+<text x="1455" y="498" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1590" y="498" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">FK NN</text>
+<text x="1180" y="517" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">target_kind</text>
+<text x="1455" y="517" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="517" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<rect x="1171" y="523" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="536" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">target_id</text>
+<text x="1455" y="536" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1590" y="536" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<text x="1180" y="555" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">link_kind</text>
+<text x="1455" y="555" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="555" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<rect x="1171" y="561" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="574" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">confidence</text>
+<text x="1455" y="574" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">double precision</text>
+<text x="1590" y="574" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2"></text>
+<text x="1180" y="593" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">created_at</text>
+<text x="1455" y="593" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1590" y="593" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<rect x="1170" y="623" width="500" height="484" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M1170 629 h500 v22 h-500 z" fill="#0891b2"/>
+<text x="1180" y="642" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">observations</text>
+<text x="1180" y="664" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">observation_id</text>
+<text x="1455" y="664" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1590" y="664" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">PK</text>
+<rect x="1171" y="670" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="683" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">observation_kind</text>
+<text x="1455" y="683" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="683" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<text x="1180" y="702" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">schema_version</text>
+<text x="1455" y="702" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="702" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<rect x="1171" y="708" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="721" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_id</text>
+<text x="1455" y="721" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1590" y="721" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">FK</text>
+<text x="1180" y="740" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_id</text>
+<text x="1455" y="740" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1590" y="740" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">FK</text>
+<rect x="1171" y="746" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="759" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">trajectory_id</text>
+<text x="1455" y="759" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1590" y="759" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">FK</text>
+<text x="1180" y="778" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">response_id</text>
+<text x="1455" y="778" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1590" y="778" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">FK</text>
+<rect x="1171" y="784" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="797" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evidence_artifact_id</text>
+<text x="1455" y="797" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1590" y="797" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">FK</text>
+<text x="1180" y="816" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">audit_revision_id</text>
+<text x="1455" y="816" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="1590" y="816" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">FK</text>
+<rect x="1171" y="822" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="835" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">metric_kind</text>
+<text x="1455" y="835" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="835" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2"></text>
+<text x="1180" y="854" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">state_value</text>
+<text x="1455" y="854" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="854" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2"></text>
+<rect x="1171" y="860" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="873" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">value_numeric</text>
+<text x="1455" y="873" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">numeric</text>
+<text x="1590" y="873" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2"></text>
+<text x="1180" y="892" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">native_unit</text>
+<text x="1455" y="892" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="892" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2"></text>
+<rect x="1171" y="898" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="911" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">product_surface</text>
+<text x="1455" y="911" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="911" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2"></text>
+<text x="1180" y="930" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">accounting_regime</text>
+<text x="1455" y="930" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="930" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2"></text>
+<rect x="1171" y="936" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="949" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">provenance</text>
+<text x="1455" y="949" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="949" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<text x="1180" y="968" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_adapter</text>
+<text x="1455" y="968" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="968" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2"></text>
+<rect x="1171" y="974" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="987" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_version</text>
+<text x="1455" y="987" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="987" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2"></text>
+<text x="1180" y="1006" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">confidence</text>
+<text x="1455" y="1006" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">double precision</text>
+<text x="1590" y="1006" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2"></text>
+<rect x="1171" y="1012" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="1025" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">valid_from</text>
+<text x="1455" y="1025" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1590" y="1025" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2"></text>
+<text x="1180" y="1044" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">valid_to</text>
+<text x="1455" y="1044" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1590" y="1044" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2"></text>
+<rect x="1171" y="1050" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="1063" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">attributes</text>
+<text x="1455" y="1063" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">jsonb</text>
+<text x="1590" y="1063" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<text x="1180" y="1082" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">observed_at</text>
+<text x="1455" y="1082" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="1590" y="1082" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<rect x="1171" y="1088" width="498" height="19" fill="#f1f5f9"/>
+<text x="1180" y="1101" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">knowledge_state</text>
+<text x="1455" y="1101" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="1590" y="1101" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#0891b2">NN</text>
+<text x="1740" y="50" font-family="ui-sans-serif,system-ui" font-size="22" font-weight="700" fill="#c2410c">Governance</text>
+<rect x="1740" y="82" width="500" height="256" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M1740 88 h500 v22 h-500 z" fill="#c2410c"/>
+<text x="1750" y="101" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">audit_windows</text>
+<text x="1750" y="123" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">audit_window_id</text>
+<text x="2025" y="123" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="123" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">PK</text>
+<rect x="1741" y="129" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="142" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_id</text>
+<text x="2025" y="142" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="142" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK</text>
+<text x="1750" y="161" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">window_kind</text>
+<text x="2025" y="161" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="161" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="167" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="180" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">starts_at</text>
+<text x="2025" y="180" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="180" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="199" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">ends_at</text>
+<text x="2025" y="199" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="199" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="205" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="218" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">as_of</text>
+<text x="2025" y="218" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="218" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="237" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">timezone_name</text>
+<text x="2025" y="237" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="237" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="243" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="256" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">immutable_since</text>
+<text x="2025" y="256" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="256" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="275" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">policy_schema_version</text>
+<text x="2025" y="275" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="275" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="281" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="294" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">policy_hash</text>
+<text x="2025" y="294" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="2160" y="294" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="313" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">raw_retention_enabled</text>
+<text x="2025" y="313" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">boolean</text>
+<text x="2160" y="313" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="319" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="332" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">telemetry_enabled</text>
+<text x="2025" y="332" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">boolean</text>
+<text x="2160" y="332" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1740" y="362" width="500" height="199" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M1740 368 h500 v22 h-500 z" fill="#c2410c"/>
+<text x="1750" y="381" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">audit_revisions</text>
+<text x="1750" y="403" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">audit_revision_id</text>
+<text x="2025" y="403" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="403" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">PK</text>
+<rect x="1741" y="409" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="422" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">audit_window_id</text>
+<text x="2025" y="422" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="422" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK NN</text>
+<text x="1750" y="441" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">revision_number</text>
+<text x="2025" y="441" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="2160" y="441" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="447" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="460" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">prior_revision_id</text>
+<text x="2025" y="460" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="460" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK</text>
+<text x="1750" y="479" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">source_watermark_at</text>
+<text x="2025" y="479" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="479" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="485" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="498" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">coverage_state</text>
+<text x="2025" y="498" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="498" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="517" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">revision_hash</text>
+<text x="2025" y="517" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="2160" y="517" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="523" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="536" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">engine_version</text>
+<text x="2025" y="536" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="536" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="555" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">created_at</text>
+<text x="2025" y="555" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="555" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1740" y="585" width="500" height="332" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M1740 591 h500 v22 h-500 z" fill="#c2410c"/>
+<text x="1750" y="604" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">evaluation_runs</text>
+<text x="1750" y="626" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evaluation_run_id</text>
+<text x="2025" y="626" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="626" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">PK</text>
+<rect x="1741" y="632" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="645" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">audit_revision_id</text>
+<text x="2025" y="645" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="645" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK NN</text>
+<text x="1750" y="664" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evaluator_name</text>
+<text x="2025" y="664" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="664" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="670" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="683" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evaluator_version</text>
+<text x="2025" y="683" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="683" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="702" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">fixture_hash</text>
+<text x="2025" y="702" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="2160" y="702" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="708" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="721" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">config_hash</text>
+<text x="2025" y="721" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="2160" y="721" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="740" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">model_hash</text>
+<text x="2025" y="740" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="2160" y="740" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="746" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="759" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">compiler_hash</text>
+<text x="2025" y="759" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="2160" y="759" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="778" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">policy_hash</text>
+<text x="2025" y="778" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="2160" y="778" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="784" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="797" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">metric_hash</text>
+<text x="2025" y="797" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="2160" y="797" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="816" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">run_hash</text>
+<text x="2025" y="816" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="2160" y="816" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="822" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="835" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">decision</text>
+<text x="2025" y="835" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="835" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="854" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">started_at</text>
+<text x="2025" y="854" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="854" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="860" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="873" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">completed_at</text>
+<text x="2025" y="873" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="873" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="892" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">outcome</text>
+<text x="2025" y="892" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="892" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="898" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="911" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">knowledge_state</text>
+<text x="2025" y="911" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="911" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1740" y="941" width="500" height="237" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M1740 947 h500 v22 h-500 z" fill="#c2410c"/>
+<text x="1750" y="960" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">metric_definitions</text>
+<text x="1750" y="982" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">metric_definition_id</text>
+<text x="2025" y="982" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="982" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">PK</text>
+<rect x="1741" y="988" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1001" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">metric_name</text>
+<text x="2025" y="1001" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1001" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="1020" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">metric_version</text>
+<text x="2025" y="1020" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1020" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="1026" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1039" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">native_unit</text>
+<text x="2025" y="1039" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1039" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="1058" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">polarity</text>
+<text x="2025" y="1058" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1058" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="1064" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1077" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">minimum_sample</text>
+<text x="2025" y="1077" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="2160" y="1077" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="1096" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">practical_change</text>
+<text x="2025" y="1096" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">double precision</text>
+<text x="2160" y="1096" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="1102" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1115" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">definition_hash</text>
+<text x="2025" y="1115" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="2160" y="1115" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="1134" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">definition_json</text>
+<text x="2025" y="1134" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">jsonb</text>
+<text x="2160" y="1134" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="1140" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1153" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">created_at</text>
+<text x="2025" y="1153" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="1153" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="1172" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">retired_at</text>
+<text x="2025" y="1172" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="1172" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1740" y="1202" width="500" height="484" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M1740 1208 h500 v22 h-500 z" fill="#c2410c"/>
+<text x="1750" y="1221" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">metric_results</text>
+<text x="1750" y="1243" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">metric_result_id</text>
+<text x="2025" y="1243" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="1243" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">PK</text>
+<rect x="1741" y="1249" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1262" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">audit_revision_id</text>
+<text x="2025" y="1262" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="1262" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK NN</text>
+<text x="1750" y="1281" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evaluation_run_id</text>
+<text x="2025" y="1281" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="1281" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK</text>
+<rect x="1741" y="1287" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1300" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">metric_definition_id</text>
+<text x="2025" y="1300" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="1300" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK</text>
+<text x="1750" y="1319" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">metric_name</text>
+<text x="2025" y="1319" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1319" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="1325" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1338" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">metric_version</text>
+<text x="2025" y="1338" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1338" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="1357" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">native_value</text>
+<text x="2025" y="1357" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">numeric</text>
+<text x="2160" y="1357" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="1363" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1376" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">native_unit</text>
+<text x="2025" y="1376" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1376" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="1395" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">numerator</text>
+<text x="2025" y="1395" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">numeric</text>
+<text x="2160" y="1395" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="1401" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1414" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">denominator</text>
+<text x="2025" y="1414" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">numeric</text>
+<text x="2160" y="1414" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="1433" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">sample_count</text>
+<text x="2025" y="1433" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="2160" y="1433" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="1439" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1452" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">coverage_state</text>
+<text x="2025" y="1452" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1452" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="1471" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">provenance</text>
+<text x="2025" y="1471" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1471" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="1477" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1490" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">status</text>
+<text x="2025" y="1490" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1490" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="1509" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">uncertainty</text>
+<text x="2025" y="1509" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1509" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="1515" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1528" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">previous_value</text>
+<text x="2025" y="1528" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">numeric</text>
+<text x="2160" y="1528" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="1547" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">rolling_median</text>
+<text x="2025" y="1547" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">numeric</text>
+<text x="2160" y="1547" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="1553" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1566" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">rolling_mad</text>
+<text x="2025" y="1566" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">numeric</text>
+<text x="2160" y="1566" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="1585" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">baseline_sample_count</text>
+<text x="2025" y="1585" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="2160" y="1585" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="1591" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1604" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">workload_adjusted_residual</text>
+<text x="2025" y="1604" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">numeric</text>
+<text x="2160" y="1604" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="1623" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">status_reason</text>
+<text x="2025" y="1623" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1623" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="1629" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1642" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">confidence_label</text>
+<text x="2025" y="1642" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1642" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="1661" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">exclusions</text>
+<text x="2025" y="1661" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">jsonb</text>
+<text x="2160" y="1661" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="1667" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1680" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">computed_at</text>
+<text x="2025" y="1680" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="1680" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1740" y="1710" width="500" height="275" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M1740 1716 h500 v22 h-500 z" fill="#c2410c"/>
+<text x="1750" y="1729" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">findings</text>
+<text x="1750" y="1751" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">finding_id</text>
+<text x="2025" y="1751" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="1751" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">PK</text>
+<rect x="1741" y="1757" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1770" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">audit_revision_id</text>
+<text x="2025" y="1770" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="1770" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK NN</text>
+<text x="1750" y="1789" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evaluation_run_id</text>
+<text x="2025" y="1789" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="1789" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK</text>
+<rect x="1741" y="1795" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1808" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">finding_kind</text>
+<text x="2025" y="1808" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1808" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="1827" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">detector_name</text>
+<text x="2025" y="1827" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1827" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="1833" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1846" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">detector_version</text>
+<text x="2025" y="1846" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1846" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="1865" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">confidence</text>
+<text x="2025" y="1865" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">double precision</text>
+<text x="2160" y="1865" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="1871" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1884" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">status</text>
+<text x="2025" y="1884" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1884" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="1903" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">cause</text>
+<text x="2025" y="1903" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1903" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="1909" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1922" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">exception_check</text>
+<text x="2025" y="1922" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="1922" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="1941" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">counterevidence</text>
+<text x="2025" y="1941" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">jsonb</text>
+<text x="2160" y="1941" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="1947" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="1960" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">created_at</text>
+<text x="2025" y="1960" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="1960" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="1979" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">deleted_at</text>
+<text x="2025" y="1979" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="1979" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1740" y="2009" width="500" height="389" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M1740 2015 h500 v22 h-500 z" fill="#c2410c"/>
+<text x="1750" y="2028" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">recommendations</text>
+<text x="1750" y="2050" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">recommendation_id</text>
+<text x="2025" y="2050" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="2050" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">PK</text>
+<rect x="1741" y="2056" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2069" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">finding_id</text>
+<text x="2025" y="2069" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="2069" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK</text>
+<text x="1750" y="2088" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_id</text>
+<text x="2025" y="2088" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="2088" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK</text>
+<rect x="1741" y="2094" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2107" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">recommendation_kind</text>
+<text x="2025" y="2107" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="2107" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="2126" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">lifecycle_state</text>
+<text x="2025" y="2126" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="2126" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="2132" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2145" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">approval_required</text>
+<text x="2025" y="2145" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">boolean</text>
+<text x="2160" y="2145" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="2164" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">verification_kind</text>
+<text x="2025" y="2164" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="2164" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="2170" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2183" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">action_code</text>
+<text x="2025" y="2183" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="2183" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="2202" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">policy_version</text>
+<text x="2025" y="2202" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="2202" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="2208" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2221" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">cooldown_until</text>
+<text x="2025" y="2221" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="2221" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="2240" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evidence_revision</text>
+<text x="2025" y="2240" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="2240" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="2246" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2259" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">target_surface</text>
+<text x="2025" y="2259" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="2259" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="2278" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">action_text</text>
+<text x="2025" y="2278" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="2278" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="2284" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2297" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">expected_movement</text>
+<text x="2025" y="2297" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="2297" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="2316" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">protected_guardrails</text>
+<text x="2025" y="2316" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">jsonb</text>
+<text x="2160" y="2316" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="2322" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2335" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">risks</text>
+<text x="2025" y="2335" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">jsonb</text>
+<text x="2160" y="2335" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="2354" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">created_at</text>
+<text x="2025" y="2354" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="2354" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="2360" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2373" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">updated_at</text>
+<text x="2025" y="2373" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="2373" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="2392" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">deleted_at</text>
+<text x="2025" y="2392" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="2392" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1740" y="2422" width="500" height="161" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M1740 2428 h500 v22 h-500 z" fill="#c2410c"/>
+<text x="1750" y="2441" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">recommendation_events</text>
+<text x="1750" y="2463" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">recommendation_event_id</text>
+<text x="2025" y="2463" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="2463" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">PK</text>
+<rect x="1741" y="2469" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2482" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">recommendation_id</text>
+<text x="2025" y="2482" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="2482" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK NN</text>
+<text x="1750" y="2501" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">event_kind</text>
+<text x="2025" y="2501" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="2501" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<rect x="1741" y="2507" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2520" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">prior_state</text>
+<text x="2025" y="2520" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="2520" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<text x="1750" y="2539" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">next_state</text>
+<text x="2025" y="2539" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2160" y="2539" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c"></text>
+<rect x="1741" y="2545" width="498" height="19" fill="#f1f5f9"/>
+<text x="1750" y="2558" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">observed_at</text>
+<text x="2025" y="2558" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2160" y="2558" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">NN</text>
+<text x="1750" y="2577" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">evidence_artifact_id</text>
+<text x="2025" y="2577" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2160" y="2577" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#c2410c">FK</text>
+<text x="2310" y="50" font-family="ui-sans-serif,system-ui" font-size="22" font-weight="700" fill="#15803d">Retention</text>
+<rect x="2310" y="82" width="500" height="180" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M2310 88 h500 v22 h-500 z" fill="#15803d"/>
+<text x="2320" y="101" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">retention_policies</text>
+<text x="2320" y="123" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">retention_policy_id</text>
+<text x="2595" y="123" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2730" y="123" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">PK</text>
+<rect x="2311" y="129" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="142" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_id</text>
+<text x="2595" y="142" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2730" y="142" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">FK</text>
+<text x="2320" y="161" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">policy_version</text>
+<text x="2595" y="161" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2730" y="161" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<rect x="2311" y="167" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="180" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">classification</text>
+<text x="2595" y="180" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2730" y="180" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<text x="2320" y="199" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">retain_for_seconds</text>
+<text x="2595" y="199" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="2730" y="199" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<rect x="2311" y="205" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="218" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">legal_hold</text>
+<text x="2595" y="218" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">boolean</text>
+<text x="2730" y="218" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<text x="2320" y="237" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">created_at</text>
+<text x="2595" y="237" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2730" y="237" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<rect x="2311" y="243" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="256" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">retired_at</text>
+<text x="2595" y="256" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2730" y="256" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d"></text>
+<rect x="2310" y="286" width="500" height="237" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M2310 292 h500 v22 h-500 z" fill="#15803d"/>
+<text x="2320" y="305" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">retention_actions</text>
+<text x="2320" y="327" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">retention_action_id</text>
+<text x="2595" y="327" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2730" y="327" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">PK</text>
+<rect x="2311" y="333" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="346" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">retention_policy_id</text>
+<text x="2595" y="346" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2730" y="346" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">FK NN</text>
+<text x="2320" y="365" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_id</text>
+<text x="2595" y="365" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2730" y="365" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">FK NN</text>
+<rect x="2311" y="371" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="384" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">action_key</text>
+<text x="2595" y="384" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="2730" y="384" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<text x="2320" y="403" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">mode</text>
+<text x="2595" y="403" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2730" y="403" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<rect x="2311" y="409" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="422" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">cutoff_at</text>
+<text x="2595" y="422" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2730" y="422" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<text x="2320" y="441" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">planned_count</text>
+<text x="2595" y="441" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="2730" y="441" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<rect x="2311" y="447" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="460" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">applied_count</text>
+<text x="2595" y="460" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="2730" y="460" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<text x="2320" y="479" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">status</text>
+<text x="2595" y="479" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2730" y="479" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<rect x="2311" y="485" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="498" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">started_at</text>
+<text x="2595" y="498" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2730" y="498" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<text x="2320" y="517" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">completed_at</text>
+<text x="2595" y="517" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2730" y="517" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d"></text>
+<rect x="2310" y="547" width="500" height="294" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M2310 553 h500 v22 h-500 z" fill="#15803d"/>
+<text x="2320" y="566" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">archive_batches</text>
+<text x="2320" y="588" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">archive_batch_id</text>
+<text x="2595" y="588" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2730" y="588" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">PK</text>
+<rect x="2311" y="594" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="607" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">project_id</text>
+<text x="2595" y="607" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2730" y="607" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">FK NN</text>
+<text x="2320" y="626" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">retention_action_id</text>
+<text x="2595" y="626" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2730" y="626" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">FK NN</text>
+<rect x="2311" y="632" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="645" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">archive_reference</text>
+<text x="2595" y="645" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2730" y="645" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<text x="2320" y="664" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">encryption_key_reference</text>
+<text x="2595" y="664" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2730" y="664" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<rect x="2311" y="670" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="683" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">format_version</text>
+<text x="2595" y="683" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2730" y="683" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<text x="2320" y="702" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">range_start</text>
+<text x="2595" y="702" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2730" y="702" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<rect x="2311" y="708" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="721" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">range_end</text>
+<text x="2595" y="721" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2730" y="721" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<text x="2320" y="740" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">entity_count</text>
+<text x="2595" y="740" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="2730" y="740" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<rect x="2311" y="746" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="759" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">plaintext_digest</text>
+<text x="2595" y="759" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="2730" y="759" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<text x="2320" y="778" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">encrypted_digest</text>
+<text x="2595" y="778" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="2730" y="778" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<rect x="2311" y="784" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="797" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">status</text>
+<text x="2595" y="797" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2730" y="797" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<text x="2320" y="816" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">created_at</text>
+<text x="2595" y="816" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2730" y="816" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<rect x="2311" y="822" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="835" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">verified_at</text>
+<text x="2595" y="835" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2730" y="835" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d"></text>
+<rect x="2310" y="865" width="500" height="218" rx="6" fill="white" stroke="#cbd5e1"/>
+<path d="M2310 871 h500 v22 h-500 z" fill="#15803d"/>
+<text x="2320" y="884" font-family="ui-monospace,SFMono-Regular" font-size="14" font-weight="700" fill="white">retention_action_entities</text>
+<text x="2320" y="906" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">retention_action_entity_id</text>
+<text x="2595" y="906" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2730" y="906" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">PK</text>
+<rect x="2311" y="912" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="925" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">retention_action_id</text>
+<text x="2595" y="925" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2730" y="925" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">FK NN</text>
+<text x="2320" y="944" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">archive_batch_id</text>
+<text x="2595" y="944" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">uuid</text>
+<text x="2730" y="944" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">FK</text>
+<rect x="2311" y="950" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="963" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">entity_kind</text>
+<text x="2595" y="963" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">text</text>
+<text x="2730" y="963" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<text x="2320" y="982" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">planned_count</text>
+<text x="2595" y="982" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="2730" y="982" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<rect x="2311" y="988" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="1001" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">archived_count</text>
+<text x="2595" y="1001" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="2730" y="1001" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<text x="2320" y="1020" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">deleted_count</text>
+<text x="2595" y="1020" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bigint</text>
+<text x="2730" y="1020" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<rect x="2311" y="1026" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="1039" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">archive_digest</text>
+<text x="2595" y="1039" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="2730" y="1039" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<text x="2320" y="1058" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">deletion_digest</text>
+<text x="2595" y="1058" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">bytea</text>
+<text x="2730" y="1058" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+<rect x="2311" y="1064" width="498" height="19" fill="#f1f5f9"/>
+<text x="2320" y="1077" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#0f172a">recorded_at</text>
+<text x="2595" y="1077" font-family="ui-monospace,SFMono-Regular" font-size="11" fill="#475569">timestamptz</text>
+<text x="2730" y="1077" font-family="ui-monospace,SFMono-Regular" font-size="10" font-weight="700" fill="#15803d">NN</text>
+</svg>

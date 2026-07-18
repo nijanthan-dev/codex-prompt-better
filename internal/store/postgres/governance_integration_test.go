@@ -38,6 +38,14 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	insertGovernanceFixture(t, ctx, repo, start)
+	if _, err := repo.pool.Exec(ctx, `INSERT INTO prompt_better.execution_events
+		(execution_event_id,event_kind,event_name,schema_version,project_id,content_hash,
+		 attributes,observed_at,knowledge_state)
+		VALUES ('f6000000-0000-0000-0000-000000000099','policy_snapshot','policy-v1','1',
+		 'f1000000-0000-0000-0000-000000000001',decode(repeat('ab',32),'hex'),
+		 '{"raw_retention_enabled":false,"telemetry_enabled":false}',$1,'observed')`, start); err != nil {
+		t.Fatal(err)
+	}
 	projectRequest := func(asOf time.Time) contracts.AuditProjectRequest {
 		return contracts.AuditProjectRequest{
 			SchemaVersion: contracts.SchemaVersion, Kind: "request",
@@ -104,6 +112,18 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 	}
 	if result.Coverage != contracts.CoverageStateComplete || len(result.RevisionHash) != 64 {
 		t.Fatalf("unexpected audit identity: %#v", result)
+	}
+	var policyVersion, policyHash string
+	var rawRetention, telemetry bool
+	if err := repo.pool.QueryRow(ctx, `SELECT aw.policy_schema_version,encode(aw.policy_hash,'hex'),
+		aw.raw_retention_enabled,aw.telemetry_enabled
+		FROM prompt_better.audit_windows aw
+		JOIN prompt_better.audit_revisions revision USING (audit_window_id)
+		WHERE encode(revision.revision_hash,'hex')=$1`, result.RevisionHash).
+		Scan(&policyVersion, &policyHash, &rawRetention, &telemetry); err != nil ||
+		policyVersion != "policy-v1" || len(policyHash) != 64 || rawRetention || telemetry {
+		t.Fatalf("audit policy pin version=%q hash=%q raw=%t telemetry=%t error=%v",
+			policyVersion, policyHash, rawRetention, telemetry, err)
 	}
 	if result.ReportFacts == nil || len(result.ReportFacts.Sources) != 1 ||
 		result.ReportFacts.Sources[0].SourceKind != "codex_jsonl" ||
@@ -340,12 +360,13 @@ func TestAuditProjectIntegration_RawRatiosUnknownAndOverheadIsolation(t *testing
 		start.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.pool.Exec(ctx, `INSERT INTO prompt_better.governance_overhead
-		(governance_overhead_id,audit_revision_id,trajectory_id,overhead_kind,
-		 native_value,native_unit,required_state,observed_at)
-		VALUES ('fd000000-0000-0000-0000-000000000099',
+	if _, err := repo.pool.Exec(ctx, `INSERT INTO prompt_better.observations
+		(observation_id,observation_kind,schema_version,audit_revision_id,trajectory_id,
+		 metric_kind,value_numeric,native_unit,state_value,provenance,observed_at,knowledge_state)
+		VALUES ('fd000000-0000-0000-0000-000000000099','governance_overhead','1',
 		'fc000000-0000-0000-0000-000000000001',
-		'f4000000-0000-0000-0000-000000000099','audit',90,'tokens','necessary',$1)`,
+		'f4000000-0000-0000-0000-000000000099','audit',90,'tokens','necessary',
+		'runtime_observed',$1,'observed')`,
 		start.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
@@ -562,9 +583,9 @@ func insertGovernanceFixture(t *testing.T, ctx context.Context, repo *Repository
 				"f4000000-0000-0000-0000-000000000001",
 				start.Add(time.Minute),
 			}},
-		{`INSERT INTO prompt_better.usage_observations
-			(usage_observation_id,trajectory_id,evidence_artifact_id,metric_kind,value_numeric,usage_unit,product_surface,accounting_regime,provenance,source_adapter,observed_at,knowledge_state)
-			VALUES ($1,$2,$3,'total_tokens',100,'tokens','local','native','runtime_observed','synthetic',$4,'observed')`,
+		{`INSERT INTO prompt_better.observations
+			(observation_id,observation_kind,schema_version,trajectory_id,evidence_artifact_id,metric_kind,value_numeric,native_unit,product_surface,accounting_regime,provenance,source_adapter,source_version,observed_at,knowledge_state)
+			VALUES ($1,'usage','1',$2,$3,'total_tokens',100,'tokens','local','native','runtime_observed','synthetic','synthetic-v1',$4,'observed')`,
 			[]any{"fa000000-0000-0000-0000-000000000001", "f4000000-0000-0000-0000-000000000001", "f9000000-0000-0000-0000-000000000001", start.Add(time.Minute)}},
 		{`INSERT INTO prompt_better.audit_windows
 			(audit_window_id,project_id,window_kind,starts_at,ends_at,as_of,timezone_name,immutable_since)
@@ -574,9 +595,9 @@ func insertGovernanceFixture(t *testing.T, ctx context.Context, repo *Repository
 			(audit_revision_id,audit_window_id,revision_number,source_watermark_at,coverage_state,revision_hash,created_at)
 			VALUES ($1,$2,1,$3,'complete',decode(repeat('44',32),'hex'),$3)`,
 			[]any{"fc000000-0000-0000-0000-000000000001", "fb000000-0000-0000-0000-000000000001", start.Add(time.Hour)}},
-		{`INSERT INTO prompt_better.governance_overhead
-			(governance_overhead_id,audit_revision_id,trajectory_id,overhead_kind,native_value,native_unit,required_state,observed_at)
-			VALUES ($1,$2,$3,'audit',10,'tokens','necessary',$4)`,
+		{`INSERT INTO prompt_better.observations
+			(observation_id,observation_kind,schema_version,audit_revision_id,trajectory_id,metric_kind,value_numeric,native_unit,state_value,provenance,observed_at,knowledge_state)
+			VALUES ($1,'governance_overhead','1',$2,$3,'audit',10,'tokens','necessary','runtime_observed',$4,'observed')`,
 			[]any{"fd000000-0000-0000-0000-000000000001", "fc000000-0000-0000-0000-000000000001", "f4000000-0000-0000-0000-000000000001", start.Add(time.Minute)}},
 	}
 	for _, statement := range statements {

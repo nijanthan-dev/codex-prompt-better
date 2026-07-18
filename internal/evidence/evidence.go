@@ -110,9 +110,11 @@ func Validate(record Record) error {
 }
 
 var allowedAttributes = map[string]map[string]bool{
-	"configuration": {"execution_policy": true, "host_permission": true, "max_input_bytes": true, "timeout": true, "format": true, "activity_class": true},
-	"git":           {"repository_alias": true, "worktree_alias": true, "branch_alias": true, "head_alias": true, "activity_class": true},
-	"github":        {"event_kind": true, "state": true, "repository_alias": true, "pull_request_alias": true, "check_alias": true, "activity_class": true},
+	"configuration": {"execution_policy": true, "host_permission": true, "max_input_bytes": true,
+		"timeout": true, "format": true, "activity_class": true, "policy_schema_version": true,
+		"policy_hash": true, "raw_prompt_retention": true, "telemetry": true},
+	"git":    {"repository_alias": true, "worktree_alias": true, "branch_alias": true, "head_alias": true, "activity_class": true},
+	"github": {"event_kind": true, "state": true, "repository_alias": true, "pull_request_alias": true, "check_alias": true, "activity_class": true},
 	"codex_jsonl": attributeSet(
 		"session_alias", "trajectory_alias", "task_alias", "task_attribution_state",
 		"turn_alias", "turn_ordinal", "phase", "phase_event", "response_lineage",
@@ -125,6 +127,14 @@ var allowedAttributes = map[string]map[string]bool{
 		"cache_value", "image_detail", "safeguard_outcome",
 		"safety_identifier_presence", "checkpoint_event", "boundary_event",
 		"delegation_event", "stop_event", "compaction_event", "activity_class",
+		"plan_hash", "plan_phase_scope", "approval_boundary_class",
+		"budget_enforcement", "budget_max_tool_loops", "budget_max_retries",
+		"budget_max_retrieval_expansions", "budget_delegation_policy",
+		"budget_max_agent_depth", "budget_max_concurrency", "budget_context_mode",
+		"budget_exhaustion_outcome", "policy_schema_version", "policy_hash",
+		"raw_prompt_retention", "telemetry", "host_kind", "host_version",
+		"host_capability_name", "host_capability_state",
+		"project_attribution_confidence", "project_attribution_valid_to",
 	),
 	"codex_state_sqlite": {"thread_alias": true, "trajectory_alias": true, "state": true, "model_variant": true, "reasoning_effort": true, "activity_class": true},
 	"rollout_summary":    {"session_alias": true, "trajectory_alias": true, "compaction_state": true, "delegation_parent": true, "delegation_depth": true, "context_mode": true, "activity_class": true},

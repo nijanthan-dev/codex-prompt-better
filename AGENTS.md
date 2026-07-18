@@ -28,6 +28,11 @@
 - For each new review finding, state the invariant, scan directly analogous paths, add the smallest focused regression proof, make one commit/push, then reply and resolve. Run full validation only after changes or at the final gate.
 - Squash merge only after clean review, checks, threads, merge state, and scans.
 - Version persisted changes. Tables precede indexes, FKs, and views in migrations.
+- Treat all ordered migration up-sections as schema truth. After migration edits,
+  run `go run ./scripts/generate-erd.go`; keep the checked-in DBML, SVG, and Markdown current.
+- Inspect storage before maintenance. Use autovacuum and bounded
+  `VACUUM (ANALYZE, SKIP_LOCKED)` after retention only; never automate
+  `VACUUM FULL`, `CLUSTER`, or `REINDEX`.
 - Keep README and GitHub About/topics aligned with `docs/discovery.md`.
 - Use Conventional Commit squash titles; verify the Release Please PR, tag, and release.
 - No release without documented closeout, provenance, changelog, and rollback plan.

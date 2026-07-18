@@ -929,7 +929,7 @@ func runAudit(ctx context.Context, args []string, streams Streams) int {
 			true,
 		))
 	}
-	repository, err := postgres.OpenRepository(ctx, dsn, postgres.DefaultPoolConfig())
+	repository, err := postgres.OpenLocalRepository(ctx, dsn, postgres.RoleRuntime)
 	if err != nil {
 		return emitError(streams.Error, format, contracts.NewError(
 			contracts.ErrorCodeCoverageIncomplete,
