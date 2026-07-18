@@ -123,15 +123,24 @@ retention timestamps may extend or shorten that window; legal holds always win.
 Dry-run plans are ordered and capped at 1,000 rows. Each plan belongs to exactly
 one policy so counts and audits cannot cross classification rules.
 
-Apply requires a successfully reread AES-256-GCM archive whose plaintext digest
-matches the dry-run plan. Only then does one serializable transaction record the
-archive metadata, delete linked normalized/derived data, remove now-unreferenced
-keyed aliases, record exact deletion counts, and complete the action. Repeating
-the same action key returns the original result. Archive references and key
-references are non-secret digests/labels; archives contain normalized metadata,
-not raw prompts, reasoning, tool payloads, host paths, or key material.
+Apply requires a successfully reread AES-256-GCM v2 archive whose plaintext
+digest matches the dry-run plan. The serializable transaction locks every
+planned evidence row and requires all archived metadata and current eligibility
+to match exactly before deletion. Repeating the same action key returns the
+original result. Archive references and key references are non-secret
+digests/labels; archives contain normalized metadata, not raw prompts, reasoning,
+tool payloads, host paths, or key material.
 An action-key advisory lock serializes identical applies before the idempotency
 lookup, so concurrent retries return the first committed deletion count.
+
+Evidence owns execution events directly. A session and its execution graph are
+deleted only after its final evidence artifact expires. Audit revisions are one
+retention unit: their metrics, findings, recommendations, and events remain while
+any evidence link, observation, or recommendation event in the revision still
+references retained evidence. Once the unit has no retained evidence, revision
+deletion cascades through the complete derived graph. The same transaction
+removes empty audit windows and now-unreferenced keyed aliases and records exact
+deletion counts.
 
 Purge uses small batches to bound locks and WAL. Time-correlated high-volume
 tables use low-overhead BRIN indexes alongside selective B-tree indexes. After

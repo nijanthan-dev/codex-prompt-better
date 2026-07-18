@@ -39,6 +39,9 @@ when their canonical physical-model fingerprint changes.
 
 The model preserves source-native units, provenance, knowledge and coverage
 states, temporal history, replay hashes, privacy boundaries, and archive-gated
-deletion with fewer write paths. A configurable local byte budget defaults to
-1.5 GiB. Incompatible unreleased schemas fail closed with backup/reset guidance;
+deletion with fewer write paths. Explicit evidence ownership keeps execution
+events aligned with artifact retention; revision ownership keeps metrics,
+observations, findings, recommendations, and events atomic during purge. A
+configurable local byte budget defaults to 1.5 GiB. Incompatible unreleased
+schemas fail closed with backup/reset guidance;
 no public migration compatibility is promised before the first release.

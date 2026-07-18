@@ -72,12 +72,14 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
 	}
 	oldID := "80000000-0000-0000-0000-000000000010"
 	youngID := "80000000-0000-0000-0000-000000000011"
-	putRetentionEvidence(t, ctx, repo, projectID, sourceID, oldID,
+	sessionID := "82000000-0000-0000-0000-000000000001"
+	putRetentionSession(t, ctx, db, projectID, sourceID, sessionID, asOf)
+	putRetentionEvidence(t, ctx, repo, projectID, sourceID, sessionID, oldID,
 		asOf.Add(-31*24*time.Hour), "old")
-	putRetentionEvidence(t, ctx, repo, projectID, sourceID, youngID,
+	putRetentionEvidence(t, ctx, repo, projectID, sourceID, sessionID, youngID,
 		asOf.Add(-29*24*time.Hour), "young")
-	putDerivedRetentionRows(t, ctx, db, projectID, oldID, asOf)
-	putNormalizedRetentionRows(t, ctx, db, projectID, sourceID, asOf)
+	putDerivedRetentionRows(t, ctx, db, projectID, oldID, youngID, asOf)
+	putNormalizedRetentionRows(t, ctx, db, projectID, sourceID, oldID, youngID, asOf)
 	if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.key_versions
         (key_version_id,key_reference,algorithm,state,created_at)
         VALUES ('80000000-0000-0000-0000-000000000020','synthetic-key-v1',
@@ -107,6 +109,27 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
 	}
 	receipt, err := archiver.Archive(ctx,
 		"80000000-0000-0000-0000-000000000030", plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	staleApply := store.RetentionApply{
+		ActionID:       "80000000-0000-0000-0000-000000000031",
+		ActionEntityID: "80000000-0000-0000-0000-000000000033",
+		Plan:           plan, Receipt: receipt,
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE prompt_better.evidence_artifacts
+		SET observed_at=observed_at+interval '1 minute' WHERE evidence_artifact_id=$1`, oldID); err != nil {
+		t.Fatal(err)
+	}
+	if applied, err := repo.ApplyRetention(ctx, staleApply); err == nil || applied != 0 {
+		t.Fatalf("stale archived metadata applied=%d error=%v", applied, err)
+	}
+	plan, err = repo.PlanRetention(ctx, policyID, asOf, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err = archiver.Archive(ctx,
+		"80000000-0000-0000-0000-000000000034", plan)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,26 +169,29 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
         WHERE project_id=$1`, projectID, 1)
 	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.project_aliases
         WHERE project_id=$1`, projectID, 1)
-	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.tasks
-		WHERE project_id=$1`, projectID, 1)
-	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.state_epochs epoch
-		JOIN prompt_better.trajectories trajectory
-		  ON trajectory.trajectory_id=epoch.trajectory_id
-		JOIN prompt_better.sessions session ON session.session_id=trajectory.session_id
-		WHERE session.project_id=$1`, projectID, 1)
 	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.audit_revisions revision
 		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
-		WHERE audit_window.project_id=$1`, projectID, 0)
+		WHERE audit_window.project_id=$1`, projectID, 2)
 	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.metric_results result
 		JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
 		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
-		WHERE audit_window.project_id=$1`, projectID, 0)
+		WHERE audit_window.project_id=$1`, projectID, 1)
 	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.findings finding
 		JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
 		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
-		WHERE audit_window.project_id=$1`, projectID, 0)
+		WHERE audit_window.project_id=$1`, projectID, 1)
 	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.recommendations
-		WHERE project_id=$1`, projectID, 0)
+		WHERE project_id=$1`, projectID, 2)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.recommendation_events event
+		JOIN prompt_better.recommendations recommendation USING (recommendation_id)
+		WHERE recommendation.project_id=$1`, projectID, 1)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.observations observation
+		JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
+		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
+		WHERE audit_window.project_id=$1`, projectID, 1)
+	assertNormalizedLineageCount(t, ctx, db, projectID, 1)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.execution_events
+		WHERE project_id=$1`, projectID, 1)
 
 	if err := repo.PutRetentionPolicy(ctx, store.RetentionPolicy{
 		ID: policyID, ProjectID: projectID, Version: "1.0.1", Classification: "internal",
@@ -203,13 +229,29 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
         WHERE project_id=$1`, projectID, 0)
 	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.project_aliases
         WHERE project_id=$1`, projectID, 0)
-	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.tasks
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.audit_revisions revision
+		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
+		WHERE audit_window.project_id=$1`, projectID, 0)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.metric_results result
+		JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
+		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
+		WHERE audit_window.project_id=$1`, projectID, 0)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.findings finding
+		JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
+		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
+		WHERE audit_window.project_id=$1`, projectID, 0)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.recommendations
 		WHERE project_id=$1`, projectID, 0)
-	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.state_epochs epoch
-		JOIN prompt_better.trajectories trajectory
-		  ON trajectory.trajectory_id=epoch.trajectory_id
-		JOIN prompt_better.sessions session ON session.session_id=trajectory.session_id
-		WHERE session.project_id=$1`, projectID, 0)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.recommendation_events event
+		JOIN prompt_better.recommendations recommendation USING (recommendation_id)
+		WHERE recommendation.project_id=$1`, projectID, 0)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.observations observation
+		JOIN prompt_better.audit_revisions revision USING (audit_revision_id)
+		JOIN prompt_better.audit_windows audit_window USING (audit_window_id)
+		WHERE audit_window.project_id=$1`, projectID, 0)
+	assertNormalizedLineageCount(t, ctx, db, projectID, 0)
+	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.execution_events
+		WHERE project_id=$1`, projectID, 0)
 	if err := repo.MaintainAfterRetention(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -225,17 +267,24 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
 	}
 }
 
+func putRetentionSession(t *testing.T, ctx context.Context, db *sql.DB,
+	projectID, sourceID, sessionID string, asOf time.Time) {
+	t.Helper()
+	if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.sessions
+		(session_id,project_id,source_id,started_at,coverage_state,knowledge_state)
+		VALUES ($1,$2,$3,$4,'complete','observed')`, sessionID, projectID, sourceID,
+		asOf.Add(-31*24*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func putNormalizedRetentionRows(t *testing.T, ctx context.Context, db *sql.DB,
-	projectID, sourceID string, asOf time.Time) {
+	projectID, sourceID, expiredEvidenceID, retainedEvidenceID string, asOf time.Time) {
 	t.Helper()
 	statements := []struct {
 		query string
 		args  []any
 	}{
-		{`INSERT INTO prompt_better.sessions
-			(session_id,project_id,source_id,started_at,coverage_state,knowledge_state)
-			VALUES ('82000000-0000-0000-0000-000000000001',$1,$2,$3,'complete','observed')`,
-			[]any{projectID, sourceID, asOf.Add(-31 * 24 * time.Hour)}},
 		{`INSERT INTO prompt_better.trajectories
 			(trajectory_id,session_id,source_id,started_at,knowledge_state)
 			VALUES ('82000000-0000-0000-0000-000000000002',
@@ -254,6 +303,43 @@ func putNormalizedRetentionRows(t *testing.T, ctx context.Context, db *sql.DB,
 			 '82000000-0000-0000-0000-000000000002',$1,
 			 decode(repeat('ef',32),'hex'),'mutated',$2,'observed')`,
 			[]any{sourceID, asOf.Add(-31 * 24 * time.Hour)}},
+		{`INSERT INTO prompt_better.turns
+			(turn_id,trajectory_id,task_id,source_id,ordinal,observed_at,knowledge_state)
+			VALUES ('82000000-0000-0000-0000-000000000005',
+			 '82000000-0000-0000-0000-000000000002',
+			 '82000000-0000-0000-0000-000000000003',$1,0,$2,'observed')`,
+			[]any{sourceID, asOf.Add(-31 * 24 * time.Hour)}},
+		{`INSERT INTO prompt_better.responses
+			(response_id,turn_id,source_id,started_at,knowledge_state)
+			VALUES ('82000000-0000-0000-0000-000000000006',
+			 '82000000-0000-0000-0000-000000000005',$1,$2,'observed')`,
+			[]any{sourceID, asOf.Add(-31 * 24 * time.Hour)}},
+		{`INSERT INTO prompt_better.items
+			(item_id,response_id,source_id,item_kind,ordinal,observed_at,knowledge_state)
+			VALUES ('82000000-0000-0000-0000-000000000007',
+			 '82000000-0000-0000-0000-000000000006',$1,'message',0,$2,'observed')`,
+			[]any{sourceID, asOf.Add(-31 * 24 * time.Hour)}},
+		{`INSERT INTO prompt_better.phases
+			(phase_id,trajectory_id,response_id,phase_kind,ordinal,started_at,knowledge_state)
+			VALUES ('82000000-0000-0000-0000-000000000008',
+			 '82000000-0000-0000-0000-000000000002',
+			 '82000000-0000-0000-0000-000000000006','tool',0,$1,'observed')`,
+			[]any{asOf.Add(-31 * 24 * time.Hour)}},
+		{`INSERT INTO prompt_better.tool_calls
+			(tool_call_id,response_id,phase_id,source_id,call_path,tool_kind,started_at,knowledge_state)
+			VALUES ('82000000-0000-0000-0000-000000000009',
+			 '82000000-0000-0000-0000-000000000006',
+			 '82000000-0000-0000-0000-000000000008',$1,'direct','synthetic',$2,'observed')`,
+			[]any{sourceID, asOf.Add(-31 * 24 * time.Hour)}},
+		{`INSERT INTO prompt_better.execution_events
+			(execution_event_id,event_kind,event_name,schema_version,project_id,session_id,
+			 evidence_artifact_id,outcome,observed_at,knowledge_state)
+			VALUES
+			('82000000-0000-0000-0000-000000000010','boundary','runtime','1',$1,
+			 '82000000-0000-0000-0000-000000000001',$2,'allowed',$4,'observed'),
+			('82000000-0000-0000-0000-000000000011','boundary','runtime','1',$1,
+			 '82000000-0000-0000-0000-000000000001',$3,'allowed',$4,'observed')`,
+			[]any{projectID, expiredEvidenceID, retainedEvidenceID, asOf.Add(-31 * 24 * time.Hour)}},
 	}
 	for _, statement := range statements {
 		if _, err := db.ExecContext(ctx, statement.query, statement.args...); err != nil {
@@ -263,7 +349,7 @@ func putNormalizedRetentionRows(t *testing.T, ctx context.Context, db *sql.DB,
 }
 
 func putDerivedRetentionRows(t *testing.T, ctx context.Context, db *sql.DB,
-	projectID, evidenceID string, asOf time.Time) {
+	projectID, expiredEvidenceID, retainedEvidenceID string, asOf time.Time) {
 	t.Helper()
 	statements := []struct {
 		query string
@@ -277,7 +363,11 @@ func putDerivedRetentionRows(t *testing.T, ctx context.Context, db *sql.DB,
             (audit_revision_id,audit_window_id,revision_number,source_watermark_at,
              coverage_state,revision_hash,created_at) VALUES
             ('81000000-0000-0000-0000-000000000002','81000000-0000-0000-0000-000000000001',
-             1,$1,'complete',decode(repeat('cd',32),'hex'),$1)`, []any{asOf}},
+			 1,$1,'complete',decode(repeat('cd',32),'hex'),$1),
+			('81000000-0000-0000-0000-000000000014','81000000-0000-0000-0000-000000000001',
+			 2,$1,'complete',decode(repeat('ce',32),'hex'),$1),
+			('81000000-0000-0000-0000-000000000017','81000000-0000-0000-0000-000000000001',
+			 3,$1,'complete',decode(repeat('cf',32),'hex'),$1)`, []any{asOf}},
 		{`INSERT INTO prompt_better.metric_results
             (metric_result_id,audit_revision_id,metric_name,metric_version,native_unit,
              coverage_state,provenance,computed_at) VALUES
@@ -288,14 +378,48 @@ func putDerivedRetentionRows(t *testing.T, ctx context.Context, db *sql.DB,
             VALUES ('81000000-0000-0000-0000-000000000004',
              '81000000-0000-0000-0000-000000000002','synthetic','synthetic','1.0.0','open',$1)`, []any{asOf}},
 		{`INSERT INTO prompt_better.recommendations
-            (recommendation_id,finding_id,project_id,recommendation_kind,lifecycle_state,
-             approval_required,created_at,updated_at) VALUES
-            ('81000000-0000-0000-0000-000000000005','81000000-0000-0000-0000-000000000004',
-             $1,'synthetic','proposed',true,$2,$2)`, []any{projectID, asOf}},
+			(recommendation_id,audit_revision_id,finding_id,project_id,recommendation_kind,lifecycle_state,
+			 approval_required,created_at,updated_at) VALUES
+			('81000000-0000-0000-0000-000000000005','81000000-0000-0000-0000-000000000002',
+			 '81000000-0000-0000-0000-000000000004',$1,'synthetic','proposed',true,$2,$2),
+			('81000000-0000-0000-0000-000000000012','81000000-0000-0000-0000-000000000002',
+			 NULL,$1,'no_action','proposed',false,$2,$2),
+			('81000000-0000-0000-0000-000000000015','81000000-0000-0000-0000-000000000014',
+			 NULL,$1,'no_action','proposed',false,$2,$2)`, []any{projectID, asOf}},
+		{`INSERT INTO prompt_better.recommendation_events
+			(recommendation_event_id,recommendation_id,event_kind,observed_at,evidence_artifact_id)
+			VALUES ('81000000-0000-0000-0000-000000000013',
+			 '81000000-0000-0000-0000-000000000005','verified',$3,$2),
+			('81000000-0000-0000-0000-000000000016',
+			 '81000000-0000-0000-0000-000000000015','verified',$3,$1)`,
+			[]any{expiredEvidenceID, retainedEvidenceID, asOf}},
+		{`INSERT INTO prompt_better.observations
+			(observation_id,observation_kind,schema_version,audit_revision_id,
+			 evidence_artifact_id,metric_kind,state_value,provenance,observed_at,knowledge_state)
+			VALUES
+			('81000000-0000-0000-0000-000000000018','confounder','1',
+			 '81000000-0000-0000-0000-000000000017',$1,'synthetic','present',
+			 'runtime_observed',$3,'observed'),
+			('81000000-0000-0000-0000-000000000019','confounder','1',
+			 '81000000-0000-0000-0000-000000000017',$2,'synthetic','present',
+			 'runtime_observed',$3,'observed')`,
+			[]any{expiredEvidenceID, retainedEvidenceID, asOf}},
 		{`INSERT INTO prompt_better.evidence_links
-            (evidence_link_id,evidence_artifact_id,target_kind,target_id,link_kind,created_at)
-            VALUES ('81000000-0000-0000-0000-000000000006',$1,'audit_revision',
-             '81000000-0000-0000-0000-000000000002','supports',$2)`, []any{evidenceID, asOf}},
+			(evidence_link_id,evidence_artifact_id,target_kind,target_id,link_kind,created_at)
+			VALUES
+			('81000000-0000-0000-0000-000000000006',$1,'audit_revision',
+			 '81000000-0000-0000-0000-000000000002','supports',$3),
+			('81000000-0000-0000-0000-000000000007',$2,'audit_revision',
+			 '81000000-0000-0000-0000-000000000002','supports',$3),
+			('81000000-0000-0000-0000-000000000008',$1,'metric_result',
+			 '81000000-0000-0000-0000-000000000003','supports',$3),
+			('81000000-0000-0000-0000-000000000009',$2,'metric_result',
+			 '81000000-0000-0000-0000-000000000003','supports',$3),
+			('81000000-0000-0000-0000-000000000010',$1,'finding',
+			 '81000000-0000-0000-0000-000000000004','supports',$3),
+			('81000000-0000-0000-0000-000000000011',$2,'finding',
+			 '81000000-0000-0000-0000-000000000004','supports',$3)`,
+			[]any{expiredEvidenceID, retainedEvidenceID, asOf}},
 	}
 	for _, statement := range statements {
 		if _, err := db.ExecContext(ctx, statement.query, statement.args...); err != nil {
@@ -305,12 +429,13 @@ func putDerivedRetentionRows(t *testing.T, ctx context.Context, db *sql.DB,
 }
 
 func putRetentionEvidence(t *testing.T, ctx context.Context, repo *store.Repository,
-	projectID, sourceID, id string, observedAt time.Time, content string) {
+	projectID, sourceID, sessionID, id string, observedAt time.Time, content string) {
 	t.Helper()
 	hash := sha256.Sum256([]byte(content))
 	if err := repo.PutEvidence(ctx, store.Evidence{
-		ID: id, SourceID: sourceID, ProjectID: &projectID, SchemaVersion: "1.0.0",
-		ContentHash: hash[:], ContentLength: int64(len(content)),
+		ID: id, SourceID: sourceID, ProjectID: &projectID, SessionID: &sessionID,
+		SchemaVersion: "1.0.0",
+		ContentHash:   hash[:], ContentLength: int64(len(content)),
 		Classification: "internal", RedactionState: "not_needed",
 		CoverageState: "complete", Provenance: "runtime_observed",
 		ProductSurface: "local", ObservedAt: observedAt,
@@ -329,5 +454,42 @@ func assertSQLCount(t *testing.T, ctx context.Context, db interface {
 	}
 	if got != want {
 		t.Fatalf("count=%d want=%d", got, want)
+	}
+}
+
+func assertNormalizedLineageCount(t *testing.T, ctx context.Context, db *sql.DB,
+	projectID string, want int) {
+	t.Helper()
+	queries := []string{
+		`SELECT count(*) FROM prompt_better.sessions WHERE project_id=$1`,
+		`SELECT count(*) FROM prompt_better.tasks WHERE project_id=$1`,
+		`SELECT count(*) FROM prompt_better.trajectories trajectory
+			JOIN prompt_better.sessions session USING (session_id) WHERE session.project_id=$1`,
+		`SELECT count(*) FROM prompt_better.turns turn_row
+			JOIN prompt_better.trajectories trajectory USING (trajectory_id)
+			JOIN prompt_better.sessions session USING (session_id) WHERE session.project_id=$1`,
+		`SELECT count(*) FROM prompt_better.responses response
+			JOIN prompt_better.turns turn_row USING (turn_id)
+			JOIN prompt_better.trajectories trajectory USING (trajectory_id)
+			JOIN prompt_better.sessions session USING (session_id) WHERE session.project_id=$1`,
+		`SELECT count(*) FROM prompt_better.items item
+			JOIN prompt_better.responses response USING (response_id)
+			JOIN prompt_better.turns turn_row USING (turn_id)
+			JOIN prompt_better.trajectories trajectory USING (trajectory_id)
+			JOIN prompt_better.sessions session USING (session_id) WHERE session.project_id=$1`,
+		`SELECT count(*) FROM prompt_better.phases phase
+			JOIN prompt_better.trajectories trajectory USING (trajectory_id)
+			JOIN prompt_better.sessions session USING (session_id) WHERE session.project_id=$1`,
+		`SELECT count(*) FROM prompt_better.state_epochs epoch
+			JOIN prompt_better.trajectories trajectory USING (trajectory_id)
+			JOIN prompt_better.sessions session USING (session_id) WHERE session.project_id=$1`,
+		`SELECT count(*) FROM prompt_better.tool_calls tool_call
+			JOIN prompt_better.responses response USING (response_id)
+			JOIN prompt_better.turns turn_row USING (turn_id)
+			JOIN prompt_better.trajectories trajectory USING (trajectory_id)
+			JOIN prompt_better.sessions session USING (session_id) WHERE session.project_id=$1`,
+	}
+	for _, query := range queries {
+		assertSQLCount(t, ctx, db, query, projectID, want)
 	}
 }

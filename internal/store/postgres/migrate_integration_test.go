@@ -60,7 +60,7 @@ func TestMigrationAndRoleBootstrap(t *testing.T) {
 	assertExists(t, ctx, db, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'prompt_better_runtime')")
 	assertExists(t, ctx, db, "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'schema_migrations')")
 	assertCount(t, ctx, db, `SELECT count(*) FROM information_schema.tables WHERE table_schema = 'prompt_better' AND table_type = 'BASE TABLE'`, 32)
-	assertCount(t, ctx, db, `SELECT count(*) FROM information_schema.table_constraints WHERE constraint_schema = 'prompt_better' AND constraint_type = 'FOREIGN KEY'`, 68)
+	assertCount(t, ctx, db, `SELECT count(*) FROM information_schema.table_constraints WHERE constraint_schema = 'prompt_better' AND constraint_type = 'FOREIGN KEY'`, 70)
 	assertCount(t, ctx, db, `SELECT count(*) FROM information_schema.views WHERE table_schema = 'prompt_better'`, 10)
 	t.Run("constraints reject invalid and orphan rows", func(t *testing.T) {
 		if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.projects
@@ -74,8 +74,24 @@ func TestMigrationAndRoleBootstrap(t *testing.T) {
              lifecycle_state, version_hash, valid_from)
             VALUES ('00000000-0000-0000-0000-000000000011',
             '00000000-0000-0000-0000-000000000001', 1, 'secret', 'active',
-            decode(repeat('00', 32), 'hex'), now())`); err == nil {
+			decode(repeat('00', 32), 'hex'), now())`); err == nil {
 			t.Fatal("invalid classification accepted")
+		}
+		if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.sources
+			(source_id,source_kind,created_at) VALUES
+			('00000000-0000-0000-0000-000000000006','synthetic',now())`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.evidence_artifacts
+			(evidence_artifact_id,source_id,project_id,schema_version,content_hash,
+			 content_length,classification,redaction_state,coverage_state,provenance,
+			 product_surface,observed_at)
+			VALUES ('00000000-0000-0000-0000-000000000007',
+			 '00000000-0000-0000-0000-000000000006',
+			 '00000000-0000-0000-0000-000000000001','1',
+			 decode(repeat('01',32),'hex'),1,'internal','not_needed','complete',
+			 'synthetic','local',now())`); err != nil {
+			t.Fatal(err)
 		}
 		if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.sessions
             (session_id, source_id, started_at, coverage_state, knowledge_state)
@@ -84,15 +100,26 @@ func TestMigrationAndRoleBootstrap(t *testing.T) {
 			t.Fatal("orphan source accepted")
 		}
 		if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.execution_events
-			(execution_event_id,event_kind,schema_version,attributes,observed_at,knowledge_state)
-			VALUES ('00000000-0000-0000-0000-000000000003','plan_snapshot','1','{}',now(),'observed')`); err == nil {
+			(execution_event_id,event_kind,schema_version,evidence_artifact_id,attributes,
+			 observed_at,knowledge_state)
+			VALUES ('00000000-0000-0000-0000-000000000003','plan_snapshot','1',
+			 '00000000-0000-0000-0000-000000000007','{}',now(),'observed')`); err == nil {
 			t.Fatal("incomplete plan snapshot accepted")
 		}
 		if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.execution_events
-			(execution_event_id,event_kind,event_name,schema_version,outcome,attributes,observed_at,knowledge_state)
+			(execution_event_id,event_kind,event_name,schema_version,outcome,evidence_artifact_id,
+			 attributes,observed_at,knowledge_state)
 			VALUES ('00000000-0000-0000-0000-000000000004','boundary','runtime','1','allowed',
+			 '00000000-0000-0000-0000-000000000007',
 			 jsonb_build_object('payload',repeat('x',5000)),now(),'observed')`); err == nil {
 			t.Fatal("oversized event attributes accepted")
+		}
+		if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.execution_events
+			(execution_event_id,event_kind,event_name,schema_version,outcome,attributes,
+			 observed_at,knowledge_state)
+			VALUES ('00000000-0000-0000-0000-000000000008','boundary','runtime','1',
+			 'allowed','{}',now(),'observed')`); err == nil {
+			t.Fatal("unowned execution event accepted")
 		}
 		if _, err := db.ExecContext(ctx, `INSERT INTO prompt_better.observations
 			(observation_id,observation_kind,schema_version,provenance,attributes,observed_at,knowledge_state)

@@ -207,6 +207,7 @@ CREATE TABLE execution_events (
     response_id uuid,
     phase_id uuid,
     source_id uuid,
+    evidence_artifact_id uuid,
     external_alias_id uuid,
     related_event_id uuid,
     outcome text,
@@ -381,6 +382,7 @@ CREATE TABLE findings (
 
 CREATE TABLE recommendations (
     recommendation_id uuid PRIMARY KEY,
+    audit_revision_id uuid,
     finding_id uuid,
     project_id uuid,
     recommendation_kind text,

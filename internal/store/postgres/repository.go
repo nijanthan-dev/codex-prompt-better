@@ -1109,36 +1109,36 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 	if item.Runtime.DelegationEvent != "" && lineage.TrajectoryID != "" {
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.execution_events
 			(execution_event_id,event_kind,event_name,schema_version,trajectory_id,
-			 parent_trajectory_id,source_id,external_alias_id,observed_at,knowledge_state)
-			VALUES ($1,'delegation',$5,$7,$2,$3,$4,$1,$6,'observed')
+			 parent_trajectory_id,source_id,external_alias_id,observed_at,knowledge_state,evidence_artifact_id)
+			VALUES ($1,'delegation',$5,$7,$2,$3,$4,$1,$6,'observed',$8)
 			ON CONFLICT (execution_event_id) DO NOTHING`,
 			collectionBatchUUID(item.ID+":delegation"), lineage.TrajectoryID,
 			nullableString(lineage.ParentTrajectoryID), item.SourceID,
-			item.Runtime.DelegationEvent, item.ObservedAt, item.SchemaVersion); err != nil {
+			item.Runtime.DelegationEvent, item.ObservedAt, item.SchemaVersion, item.ID); err != nil {
 			return databaseError("persist delegation event", err)
 		}
 	}
 	if item.Runtime.CompactionEvent != "" && lineage.TrajectoryID != "" {
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.execution_events
 			(execution_event_id,event_kind,event_name,schema_version,trajectory_id,
-			 response_id,source_id,external_alias_id,observed_at,knowledge_state)
-			VALUES ($1,'compaction',$5,$7,$2,$3,$4,$1,$6,'observed')
+			 response_id,source_id,external_alias_id,observed_at,knowledge_state,evidence_artifact_id)
+			VALUES ($1,'compaction',$5,$7,$2,$3,$4,$1,$6,'observed',$8)
 			ON CONFLICT (execution_event_id) DO NOTHING`,
 			collectionBatchUUID(item.ID+":compaction"), lineage.TrajectoryID,
 			nullableString(lineage.ResponseID), item.SourceID,
-			item.Runtime.CompactionEvent, item.ObservedAt, item.SchemaVersion); err != nil {
+			item.Runtime.CompactionEvent, item.ObservedAt, item.SchemaVersion, item.ID); err != nil {
 			return databaseError("persist compaction event", err)
 		}
 	}
 	if item.Runtime.StopEvent != "" && lineage.TrajectoryID != "" {
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.execution_events
 			(execution_event_id,event_kind,event_name,schema_version,trajectory_id,
-			 phase_id,outcome,observed_at,knowledge_state)
-			VALUES ($1,'stop',$3,$6,$2,$4,'observed',$5,'observed')
+			 phase_id,outcome,observed_at,knowledge_state,evidence_artifact_id)
+			VALUES ($1,'stop',$3,$6,$2,$4,'observed',$5,'observed',$7)
 			ON CONFLICT (execution_event_id) DO NOTHING`,
 			collectionBatchUUID(item.ID+":stop"), lineage.TrajectoryID,
 			item.Runtime.StopEvent, nullableString(defaultString(toolPhaseID, runtimePhaseID)),
-			item.ObservedAt, item.SchemaVersion); err != nil {
+			item.ObservedAt, item.SchemaVersion, item.ID); err != nil {
 			return databaseError("persist stop event", err)
 		}
 	}
@@ -1146,23 +1146,23 @@ func persistEvidenceLineage(ctx context.Context, tx pgx.Tx, item Evidence) error
 		hash := sha256.Sum256([]byte(item.Runtime.CheckpointEvent))
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.execution_events
 			(execution_event_id,event_kind,event_name,schema_version,session_id,
-			 content_hash,observed_at,knowledge_state)
-			VALUES ($1,'checkpoint',$5,$6,$2,$3,$4,'observed')
+			 content_hash,observed_at,knowledge_state,evidence_artifact_id)
+			VALUES ($1,'checkpoint',$5,$6,$2,$3,$4,'observed',$7)
 			ON CONFLICT (execution_event_id) DO NOTHING`,
 			collectionBatchUUID(item.ID+":checkpoint"), lineage.SessionID,
-			hash[:], item.ObservedAt, item.Runtime.CheckpointEvent, item.SchemaVersion); err != nil {
+			hash[:], item.ObservedAt, item.Runtime.CheckpointEvent, item.SchemaVersion, item.ID); err != nil {
 			return databaseError("persist checkpoint event", err)
 		}
 	}
 	if item.Runtime.BoundaryEvent != "" {
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.execution_events
 			(execution_event_id,event_kind,event_name,schema_version,project_id,
-			 session_id,outcome,observed_at,knowledge_state)
-			VALUES ($1,'boundary','runtime',$6,$2,$3,$4,$5,'observed')
+			 session_id,outcome,observed_at,knowledge_state,evidence_artifact_id)
+			VALUES ($1,'boundary','runtime',$6,$2,$3,$4,$5,'observed',$7)
 			ON CONFLICT (execution_event_id) DO NOTHING`,
 			collectionBatchUUID(item.ID+":boundary"), item.ProjectID,
 			nullableString(lineage.SessionID), item.Runtime.BoundaryEvent,
-			item.ObservedAt, item.SchemaVersion); err != nil {
+			item.ObservedAt, item.SchemaVersion, item.ID); err != nil {
 			return databaseError("persist boundary event", err)
 		}
 	}
@@ -1179,12 +1179,12 @@ func persistReplaySnapshots(ctx context.Context, tx pgx.Tx, item Evidence) error
 		planID = collectionBatchUUID(item.ID + ":plan")
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.execution_events
 			(execution_event_id,event_kind,event_name,schema_version,project_id,session_id,
-			 source_id,outcome,content_hash,observed_at,knowledge_state)
-			VALUES ($1,'plan_snapshot',$2,$3,$4,$5,$6,$7,$8,$9,'observed')
+			 source_id,outcome,content_hash,observed_at,knowledge_state,evidence_artifact_id)
+			VALUES ($1,'plan_snapshot',$2,$3,$4,$5,$6,$7,$8,$9,'observed',$10)
 			ON CONFLICT (execution_event_id) DO NOTHING`,
 			planID, runtime.Plan.PhaseScope, item.SchemaVersion, item.ProjectID,
 			nullableString(item.Lineage.SessionID), item.SourceID,
-			runtime.Plan.ApprovalBoundary, runtime.Plan.Hash, item.ObservedAt); err != nil {
+			runtime.Plan.ApprovalBoundary, runtime.Plan.Hash, item.ObservedAt, item.ID); err != nil {
 			return databaseError("persist plan snapshot", err)
 		}
 	}
@@ -1192,18 +1192,18 @@ func persistReplaySnapshots(ctx context.Context, tx pgx.Tx, item Evidence) error
 		budget := runtime.Budget
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.execution_events
 			(execution_event_id,event_kind,event_name,schema_version,project_id,session_id,
-			 source_id,related_event_id,state_value,outcome,attributes,observed_at,knowledge_state)
+			 source_id,related_event_id,state_value,outcome,attributes,observed_at,knowledge_state,evidence_artifact_id)
 			VALUES ($1,'budget_snapshot',$2,$3,$4,$5,$6,$7,$8,$9,
 			 jsonb_strip_nulls(jsonb_build_object(
 			 'max_tool_loops',$10::bigint,'max_retries',$11::bigint,
 			 'max_retrieval_expansions',$12::bigint,'max_agent_depth',$13::bigint,
-			 'max_concurrency',$14::bigint,'context_mode',$15::text)),$16,'observed')
+			 'max_concurrency',$14::bigint,'context_mode',$15::text)),$16,'observed',$17)
 			ON CONFLICT (execution_event_id) DO NOTHING`,
 			collectionBatchUUID(item.ID+":budget"), budget.Enforcement, item.SchemaVersion,
 			item.ProjectID, nullableString(item.Lineage.SessionID), item.SourceID, planID,
 			budget.DelegationPolicy, budget.ExhaustionOutcome, budget.MaxToolLoops,
 			budget.MaxRetries, budget.MaxRetrievalExpansions, budget.MaxAgentDepth,
-			budget.MaxConcurrency, nullableString(budget.ContextMode), item.ObservedAt); err != nil {
+			budget.MaxConcurrency, nullableString(budget.ContextMode), item.ObservedAt, item.ID); err != nil {
 			return databaseError("persist budget snapshot", err)
 		}
 	}
@@ -1211,14 +1211,14 @@ func persistReplaySnapshots(ctx context.Context, tx pgx.Tx, item Evidence) error
 		policy := runtime.Policy
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.execution_events
 			(execution_event_id,event_kind,event_name,schema_version,project_id,session_id,
-			 source_id,content_hash,attributes,observed_at,knowledge_state)
+			 source_id,content_hash,attributes,observed_at,knowledge_state,evidence_artifact_id)
 			VALUES ($1,'policy_snapshot',$2,$3,$4,$5,$6,$7,
 			 jsonb_build_object('raw_retention_enabled',$8::boolean,
-			 'telemetry_enabled',$9::boolean),$10,'observed')
+			 'telemetry_enabled',$9::boolean),$10,'observed',$11)
 			ON CONFLICT (execution_event_id) DO NOTHING`,
 			collectionBatchUUID(item.ID+":policy"), policy.SchemaVersion, item.SchemaVersion,
 			item.ProjectID, nullableString(item.Lineage.SessionID), item.SourceID, policy.Hash,
-			policy.RawRetentionEnabled, policy.TelemetryEnabled, item.ObservedAt); err != nil {
+			policy.RawRetentionEnabled, policy.TelemetryEnabled, item.ObservedAt, item.ID); err != nil {
 			return databaseError("persist policy snapshot", err)
 		}
 	}
@@ -1226,14 +1226,14 @@ func persistReplaySnapshots(ctx context.Context, tx pgx.Tx, item Evidence) error
 		host := runtime.HostCapability
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.execution_events
 			(execution_event_id,event_kind,event_name,schema_version,project_id,session_id,
-			 source_id,state_value,outcome,attributes,observed_at,knowledge_state)
+			 source_id,state_value,outcome,attributes,observed_at,knowledge_state,evidence_artifact_id)
 			VALUES ($1,'host_capability',$2,$3,$4,$5,$6,$7,$8,
-			 jsonb_strip_nulls(jsonb_build_object('host_version',$9::text)),$10,'observed')
+			 jsonb_strip_nulls(jsonb_build_object('host_version',$9::text)),$10,'observed',$11)
 			ON CONFLICT (execution_event_id) DO NOTHING`,
 			collectionBatchUUID(item.ID+":host-capability:"+host.CapabilityName),
 			host.CapabilityName, item.SchemaVersion, item.ProjectID, item.Lineage.SessionID,
 			item.SourceID, host.CapabilityState, nullableString(host.HostKind),
-			nullableString(host.HostVersion), item.ObservedAt); err != nil {
+			nullableString(host.HostVersion), item.ObservedAt, item.ID); err != nil {
 			return databaseError("persist host capability snapshot", err)
 		}
 	}

@@ -23,11 +23,13 @@ func TestArchiveEncryptsAndVerifiesNormalizedPlan(t *testing.T) {
 		ProjectID: "70000000-0000-0000-0000-000000000001",
 		AsOf:      time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
 		Records: []store.ArchiveRecord{{
-			EvidenceID:  "70000000-0000-0000-0000-000000000002",
-			SourceID:    "70000000-0000-0000-0000-000000000003",
-			ProjectID:   "70000000-0000-0000-0000-000000000001",
-			ContentHash: bytes.Repeat([]byte{4}, 32), ContentLength: 10,
-			Classification: "internal", CoverageState: "complete",
+			EvidenceID:     "70000000-0000-0000-0000-000000000002",
+			SourceID:       "70000000-0000-0000-0000-000000000003",
+			ProjectID:      "70000000-0000-0000-0000-000000000001",
+			SchemaVersion:  "1.0.0",
+			ContentHash:    bytes.Repeat([]byte{4}, 32),
+			ContentLength:  10,
+			Classification: "internal", RedactionState: "not_needed", CoverageState: "complete",
 			Provenance: "runtime_observed", ProductSurface: "local",
 			ObservedAt: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
 		}},
@@ -35,6 +37,10 @@ func TestArchiveEncryptsAndVerifiesNormalizedPlan(t *testing.T) {
 	plaintext, err := store.EncodeArchive(plan)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !bytes.Contains(plaintext, []byte(`"format":"prompt-better-retention-v2"`)) ||
+		!bytes.Contains(plaintext, []byte(`"schema_version":"1.0.0"`)) {
+		t.Fatalf("archive omits lifecycle metadata: %s", plaintext)
 	}
 	plan.Digest = sha256.Sum256(plaintext)
 	receipt, err := archiver.Archive(context.Background(),

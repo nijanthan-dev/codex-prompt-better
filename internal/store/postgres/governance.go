@@ -229,13 +229,13 @@ func persistAuditProject(ctx context.Context, tx pgx.Tx,
 				return errors.New("encode recommendation risks")
 			}
 			if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.recommendations
-				(recommendation_id,finding_id,project_id,recommendation_kind,
+				(recommendation_id,audit_revision_id,finding_id,project_id,recommendation_kind,
 				 lifecycle_state,approval_required,verification_kind,action_code,
 				 policy_version,cooldown_until,evidence_revision,created_at,updated_at,target_surface,
 				 action_text,expected_movement,protected_guardrails,risks)
-				VALUES ($1,$2,$3,$4,$5,$6,$7,$4,$8,NULL,$9,$10,$10,$11,$12,$13,$14,$15)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$5,$9,NULL,$10,$11,$11,$12,$13,$14,$15,$16)
 				ON CONFLICT (recommendation_id) DO NOTHING`,
-				recommendationID, nullableString(findingID), projectID,
+				recommendationID, revisionID, nullableString(findingID), projectID,
 				recommendation.Code, recommendation.LifecycleState,
 				recommendation.ApprovalRequired, recommendation.Verification,
 				recommendation.PolicyVersion, evidenceRevision(recommendation.EvidenceRefs),

@@ -1,5 +1,5 @@
 // Generated from all ordered migration up-sections.
-// Schema fingerprint: 26ab905047f9
+// Schema fingerprint: 4d77d11861a5
 // Edit migrations, then run: go run ./scripts/generate-erd.go
 
 Table projects {
@@ -208,6 +208,7 @@ Table execution_events {
   response_id uuid
   phase_id uuid
   source_id uuid
+  evidence_artifact_id uuid [not null]
   external_alias_id uuid
   related_event_id uuid
   outcome text
@@ -382,6 +383,7 @@ Table findings {
 
 Table recommendations {
   recommendation_id uuid [pk, not null]
+  audit_revision_id uuid [not null]
   finding_id uuid
   project_id uuid
   recommendation_kind text [not null]
@@ -478,6 +480,7 @@ Ref: evidence_artifacts.project_id > projects.project_id
 Ref: evidence_artifacts.session_id > sessions.session_id
 Ref: evidence_artifacts.source_id > sources.source_id
 Ref: evidence_links.evidence_artifact_id > evidence_artifacts.evidence_artifact_id
+Ref: execution_events.evidence_artifact_id > evidence_artifacts.evidence_artifact_id
 Ref: execution_events.parent_trajectory_id > trajectories.trajectory_id
 Ref: execution_events.phase_id > phases.phase_id
 Ref: execution_events.project_id > projects.project_id
@@ -507,6 +510,7 @@ Ref: project_aliases.source_id > sources.source_id
 Ref: project_versions.project_id > projects.project_id
 Ref: recommendation_events.evidence_artifact_id > evidence_artifacts.evidence_artifact_id
 Ref: recommendation_events.recommendation_id > recommendations.recommendation_id
+Ref: recommendations.audit_revision_id > audit_revisions.audit_revision_id
 Ref: recommendations.finding_id > findings.finding_id
 Ref: recommendations.project_id > projects.project_id
 Ref: responses.parent_response_id > responses.response_id
