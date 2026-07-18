@@ -18,6 +18,10 @@ func ValidateTree(root string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	checkpointFailures, err := validateSupersededCheckpoints(root)
+	if err != nil {
+		return nil, err
+	}
 	var paths []string
 	err = filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -36,7 +40,7 @@ func ValidateTree(root string) ([]string, error) {
 	}
 	sort.Strings(paths)
 	set := token.NewFileSet()
-	failures := releaseFailures
+	failures := append(releaseFailures, checkpointFailures...)
 	for _, path := range paths {
 		file, err := parser.ParseFile(set, path, nil, 0)
 		if err != nil {
@@ -86,6 +90,32 @@ func ValidateTree(root string) ([]string, error) {
 			}
 			return false
 		})
+	}
+	return failures, nil
+}
+
+func validateSupersededCheckpoints(root string) ([]string, error) {
+	const marker = "Superseded for persistence and schema topology by issue #57's schema-v2"
+	directory := filepath.Join(root, "docs", "checkpoints")
+	if _, err := os.Stat(directory); err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var failures []string
+	for _, name := range []string{"docs/checkpoints/issue-5.md", "docs/checkpoints/issue-6.md"} {
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(name)))
+		if err != nil {
+			if os.IsNotExist(err) {
+				failures = append(failures, name+": schema-v2 supersession marker missing")
+				continue
+			}
+			return nil, err
+		}
+		if !strings.Contains(string(data), marker) {
+			failures = append(failures, name+": schema-v2 supersession marker missing")
+		}
 	}
 	return failures, nil
 }

@@ -1,0 +1,537 @@
+// Generated from all ordered migration up-sections.
+// Schema fingerprint: 26ab905047f9
+// Edit migrations, then run: go run ./scripts/generate-erd.go
+
+Table projects {
+  project_id uuid [pk, not null]
+  created_at timestamptz [not null]
+}
+
+Table project_versions {
+  project_version_id uuid [pk, not null]
+  project_id uuid [not null]
+  version_number bigint [not null]
+  classification text [not null]
+  lifecycle_state text [not null]
+  version_hash bytea [not null]
+  valid_from timestamptz [not null]
+  valid_to timestamptz
+}
+
+Table sources {
+  source_id uuid [pk, not null]
+  source_kind text [not null]
+  created_at timestamptz [not null]
+}
+
+Table source_versions {
+  source_version_id uuid [pk, not null]
+  source_id uuid [not null]
+  version_number bigint [not null]
+  adapter_version text
+  product_surface text [not null]
+  coverage_state text [not null]
+  enabled boolean [not null]
+  version_hash bytea [not null]
+  valid_from timestamptz [not null]
+  valid_to timestamptz
+}
+
+Table key_versions {
+  key_version_id uuid [pk, not null]
+  key_reference text [not null]
+  algorithm text [not null]
+  state text [not null]
+  created_at timestamptz [not null]
+  activated_at timestamptz
+  retired_at timestamptz
+  deleted_at timestamptz
+}
+
+Table project_aliases {
+  project_alias_id uuid [pk, not null]
+  project_id uuid [not null]
+  source_id uuid [not null]
+  key_version_id uuid [not null]
+  alias_kind text [not null]
+  alias_digest bytea [not null]
+  created_at timestamptz [not null]
+  deleted_at timestamptz
+}
+
+Table collection_cursors {
+  collection_cursor_id uuid [pk, not null]
+  source_id uuid [not null]
+  cursor_kind text [not null]
+  cursor_value text [not null]
+  cursor_state text [not null]
+  observed_at timestamptz [not null]
+  lease_expires_at timestamptz
+  updated_at timestamptz [not null]
+}
+
+Table sessions {
+  session_id uuid [pk, not null]
+  project_id uuid
+  source_id uuid [not null]
+  started_at timestamptz [not null]
+  ended_at timestamptz
+  coverage_state text [not null]
+  knowledge_state text [not null]
+}
+
+Table tasks {
+  task_id uuid [pk, not null]
+  project_id uuid
+  source_id uuid [not null]
+  external_alias_id uuid
+  task_kind text [not null]
+  attribution_state text [not null]
+  confidence double precision
+  algorithm_version text [not null]
+  observed_at timestamptz [not null]
+  knowledge_state text [not null]
+}
+
+Table trajectories {
+  trajectory_id uuid [pk, not null]
+  session_id uuid [not null]
+  source_id uuid [not null]
+  external_alias_id uuid
+  parent_trajectory_id uuid
+  started_at timestamptz [not null]
+  ended_at timestamptz
+  knowledge_state text [not null]
+}
+
+Table turns {
+  turn_id uuid [pk, not null]
+  trajectory_id uuid [not null]
+  task_id uuid
+  source_id uuid [not null]
+  external_alias_id uuid
+  ordinal bigint [not null]
+  observed_at timestamptz [not null]
+  knowledge_state text [not null]
+}
+
+Table responses {
+  response_id uuid [pk, not null]
+  turn_id uuid [not null]
+  source_id uuid [not null]
+  external_alias_id uuid
+  parent_response_id uuid
+  model_name text
+  model_variant text
+  reasoning_effort text
+  reasoning_mode text
+  reasoning_context text
+  verbosity text
+  service_mode text
+  cache_mode text
+  cache_ttl_seconds bigint
+  safeguard_outcome text
+  started_at timestamptz [not null]
+  completed_at timestamptz
+  knowledge_state text [not null]
+}
+
+Table items {
+  item_id uuid [pk, not null]
+  response_id uuid [not null]
+  source_id uuid [not null]
+  external_alias_id uuid
+  item_kind text [not null]
+  assistant_phase text
+  ordinal bigint [not null]
+  image_detail text
+  content_hash bytea
+  content_length bigint
+  observed_at timestamptz [not null]
+  knowledge_state text [not null]
+}
+
+Table phases {
+  phase_id uuid [pk, not null]
+  trajectory_id uuid [not null]
+  response_id uuid
+  phase_kind text [not null]
+  ordinal bigint [not null]
+  started_at timestamptz [not null]
+  ended_at timestamptz
+  knowledge_state text [not null]
+}
+
+Table state_epochs {
+  state_epoch_id uuid [pk, not null]
+  trajectory_id uuid [not null]
+  source_id uuid [not null]
+  state_hash bytea [not null]
+  mutation_state text [not null]
+  started_at timestamptz [not null]
+  ended_at timestamptz
+  knowledge_state text [not null]
+}
+
+Table tool_calls {
+  tool_call_id uuid [pk, not null]
+  response_id uuid [not null]
+  phase_id uuid
+  item_id uuid
+  state_epoch_id uuid
+  source_id uuid [not null]
+  external_alias_id uuid
+  caller_alias_id uuid
+  program_output_alias_id uuid
+  canonical_call_hash bytea
+  call_path text [not null]
+  tool_kind text [not null]
+  result_state text
+  output_modality text
+  output_size_bytes bigint
+  wait_state text
+  started_at timestamptz [not null]
+  completed_at timestamptz
+  outcome text
+  knowledge_state text [not null]
+}
+
+Table execution_events {
+  execution_event_id uuid [pk, not null]
+  event_kind text [not null]
+  event_name text
+  schema_version text [not null]
+  project_id uuid
+  session_id uuid
+  trajectory_id uuid
+  parent_trajectory_id uuid
+  response_id uuid
+  phase_id uuid
+  source_id uuid
+  external_alias_id uuid
+  related_event_id uuid
+  outcome text
+  state_value text
+  depth bigint
+  numeric_value numeric
+  confidence double precision
+  content_hash bytea
+  attributes jsonb [not null]
+  observed_at timestamptz [not null]
+  knowledge_state text [not null]
+}
+
+Table evidence_artifacts {
+  evidence_artifact_id uuid [pk, not null]
+  source_id uuid [not null]
+  project_id uuid
+  session_id uuid
+  external_alias_id uuid
+  schema_version text [not null]
+  content_hash bytea [not null]
+  content_length bigint [not null]
+  classification text [not null]
+  redaction_state text [not null]
+  coverage_state text [not null]
+  provenance text [not null]
+  product_surface text [not null]
+  observed_at timestamptz [not null]
+  retained_until timestamptz
+  deleted_at timestamptz
+}
+
+Table evidence_links {
+  evidence_link_id uuid [pk, not null]
+  evidence_artifact_id uuid [not null]
+  target_kind text [not null]
+  target_id uuid [not null]
+  link_kind text [not null]
+  confidence double precision
+  created_at timestamptz [not null]
+}
+
+Table observations {
+  observation_id uuid [pk, not null]
+  observation_kind text [not null]
+  schema_version text [not null]
+  project_id uuid
+  source_id uuid
+  trajectory_id uuid
+  response_id uuid
+  evidence_artifact_id uuid
+  audit_revision_id uuid
+  metric_kind text
+  state_value text
+  value_numeric numeric
+  native_unit text
+  product_surface text
+  accounting_regime text
+  provenance text [not null]
+  source_adapter text
+  source_version text
+  confidence double precision
+  valid_from timestamptz
+  valid_to timestamptz
+  attributes jsonb [not null]
+  observed_at timestamptz [not null]
+  knowledge_state text [not null]
+}
+
+Table audit_windows {
+  audit_window_id uuid [pk, not null]
+  project_id uuid
+  window_kind text [not null]
+  starts_at timestamptz [not null]
+  ends_at timestamptz [not null]
+  as_of timestamptz [not null]
+  timezone_name text
+  immutable_since timestamptz
+  policy_schema_version text
+  policy_hash bytea
+  raw_retention_enabled boolean
+  telemetry_enabled boolean
+}
+
+Table audit_revisions {
+  audit_revision_id uuid [pk, not null]
+  audit_window_id uuid [not null]
+  revision_number bigint [not null]
+  prior_revision_id uuid
+  source_watermark_at timestamptz [not null]
+  coverage_state text [not null]
+  revision_hash bytea [not null]
+  engine_version text [not null]
+  created_at timestamptz [not null]
+}
+
+Table evaluation_runs {
+  evaluation_run_id uuid [pk, not null]
+  audit_revision_id uuid [not null]
+  evaluator_name text [not null]
+  evaluator_version text [not null]
+  fixture_hash bytea
+  config_hash bytea
+  model_hash bytea
+  compiler_hash bytea
+  policy_hash bytea
+  metric_hash bytea
+  run_hash bytea
+  decision text
+  started_at timestamptz [not null]
+  completed_at timestamptz
+  outcome text [not null]
+  knowledge_state text [not null]
+}
+
+Table metric_definitions {
+  metric_definition_id uuid [pk, not null]
+  metric_name text [not null]
+  metric_version text [not null]
+  native_unit text [not null]
+  polarity text [not null]
+  minimum_sample bigint [not null]
+  practical_change double precision [not null]
+  definition_hash bytea [not null]
+  definition_json jsonb [not null]
+  created_at timestamptz [not null]
+  retired_at timestamptz
+}
+
+Table metric_results {
+  metric_result_id uuid [pk, not null]
+  audit_revision_id uuid [not null]
+  evaluation_run_id uuid
+  metric_definition_id uuid
+  metric_name text [not null]
+  metric_version text [not null]
+  native_value numeric
+  native_unit text [not null]
+  numerator numeric
+  denominator numeric
+  sample_count bigint
+  coverage_state text [not null]
+  provenance text [not null]
+  status text
+  uncertainty text
+  previous_value numeric
+  rolling_median numeric
+  rolling_mad numeric
+  baseline_sample_count bigint [not null]
+  workload_adjusted_residual numeric
+  status_reason text
+  confidence_label text
+  exclusions jsonb [not null]
+  computed_at timestamptz [not null]
+}
+
+Table findings {
+  finding_id uuid [pk, not null]
+  audit_revision_id uuid [not null]
+  evaluation_run_id uuid
+  finding_kind text [not null]
+  detector_name text [not null]
+  detector_version text [not null]
+  confidence double precision
+  status text [not null]
+  cause text
+  exception_check text
+  counterevidence jsonb [not null]
+  created_at timestamptz [not null]
+  deleted_at timestamptz
+}
+
+Table recommendations {
+  recommendation_id uuid [pk, not null]
+  finding_id uuid
+  project_id uuid
+  recommendation_kind text [not null]
+  lifecycle_state text [not null]
+  approval_required boolean [not null]
+  verification_kind text
+  action_code text
+  policy_version text
+  cooldown_until timestamptz
+  evidence_revision text
+  target_surface text
+  action_text text
+  expected_movement text
+  protected_guardrails jsonb [not null]
+  risks jsonb [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  deleted_at timestamptz
+}
+
+Table recommendation_events {
+  recommendation_event_id uuid [pk, not null]
+  recommendation_id uuid [not null]
+  event_kind text [not null]
+  prior_state text
+  next_state text
+  observed_at timestamptz [not null]
+  evidence_artifact_id uuid
+}
+
+Table retention_policies {
+  retention_policy_id uuid [pk, not null]
+  project_id uuid
+  policy_version text [not null]
+  classification text [not null]
+  retain_for_seconds bigint [not null]
+  legal_hold boolean [not null]
+  created_at timestamptz [not null]
+  retired_at timestamptz
+}
+
+Table retention_actions {
+  retention_action_id uuid [pk, not null]
+  retention_policy_id uuid [not null]
+  project_id uuid [not null]
+  action_key bytea [not null]
+  mode text [not null]
+  cutoff_at timestamptz [not null]
+  planned_count bigint [not null]
+  applied_count bigint [not null]
+  status text [not null]
+  started_at timestamptz [not null]
+  completed_at timestamptz
+}
+
+Table archive_batches {
+  archive_batch_id uuid [pk, not null]
+  project_id uuid [not null]
+  retention_action_id uuid [not null]
+  archive_reference text [not null]
+  encryption_key_reference text [not null]
+  format_version text [not null]
+  range_start timestamptz [not null]
+  range_end timestamptz [not null]
+  entity_count bigint [not null]
+  plaintext_digest bytea [not null]
+  encrypted_digest bytea [not null]
+  status text [not null]
+  created_at timestamptz [not null]
+  verified_at timestamptz
+}
+
+Table retention_action_entities {
+  retention_action_entity_id uuid [pk, not null]
+  retention_action_id uuid [not null]
+  archive_batch_id uuid
+  entity_kind text [not null]
+  planned_count bigint [not null]
+  archived_count bigint [not null]
+  deleted_count bigint [not null]
+  archive_digest bytea [not null]
+  deletion_digest bytea [not null]
+  recorded_at timestamptz [not null]
+}
+
+Ref: archive_batches.project_id > projects.project_id
+Ref: archive_batches.retention_action_id > retention_actions.retention_action_id
+Ref: audit_revisions.audit_window_id > audit_windows.audit_window_id
+Ref: audit_revisions.prior_revision_id > audit_revisions.audit_revision_id
+Ref: audit_windows.project_id > projects.project_id
+Ref: collection_cursors.source_id > sources.source_id
+Ref: evaluation_runs.audit_revision_id > audit_revisions.audit_revision_id
+Ref: evidence_artifacts.project_id > projects.project_id
+Ref: evidence_artifacts.session_id > sessions.session_id
+Ref: evidence_artifacts.source_id > sources.source_id
+Ref: evidence_links.evidence_artifact_id > evidence_artifacts.evidence_artifact_id
+Ref: execution_events.parent_trajectory_id > trajectories.trajectory_id
+Ref: execution_events.phase_id > phases.phase_id
+Ref: execution_events.project_id > projects.project_id
+Ref: execution_events.related_event_id > execution_events.execution_event_id
+Ref: execution_events.response_id > responses.response_id
+Ref: execution_events.session_id > sessions.session_id
+Ref: execution_events.source_id > sources.source_id
+Ref: execution_events.trajectory_id > trajectories.trajectory_id
+Ref: findings.audit_revision_id > audit_revisions.audit_revision_id
+Ref: findings.evaluation_run_id > evaluation_runs.evaluation_run_id
+Ref: items.response_id > responses.response_id
+Ref: items.source_id > sources.source_id
+Ref: metric_results.audit_revision_id > audit_revisions.audit_revision_id
+Ref: metric_results.evaluation_run_id > evaluation_runs.evaluation_run_id
+Ref: metric_results.metric_definition_id > metric_definitions.metric_definition_id
+Ref: observations.audit_revision_id > audit_revisions.audit_revision_id
+Ref: observations.evidence_artifact_id > evidence_artifacts.evidence_artifact_id
+Ref: observations.project_id > projects.project_id
+Ref: observations.response_id > responses.response_id
+Ref: observations.source_id > sources.source_id
+Ref: observations.trajectory_id > trajectories.trajectory_id
+Ref: phases.response_id > responses.response_id
+Ref: phases.trajectory_id > trajectories.trajectory_id
+Ref: project_aliases.key_version_id > key_versions.key_version_id
+Ref: project_aliases.project_id > projects.project_id
+Ref: project_aliases.source_id > sources.source_id
+Ref: project_versions.project_id > projects.project_id
+Ref: recommendation_events.evidence_artifact_id > evidence_artifacts.evidence_artifact_id
+Ref: recommendation_events.recommendation_id > recommendations.recommendation_id
+Ref: recommendations.finding_id > findings.finding_id
+Ref: recommendations.project_id > projects.project_id
+Ref: responses.parent_response_id > responses.response_id
+Ref: responses.source_id > sources.source_id
+Ref: responses.turn_id > turns.turn_id
+Ref: retention_action_entities.archive_batch_id > archive_batches.archive_batch_id
+Ref: retention_action_entities.retention_action_id > retention_actions.retention_action_id
+Ref: retention_actions.project_id > projects.project_id
+Ref: retention_actions.retention_policy_id > retention_policies.retention_policy_id
+Ref: retention_policies.project_id > projects.project_id
+Ref: sessions.project_id > projects.project_id
+Ref: sessions.source_id > sources.source_id
+Ref: source_versions.source_id > sources.source_id
+Ref: state_epochs.source_id > sources.source_id
+Ref: state_epochs.trajectory_id > trajectories.trajectory_id
+Ref: tasks.project_id > projects.project_id
+Ref: tasks.source_id > sources.source_id
+Ref: tool_calls.item_id > items.item_id
+Ref: tool_calls.phase_id > phases.phase_id
+Ref: tool_calls.response_id > responses.response_id
+Ref: tool_calls.source_id > sources.source_id
+Ref: tool_calls.state_epoch_id > state_epochs.state_epoch_id
+Ref: trajectories.parent_trajectory_id > trajectories.trajectory_id
+Ref: trajectories.session_id > sessions.session_id
+Ref: trajectories.source_id > sources.source_id
+Ref: turns.source_id > sources.source_id
+Ref: turns.task_id > tasks.task_id
+Ref: turns.trajectory_id > trajectories.trajectory_id

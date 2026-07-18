@@ -37,6 +37,8 @@ func run(ctx context.Context, args []string) error {
 		return migrate(ctx)
 	case "doctor":
 		return doctor(ctx)
+	case "storage-inspect":
+		return storageInspect(ctx)
 	case "retention-plan":
 		return retentionPlan(ctx, args[1:])
 	case "retention-apply":
@@ -73,6 +75,9 @@ func migrate(ctx context.Context) error {
 		return errors.New("migration setup failed")
 	}
 	if err := runner.Up(ctx); err != nil {
+		if errors.Is(err, store.ErrSchemaResetRequired) {
+			return err
+		}
 		return errors.New("migration failed")
 	}
 	version, err := runner.Version(ctx)
@@ -154,16 +159,12 @@ func retentionApply(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	auditID, err := randomUUID()
-	if err != nil {
-		return err
-	}
 	entityID, err := randomUUID()
 	if err != nil {
 		return err
 	}
 	count, err := repo.ApplyRetention(ctx, store.RetentionApply{
-		ActionID: actionID, DeletionAuditID: auditID, ArchiveEntityID: entityID,
+		ActionID: actionID, ActionEntityID: entityID,
 		Plan: plan, Receipt: receipt,
 	})
 	if err != nil {
@@ -174,6 +175,19 @@ func retentionApply(ctx context.Context, args []string) error {
 	}
 	return printJSON(map[string]any{"status": "complete", "count": count,
 		"archive_reference": receipt.ArchiveReference})
+}
+
+func storageInspect(ctx context.Context) error {
+	repo, err := repository(ctx)
+	if err != nil {
+		return err
+	}
+	defer repo.Close()
+	inspection, err := repo.InspectStorage(ctx)
+	if err != nil {
+		return errors.New("storage inspection failed")
+	}
+	return printJSON(inspection)
 }
 
 func backup(ctx context.Context, args []string) error {
@@ -267,7 +281,7 @@ func repository(ctx context.Context) (*store.Repository, error) {
 	if dsn == "" {
 		return nil, errors.New("database reference is not configured")
 	}
-	repo, err := store.OpenRepository(ctx, dsn, store.DefaultPoolConfig())
+	repo, err := store.OpenLocalRepository(ctx, dsn, store.RoleRuntime)
 	if err != nil {
 		return nil, errors.New("database is unavailable")
 	}

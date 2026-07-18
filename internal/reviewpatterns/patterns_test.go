@@ -83,6 +83,21 @@ func TestValidateTreeRequiresReleaseGuardrails(t *testing.T) {
 	}
 }
 
+func TestValidateTreeRequiresSchemaSupersessionMarkers(t *testing.T) {
+	root := t.TempDir()
+	const marker = "Superseded for persistence and schema topology by issue #57's schema-v2"
+	writeFixture(t, root, "docs/checkpoints/issue-5.md", marker)
+	writeFixture(t, root, "docs/checkpoints/issue-6.md", "historical evidence")
+
+	failures, err := ValidateTree(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(failures) != 1 || !strings.Contains(failures[0], "issue-6.md") {
+		t.Fatalf("missing checkpoint diagnostic: %v", failures)
+	}
+}
+
 func writeFixture(t *testing.T, root, name, content string) {
 	t.Helper()
 	path := filepath.Join(root, name)

@@ -89,7 +89,7 @@ func collect(ctx context.Context, configPath string, output io.Writer, now func(
 	if dsn == "" {
 		return errors.New("collector database reference unavailable")
 	}
-	repository, err := postgres.OpenRepository(ctx, dsn, postgres.DefaultPoolConfig())
+	repository, err := postgres.OpenLocalRepository(ctx, dsn, postgres.RoleCollector)
 	if err != nil {
 		return err
 	}

@@ -103,6 +103,7 @@ func TestSyntheticScalePlansAndThroughput(t *testing.T) {
 	started := time.Now()
 	for batch := 0; batch < 2; batch++ {
 		observations := make([]UsageObservation, maxUsageBatch)
+		sourceVersion := "synthetic-v1"
 		for i := range observations {
 			n := batch*maxUsageBatch + i
 			trajectoryID := trajectoryIDs[n%len(trajectoryIDs)]
@@ -112,6 +113,7 @@ func TestSyntheticScalePlansAndThroughput(t *testing.T) {
 				MetricKind: "input_tokens", Value: &value, UsageUnit: "token",
 				ProductSurface: "local", AccountingRegime: "local",
 				Provenance: "runtime_observed", SourceAdapter: "synthetic",
+				SourceVersion:  &sourceVersion,
 				ObservedAt:     base.Add(time.Duration(n) * time.Millisecond),
 				KnowledgeState: "observed",
 			}
@@ -123,19 +125,19 @@ func TestSyntheticScalePlansAndThroughput(t *testing.T) {
 	if elapsed := time.Since(started); elapsed > 5*time.Second {
 		t.Fatalf("10k native usage insert exceeded 5s diagnostic budget: %s", elapsed)
 	}
-	if _, err := repo.pool.Exec(ctx, "ANALYZE prompt_better.usage_observations"); err != nil {
+	if _, err := repo.pool.Exec(ctx, "ANALYZE prompt_better.observations"); err != nil {
 		t.Fatal(err)
 	}
 
 	var plan []byte
 	if err := repo.pool.QueryRow(ctx, `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
-        SELECT usage_observation_id, value_numeric
-        FROM prompt_better.usage_observations
-        WHERE trajectory_id=$1 AND metric_kind='input_tokens'
+		SELECT observation_id, value_numeric
+		FROM prompt_better.observations
+		WHERE observation_kind='usage' AND trajectory_id=$1 AND metric_kind='input_tokens'
         ORDER BY observed_at LIMIT 100`, trajectoryIDs[0]).Scan(&plan); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(plan), "usage_observations_trajectory_metric_idx") {
+	if !strings.Contains(string(plan), "observations_trajectory_metric_idx") {
 		t.Fatalf("selective usage plan missed owned index: %s", plan)
 	}
 

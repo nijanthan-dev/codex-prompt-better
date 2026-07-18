@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -110,10 +111,9 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	apply := store.RetentionApply{
-		ActionID:        "80000000-0000-0000-0000-000000000031",
-		DeletionAuditID: "80000000-0000-0000-0000-000000000032",
-		ArchiveEntityID: "80000000-0000-0000-0000-000000000033",
-		Plan:            plan, Receipt: receipt,
+		ActionID:       "80000000-0000-0000-0000-000000000031",
+		ActionEntityID: "80000000-0000-0000-0000-000000000033",
+		Plan:           plan, Receipt: receipt,
 	}
 	mutated := apply
 	mutated.Plan.Records = append([]store.ArchiveRecord{}, plan.Records...)
@@ -126,11 +126,21 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
 	if applied, err := repo.ApplyRetention(ctx, forgedReference); err == nil || applied != 0 {
 		t.Fatalf("forged archive reference applied=%d error=%v", applied, err)
 	}
-	if applied, err := repo.ApplyRetention(ctx, apply); err != nil || applied != 1 {
-		t.Fatalf("apply count=%d error=%v", applied, err)
+	counts := make([]int64, 2)
+	errorsByApply := make([]error, 2)
+	var group sync.WaitGroup
+	for index := range counts {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			counts[index], errorsByApply[index] = repo.ApplyRetention(ctx, apply)
+		}()
 	}
-	if applied, err := repo.ApplyRetention(ctx, apply); err != nil || applied != 1 {
-		t.Fatalf("idempotent apply count=%d error=%v", applied, err)
+	group.Wait()
+	for index := range counts {
+		if errorsByApply[index] != nil || counts[index] != 1 {
+			t.Fatalf("concurrent idempotent apply %d count=%d error=%v", index, counts[index], errorsByApply[index])
+		}
 	}
 	assertSQLCount(t, ctx, db, `SELECT count(*) FROM prompt_better.evidence_artifacts
         WHERE project_id=$1`, projectID, 1)
@@ -183,10 +193,9 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	if applied, err := repo.ApplyRetention(ctx, store.RetentionApply{
-		ActionID:        "80000000-0000-0000-0000-000000000041",
-		DeletionAuditID: "80000000-0000-0000-0000-000000000042",
-		ArchiveEntityID: "80000000-0000-0000-0000-000000000043",
-		Plan:            secondPlan, Receipt: secondReceipt,
+		ActionID:       "80000000-0000-0000-0000-000000000041",
+		ActionEntityID: "80000000-0000-0000-0000-000000000043",
+		Plan:           secondPlan, Receipt: secondReceipt,
 	}); err != nil || applied != 1 {
 		t.Fatalf("second apply count=%d error=%v", applied, err)
 	}
@@ -203,6 +212,16 @@ func TestThirtyDayArchiveGatedRetention(t *testing.T) {
 		WHERE session.project_id=$1`, projectID, 0)
 	if err := repo.MaintainAfterRetention(ctx); err != nil {
 		t.Fatal(err)
+	}
+	var maintainedTables int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM pg_stat_user_tables
+		WHERE schemaname='prompt_better'
+		  AND relname IN ('evidence_artifacts','evidence_links','observations')
+		  AND last_vacuum IS NOT NULL`).Scan(&maintainedTables); err != nil {
+		t.Fatal(err)
+	}
+	if maintainedTables != 3 {
+		t.Fatalf("maintained tables = %d, want 3", maintainedTables)
 	}
 }
 

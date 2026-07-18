@@ -38,7 +38,9 @@ if brew list --formula prompt-better >/dev/null 2>&1 || brew tap | grep -Fx "$ta
 fi
 
 cd "$root"
-git ls-files --cached --others --exclude-standard >"$temp/files"
+git ls-files --cached --others --exclude-standard | while IFS= read -r file; do
+  [ -f "$file" ] && printf '%s\n' "$file"
+done >"$temp/files"
 tar -czf "$temp/source.tar.gz" -T "$temp/files"
 sha=$(shasum -a 256 "$temp/source.tar.gz" | awk '{print $1}')
 commit=$(git rev-parse HEAD)

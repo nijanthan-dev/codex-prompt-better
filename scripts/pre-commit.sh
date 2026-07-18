@@ -6,6 +6,7 @@ readonly root
 cd "${root}"
 
 test -z "$(gofmt -l .)"
+go run ./scripts/generate-erd.go
 go run ./scripts/validate_patterns.go
 go test -count=1 ./...
 go vet ./...

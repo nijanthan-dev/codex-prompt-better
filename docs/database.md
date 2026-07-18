@@ -12,14 +12,12 @@ planning and application. The `prompt-better-admin` command owns explicit
 operator workflows. Evidence adapters and report renderers consume these APIs;
 they do not own schema.
 
-Migrations are immutable after merge and use monotonically increasing versions.
-Each release supports a fresh install plus upgrade from every schema version
-shipped by the previous minor release. Additive nullable columns and new tables
-are minor-compatible. Removing, renaming, narrowing, or changing required data is
-breaking and requires a new major schema contract, an explicit backfill, and a
-documented repair path. Rollback is used only while a migration transaction is
-uncommitted. After commit, repair is forward-only so retained evidence is not
-silently destroyed.
+The pre-release schema-v2 baseline is a clean install. No released schema or old
+binary compatibility exists yet, so migrations `00001` through `00005` define
+the complete baseline without checked-in upgrade/backfill scripts. A developer
+with local pre-release data may use an ignored one-off export/import script or
+wipe and recollect. After the first public release, migrations become immutable,
+monotonic, and forward-compatible under the normal release contract.
 
 Every migration sequence is ordered: tables and primary keys; data backfill and
 validation; indexes; foreign keys and checks; views. Runtime startup refuses an
@@ -35,49 +33,28 @@ text, reasoning, tool payloads, and secret material have no storage column.
 
 The base model uses these normalized groups:
 
-- ownership: `projects`, `project_versions`, `project_aliases`,
-  `project_attributions`, `sources`, `source_versions`, `source_assertions`,
-  `collection_cursors`;
+- ownership: `projects`, `project_versions`, `project_aliases`, `sources`,
+  `source_versions`, `key_versions`, and `collection_cursors`;
 - execution: `sessions`, `trajectories`, `turns`, `responses`, `items`, `phases`,
-  `tool_calls`, `tool_loops`, `delegation_events`, `compaction_events`,
-  `stop_events`, `prompt_plans`, `execution_budgets`, and
-  `host_capability_snapshots`;
-- evidence: `evidence_artifacts`, `evidence_links`, `usage_observations`, and
-  `cache_observations`;
+  `tasks`, `state_epochs`, `tool_calls`, and typed `execution_events`;
+- evidence: `evidence_artifacts`, `evidence_links`, and typed `observations`;
 - governance: `audit_windows`, `audit_revisions`, `evaluation_runs`,
-  `metric_results`, `findings`, `recommendations`, `recommendation_events`,
-  `confounder_labels`, and `governance_overhead`;
-- privacy and operations: `key_versions`, `retention_policies`,
-  `retention_actions`, `archive_batches`, `archive_entities`,
-  `deletion_audits`, and `schema_migrations`.
+  `metric_definitions`, `metric_results`, `findings`, `recommendations`, and
+  `recommendation_events`;
+- operations: `retention_policies`, `retention_actions`, `archive_batches`, and
+  `retention_action_entities`. Goose owns `public.schema_migrations`.
 
 Nullable source-scoped joins preserve unmatched evidence. Knowledge and coverage
 states remain explicit. Source-native usage values retain their unit, product
 surface, source adapter/version, observation time, and provenance; API and Codex
 subscription measurements are never converted or combined implicitly.
 
-Migration 6 adds opaque `tasks`, redacted `state_epochs`, and bounded tool
-outcome/modality/size fields. These complete the collector-to-governance handoff;
-they do not compute metrics or retain raw content. Runtime/collector roles write
-them; the reporter role is read-only.
-
-Migration 7 adds versioned `metric_definitions` and reproducibility,
-status/uncertainty/exclusion, and recommendation-policy fields to the existing
-governance model. It does not duplicate #5 audit, metric, finding,
-recommendation, confounder, or overhead concepts.
-
-Migration 8 records the audit engine version on every immutable revision,
-backfills existing rows as `audit-v1`, and partitions new audit windows by engine
-version. Deploy it during a coordinated audit-writer drain because older binaries
-require schema 7 readiness. The down migration refuses to discard provenance
-after any non-v1 revision exists.
-
-Migration 9 backfills trajectory evidence provenance only from explicit
-usage/cache lineage. Historical session-only evidence stays session-scoped;
-trajectory ownership is never inferred from current session shape.
-
-Migration 10 computes project session and retained-evidence counts in separate
-aggregates, preventing join multiplication in coverage denominators.
+Each `execution_events` and `observations` kind has a database contract for its
+required identity, typed values, hashes, and lineage. JSON attributes are
+redacted before persistence, limited to 4 KiB, and restricted to bounded
+kind-specific extensions. Plan, budget, privacy-policy, and host-capability
+snapshots are immutable events. Project attribution and source assertions retain
+evidence, provenance, confidence, validity, source version, and knowledge state.
 
 Audit persistence is idempotent by deterministic window/revision/result IDs.
 Late evidence changes the revision hash and creates the next immutable revision.
@@ -114,6 +91,14 @@ Role creation is an explicit administrator bootstrap. Application configuration
 contains role-specific connection references, never credentials. Operators must
 use verified-host TLS for remote production connections; the repository accepts
 the supplied pgx DSN so local Unix sockets and isolated test networks can opt out.
+Every application connection verifies `current_role` and rejects login roles
+with superuser, database/role creation, replication, bypass-RLS, or migrator
+membership. The application login must have membership only in the required
+`NOLOGIN` application role and be permitted to `SET ROLE` into it. For a
+URL DSN, append an encoded option such as
+`options=-c%20role%3Dprompt_better_runtime` or
+`options=-c%20role%3Dprompt_better_collector`. Runtime and collector roles may
+read Goose migration metadata only for readiness; neither can mutate it.
 
 ## Recovery contract
 
@@ -145,14 +130,38 @@ keyed aliases, record exact deletion counts, and complete the action. Repeating
 the same action key returns the original result. Archive references and key
 references are non-secret digests/labels; archives contain normalized metadata,
 not raw prompts, reasoning, tool payloads, host paths, or key material.
+An action-key advisory lock serializes identical applies before the idempotency
+lookup, so concurrent retries return the first committed deletion count.
 
 Purge uses small batches to bound locks and WAL. Time-correlated high-volume
 tables use low-overhead BRIN indexes alongside selective B-tree indexes. After
-purge, `VACUUM (ANALYZE, SKIP_LOCKED)` refreshes visibility/statistics without a
-blocking `VACUUM FULL`. Monthly partitioning is intentionally deferred: current
+purge, `VACUUM (ANALYZE, SKIP_LOCKED)` refreshes visibility/statistics on
+`evidence_artifacts`, cascaded `evidence_links`, and cascaded `observations`
+without a blocking `VACUUM FULL`. Monthly partitioning is intentionally
+deferred: current
 30-day, per-project, per-classification, and legal-hold rules prevent safe whole-
 partition drops. Revisit partitioning only when observed volume proves pruning
 benefits and the retention key can be represented in the partition design.
+
+The default pool is four maximum and zero minimum connections. Collection stops
+before the database reaches 1.5 GiB; set `PROMPT_BETTER_MAX_DATABASE_BYTES` to a
+positive byte count to choose a different cap. A transaction-scoped advisory
+lock, a 16 MiB batch reserve, a conservative per-artifact allowance, and a
+pre-commit physical-size recheck prevent concurrent collectors from admitting
+growth against stale size readings. This is an application admission boundary;
+an operating-system disk quota remains the only absolute filesystem quota.
+`storage-inspect` reports evidence count and current schema bytes per retained
+evidence alongside table/index bytes. `doctor` reports database bytes,
+rejects a reached budget, and verifies server autovacuum is enabled. PostgreSQL
+autovacuum
+and explicit post-retention `VACUUM (ANALYZE, SKIP_LOCKED)` are the local
+equivalents of routine optimize/vacuum maintenance. `VACUUM FULL` is excluded
+from automatic paths because it blocks and temporarily needs extra disk.
+
+PostgreSQL is the only active store. Parquet is suitable only for an optional,
+portable analytics export once a measured need exists. Delta Lake adds JVM,
+transaction-log, compaction, and dual-store complexity without improving this
+single-user transactional workload, so it is not part of the local design.
 
 ## Integration validation
 
@@ -169,9 +178,6 @@ allowed operations, unknown-state views, rare-cohort suppression, and documented
 query-plan budgets. Plans use `EXPLAIN (FORMAT JSON)` with synthetic high-volume
 fixtures; timing is diagnostic, while stable node/index/row-budget assertions are
 the gate.
-
-Migration 7's down path fails safely when nullable portfolio governance rows
-exist; it never silently deletes them. Export/repair first or use forward repair.
 
 Project-audit revision numbering is serialized with a session advisory lock.
 The lock and retryable serializable transaction share one pooled connection, so
@@ -212,7 +218,17 @@ query above; unused speculative indexes are removed.
 
 Set `PROMPT_BETTER_DATABASE_URL` to an operator-owned connection reference. Run
 `prompt-better-admin bootstrap-roles` once, then `prompt-better-admin migrate`.
+After migration, change the connection reference to the runtime role option for
+admin/runtime commands and to the collector role option for collection.
 Use `prompt-better-admin doctor` for sanitized readiness output.
+Use `prompt-better-admin storage-inspect` for a read-only JSON report of database,
+relation, and index bytes; live/dead tuple estimates; last vacuum/analyze times;
+and zero-scan indexes. A zero-scan index is a review signal, not proof that it
+should be removed.
+
+If `migrate` or `doctor` reports an incompatible pre-release schema, create an
+encrypted backup if the local data matters, reset that local database, then run
+`migrate`. Upgrade scripts for unreleased schemas remain local-only.
 
 Run `retention-plan --policy UUID --as-of RFC3339` before each purge. Apply with
 `retention-apply`, `--archive-directory`, and `--archive-key-reference`; provide

@@ -41,6 +41,16 @@ func TestRepositoryIntegration(t *testing.T) {
 			t.Fatalf("unexpected doctor diagnostics: %+v", result)
 		}
 	})
+	t.Run("storage inspection is read only and complete", func(t *testing.T) {
+		inspection, err := repo.InspectStorage(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if inspection.DatabaseBytes < 1 || inspection.MaxDatabaseBytes != maxLocalDatabaseBytes ||
+			len(inspection.Relations) != 32 || len(inspection.Indexes) == 0 {
+			t.Fatalf("unexpected storage inspection: %+v", inspection)
+		}
+	})
 
 	base := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	project := Project{
@@ -346,9 +356,14 @@ func TestRepositoryIntegration(t *testing.T) {
 		cacheTTL := int64(300)
 		stateHash := sha256.Sum256([]byte("synthetic-state-epoch"))
 		callHash := sha256.Sum256([]byte("synthetic-redacted-call"))
+		planHash := sha256.Sum256([]byte("synthetic-plan"))
+		policyHash := sha256.Sum256([]byte("synthetic-policy"))
+		maxToolLoops := int64(8)
+		attributionConfidence := 0.9
 		item := Evidence{
 			ID: "31000000-0000-0000-0000-000000000021", SourceID: atomicSource.ID,
-			ProjectID: &project.ID, SessionID: &sessionID, ExternalAliasID: &alias, SchemaVersion: "1.0.0", ContentHash: hash[:],
+			ProjectID: &project.ID, SessionID: &sessionID, ExternalAliasID: &alias,
+			SchemaVersion: "1.0.0", SourceVersion: "adapter-v1", ContentHash: hash[:],
 			ContentLength: 25, Classification: "internal", RedactionState: "not_needed",
 			CoverageState: "complete", Provenance: "runtime_observed",
 			ProductSurface: "local", ObservedAt: base,
@@ -361,7 +376,8 @@ func TestRepositoryIntegration(t *testing.T) {
 			},
 			Runtime: RuntimeObservation{
 				Phase: "commentary", PhaseEvent: "completed", ResponseEvent: "completed",
-				ModelVariant: "synthetic", ReasoningEffort: "medium",
+				TaskAttribution: "attributed",
+				ModelVariant:    "synthetic", ReasoningEffort: "medium",
 				ToolOutcome: "success", ResultState: "complete",
 				CanonicalCallHash: callHash[:],
 				StateEpochID:      "31000000-0000-0000-0000-000000000037",
@@ -373,6 +389,13 @@ func TestRepositoryIntegration(t *testing.T) {
 				CheckpointEvent: "checkpointed", BoundaryEvent: "allowed",
 				DelegationEvent: "none", StopEvent: "completed",
 				CompactionEvent: "none",
+				Plan:            &PlanSnapshot{Hash: planHash[:], PhaseScope: "execution", ApprovalBoundary: "explicit"},
+				Budget: &BudgetSnapshot{Enforcement: "host", MaxToolLoops: &maxToolLoops,
+					DelegationPolicy: "bounded", ExhaustionOutcome: "stop"},
+				Policy: &PolicySnapshot{SchemaVersion: "policy-v1", Hash: policyHash[:]},
+				HostCapability: &HostCapabilitySnapshot{HostKind: "codex", HostVersion: "1",
+					CapabilityName: "shell", CapabilityState: "available"},
+				AttributionConfidence: &attributionConfidence,
 			},
 		}
 		batch := CollectionBatch{
@@ -384,12 +407,25 @@ func TestRepositoryIntegration(t *testing.T) {
 			t.Fatalf("lease acquired=%t error=%v", acquired, err)
 		}
 		batch.Fence = fence
+		limited := *repo
+		limited.maxDatabaseBytes = 1
+		if _, err := limited.CommitCollection(ctx, batch); !errors.Is(err, ErrStorageBudgetExceeded) {
+			t.Fatalf("storage error = %v, want %v", err, ErrStorageBudgetExceeded)
+		}
+		var databaseBytes int64
+		if err := repo.pool.QueryRow(ctx, `SELECT pg_database_size(current_database())`).Scan(&databaseBytes); err != nil {
+			t.Fatal(err)
+		}
+		limited.maxDatabaseBytes = databaseBytes + estimatedCollectionBytes(batch.Evidence)
+		if _, err := limited.CommitCollection(ctx, batch); !errors.Is(err, ErrStorageBudgetExceeded) {
+			t.Fatalf("near-cap storage error = %v, want %v", err, ErrStorageBudgetExceeded)
+		}
 		committed, err := repo.CommitCollection(ctx, batch)
 		if err != nil || !committed {
 			t.Fatalf("first commit=%t error=%v", committed, err)
 		}
 		var normalizedCount int
-		if err := repo.pool.QueryRow(ctx, `SELECT count(*)
+		if err := repo.pool.QueryRow(ctx, `SELECT count(DISTINCT e.evidence_artifact_id)
 			FROM prompt_better.evidence_artifacts e
 			JOIN prompt_better.sessions s ON s.session_id=e.session_id
 			JOIN prompt_better.trajectories tr ON tr.session_id=s.session_id
@@ -400,16 +436,48 @@ func TestRepositoryIntegration(t *testing.T) {
 			JOIN prompt_better.state_epochs epoch ON epoch.state_epoch_id=c.state_epoch_id
 			JOIN prompt_better.items i ON i.response_id=r.response_id
 			JOIN prompt_better.phases p ON p.response_id=r.response_id
-			JOIN prompt_better.usage_observations u ON u.evidence_artifact_id=e.evidence_artifact_id
-			JOIN prompt_better.cache_observations cache ON cache.evidence_artifact_id=e.evidence_artifact_id
-			JOIN prompt_better.checkpoints checkpoint ON checkpoint.session_id=s.session_id
-			JOIN prompt_better.boundaries boundary ON boundary.session_id=s.session_id
-			JOIN prompt_better.delegation_events delegation ON delegation.trajectory_id=tr.trajectory_id
-			JOIN prompt_better.compaction_events compaction ON compaction.trajectory_id=tr.trajectory_id
-			JOIN prompt_better.stop_events stop ON stop.trajectory_id=tr.trajectory_id
+			JOIN prompt_better.observations u ON u.evidence_artifact_id=e.evidence_artifact_id AND u.observation_kind='usage'
+			JOIN prompt_better.observations cache ON cache.evidence_artifact_id=e.evidence_artifact_id AND cache.observation_kind='cache'
+			JOIN prompt_better.execution_events checkpoint ON checkpoint.session_id=s.session_id AND checkpoint.event_kind='checkpoint'
+			JOIN prompt_better.execution_events boundary ON boundary.session_id=s.session_id AND boundary.event_kind='boundary'
+			JOIN prompt_better.execution_events delegation ON delegation.trajectory_id=tr.trajectory_id AND delegation.event_kind='delegation'
+			JOIN prompt_better.execution_events compaction ON compaction.trajectory_id=tr.trajectory_id AND compaction.event_kind='compaction'
+			JOIN prompt_better.execution_events stop ON stop.trajectory_id=tr.trajectory_id AND stop.event_kind='stop'
 			WHERE e.evidence_artifact_id=$1`, item.ID).Scan(&normalizedCount); err != nil || normalizedCount != 1 {
 			t.Fatalf("normalized governance handoff count=%d error=%v", normalizedCount, err)
 		}
+		var replayEventCount, replayObservationCount int
+		if err := repo.pool.QueryRow(ctx, `SELECT count(*) FROM prompt_better.execution_events
+			WHERE project_id=$1 AND event_kind IN ('plan_snapshot','budget_snapshot','policy_snapshot','host_capability')`,
+			project.ID).Scan(&replayEventCount); err != nil || replayEventCount != 4 {
+			t.Fatalf("replay event count=%d error=%v", replayEventCount, err)
+		}
+		if err := repo.pool.QueryRow(ctx, `SELECT count(*) FROM prompt_better.observations
+			WHERE evidence_artifact_id=$1 AND observation_kind IN ('project_attribution','source_assertion')`,
+			item.ID).Scan(&replayObservationCount); err != nil || replayObservationCount != 2 {
+			t.Fatalf("replay observation count=%d error=%v", replayObservationCount, err)
+		}
+		var versionedFactCount int
+		if err := repo.pool.QueryRow(ctx, `SELECT count(*) FROM prompt_better.observations
+			WHERE evidence_artifact_id=$1 AND observation_kind IN ('usage','cache')
+			  AND source_adapter='collector' AND source_version='adapter-v1'`,
+			item.ID).Scan(&versionedFactCount); err != nil || versionedFactCount != 2 {
+			t.Fatalf("versioned fact count=%d error=%v", versionedFactCount, err)
+		}
+		var toolCallCount int
+		var stopReason string
+		if err := repo.pool.QueryRow(ctx, `SELECT tool_call_count,stop_reason
+			FROM prompt_better.tool_loop_summaries WHERE trajectory_id=$1`,
+			item.Lineage.TrajectoryID).Scan(&toolCallCount, &stopReason); err != nil ||
+			toolCallCount != 1 || stopReason != "completed" {
+			t.Fatalf("tool loop calls=%d stop=%q error=%v", toolCallCount, stopReason, err)
+		}
+		inspection, err := repo.InspectStorage(ctx)
+		if err != nil || inspection.EvidenceCount < 1 || inspection.BytesPerEvidence < 1 {
+			t.Fatalf("storage facts=%+v error=%v", inspection, err)
+		}
+		t.Logf("storage tables=%d indexes=%d bytes_per_evidence=%d",
+			len(inspection.Relations), len(inspection.Indexes), inspection.BytesPerEvidence)
 		currentAudit, provenance, err := repo.AuditSession(ctx, sessionID, []string{atomicSource.Kind}, nil)
 		if err != nil || currentAudit.Coverage != contracts.CoverageStateComplete || len(currentAudit.EvidenceRefs) != 1 || len(provenance) != 1 {
 			t.Fatalf("current audit=%+v provenance=%v error=%v", currentAudit, provenance, err)
@@ -490,6 +558,7 @@ func TestRepositoryIntegration(t *testing.T) {
 		missing.ContentHash = missingHash[:]
 		missing.CoverageState = "partial"
 		missing.Lineage = EvidenceLineage{}
+		missing.Runtime = RuntimeObservation{}
 		unlinked := batch
 		unlinked.BatchID = "synthetic-batch-unlinked"
 		unlinked.Next = 2

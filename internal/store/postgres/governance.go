@@ -112,8 +112,18 @@ func persistAuditProject(ctx context.Context, tx pgx.Tx,
 	err = func() error {
 		if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.audit_windows
 			(audit_window_id,project_id,window_kind,starts_at,ends_at,as_of,
-			 timezone_name,immutable_since)
-			VALUES ($1,$2,$3,$4,$5,$6,'UTC',$6)
+			 timezone_name,immutable_since,policy_schema_version,policy_hash,
+			 raw_retention_enabled,telemetry_enabled)
+			SELECT $1,$2,$3,$4,$5,$6,'UTC',$6,policy.event_name,policy.content_hash,
+			 (policy.attributes->>'raw_retention_enabled')::boolean,
+			 (policy.attributes->>'telemetry_enabled')::boolean
+			FROM (VALUES (1)) singleton(value)
+			LEFT JOIN LATERAL (
+			 SELECT event_name,content_hash,attributes
+			 FROM prompt_better.execution_events
+			 WHERE event_kind='policy_snapshot' AND project_id=$2 AND observed_at <= $6
+			 ORDER BY observed_at DESC,execution_event_id DESC LIMIT 1
+			) policy ON true
 			ON CONFLICT (audit_window_id) DO NOTHING`,
 			windowID, projectID, string(request.Scope), request.StartsAt,
 			request.EndsAt, request.AsOf); err != nil {
@@ -168,11 +178,11 @@ func persistAuditProject(ctx context.Context, tx pgx.Tx,
 		for _, confounder := range result.Confounders {
 			confounderID := collectionBatchUUID(revisionID + ":confounder:" +
 				confounder.Kind + ":" + confounder.State + ":" + confounder.Provenance)
-			if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.confounder_labels
-				(confounder_label_id,audit_revision_id,label_kind,label_state,
-				 provenance,confidence,observed_at)
-				VALUES ($1,$2,$3,$4,$5,$6,$7)
-				ON CONFLICT (confounder_label_id) DO NOTHING`,
+			if _, err := tx.Exec(ctx, `INSERT INTO prompt_better.observations
+				(observation_id,observation_kind,schema_version,audit_revision_id,
+				 metric_kind,state_value,provenance,confidence,observed_at,knowledge_state)
+				VALUES ($1,'confounder','1',$2,$3,$4,$5,$6,$7,'observed')
+				ON CONFLICT (observation_id) DO NOTHING`,
 				confounderID, revisionID, confounder.Kind, confounder.State,
 				confounder.Provenance, confidenceValue(confounder.Confidence),
 				request.AsOf); err != nil {
@@ -863,8 +873,8 @@ func (source projectAuditSource) contributions(ctx context.Context,
 			FROM class_counts GROUP BY trajectory_id
 		), usage_by_trajectory AS (
 			SELECT trajectory_id,coalesce(sum(value_numeric),0) AS tokens
-			FROM prompt_better.usage_observations
-			WHERE metric_kind='total_tokens' AND observed_at >= $1 AND observed_at < $2
+			FROM prompt_better.observations
+			WHERE observation_kind='usage' AND metric_kind='total_tokens' AND observed_at >= $1 AND observed_at < $2
 			  AND observed_at <= $3::timestamptz
 			GROUP BY trajectory_id
 		), project_values AS (
@@ -925,11 +935,12 @@ func (source projectAuditSource) confounders(ctx context.Context,
 		return nil, err
 	}
 	query := fmt.Sprintf(`
-		SELECT DISTINCT label.label_kind,label.label_state,label.provenance,
+		SELECT DISTINCT label.metric_kind,label.state_value,label.provenance,
 			coalesce(label.confidence,0)
 		FROM prompt_better.sessions s
 		LEFT JOIN prompt_better.trajectories tr ON tr.session_id=s.session_id
-		JOIN prompt_better.confounder_labels label ON label.trajectory_id=tr.trajectory_id
+		JOIN prompt_better.observations label ON label.trajectory_id=tr.trajectory_id
+			AND label.observation_kind='confounder'
 		WHERE %s AND label.observed_at >= $1 AND label.observed_at < $2
 		  AND label.observed_at <= $3::timestamptz
 		ORDER BY 1,2,3`, filter)
@@ -1053,8 +1064,8 @@ func (source projectAuditSource) workloadValues(ctx context.Context,
 			  AND t.observed_at <= $3::timestamptz
 		), usage_by_trajectory AS (
 			SELECT trajectory_id, coalesce(sum(value_numeric),0) AS tokens
-			FROM prompt_better.usage_observations
-			WHERE metric_kind='total_tokens' AND observed_at >= $1 AND observed_at < $2
+			FROM prompt_better.observations
+			WHERE observation_kind='usage' AND metric_kind='total_tokens' AND observed_at >= $1 AND observed_at < $2
 			  AND observed_at <= $3::timestamptz
 			GROUP BY trajectory_id
 		), class_counts AS (
@@ -1379,13 +1390,14 @@ func (source projectAuditSource) confounderSignature(ctx context.Context,
 		return "", err
 	}
 	query := fmt.Sprintf(`
-		SELECT DISTINCT label.label_kind,label.label_state,label.provenance
+		SELECT DISTINCT label.metric_kind,label.state_value,label.provenance
 		FROM prompt_better.sessions s
 		LEFT JOIN prompt_better.trajectories tr ON tr.session_id=s.session_id
-		LEFT JOIN prompt_better.confounder_labels label ON label.trajectory_id=tr.trajectory_id
+		LEFT JOIN prompt_better.observations label ON label.trajectory_id=tr.trajectory_id
+			AND label.observation_kind='confounder'
 			AND label.observed_at >= $1 AND label.observed_at < $2
 			AND label.observed_at <= $3::timestamptz
-		WHERE %s AND label.label_kind IS NOT NULL ORDER BY 1,2,3`, filter)
+		WHERE %s AND label.metric_kind IS NOT NULL ORDER BY 1,2,3`, filter)
 	rows, err := source.query.Query(ctx, query, args...)
 	if err != nil {
 		return "", databaseError("query audit confounder signature", err)
@@ -1596,34 +1608,35 @@ func (source projectAuditSource) metrics(
 			(SELECT count(*) FROM prompt_better.turns t
 			 JOIN selected_turns selected_turn ON selected_turn.turn_id=t.turn_id
 			 WHERE t.task_id IS NOT NULL),
-			(SELECT count(*) FROM prompt_better.boundaries boundary
+			(SELECT count(*) FROM prompt_better.execution_events boundary
 			 JOIN selected_sessions selected_scope ON selected_scope.session_id=boundary.session_id
-			 WHERE boundary.observed_at >= $1 AND boundary.observed_at < $2
+			 WHERE boundary.event_kind='boundary' AND boundary.observed_at >= $1 AND boundary.observed_at < $2
 			   AND boundary.observed_at <= $3::timestamptz AND %s),
-			(SELECT count(*) FROM prompt_better.boundaries boundary
+			(SELECT count(*) FROM prompt_better.execution_events boundary
 			 JOIN selected_sessions selected_scope ON selected_scope.session_id=boundary.session_id
-			 WHERE boundary.observed_at >= $1 AND boundary.observed_at < $2
+			 WHERE boundary.event_kind='boundary' AND boundary.observed_at >= $1 AND boundary.observed_at < $2
 			   AND boundary.observed_at <= $3::timestamptz
 			   AND boundary.outcome IN ('denied','violated') AND %s),
-			(SELECT count(*) FROM prompt_better.checkpoints checkpoint
+			(SELECT count(*) FROM prompt_better.execution_events checkpoint
 			 JOIN selected_sessions selected_scope ON selected_scope.session_id=checkpoint.session_id
-			 WHERE checkpoint.created_at >= $1 AND checkpoint.created_at < $2
-			   AND checkpoint.created_at <= $3::timestamptz AND %s),
-			(SELECT count(*) FROM prompt_better.checkpoints checkpoint
+			 WHERE checkpoint.event_kind='checkpoint' AND checkpoint.observed_at >= $1 AND checkpoint.observed_at < $2
+			   AND checkpoint.observed_at <= $3::timestamptz AND %s),
+			(SELECT count(*) FROM prompt_better.execution_events checkpoint
 			 JOIN selected_sessions selected_scope ON selected_scope.session_id=checkpoint.session_id
-			 WHERE checkpoint.created_at >= $1 AND checkpoint.created_at < $2
-			   AND checkpoint.created_at <= $3::timestamptz
-			   AND checkpoint.completed_count > 0 AND checkpoint.next_action_count > 0
-			   AND checkpoint.gate_count > 0 AND %s),
+			 WHERE checkpoint.event_kind='checkpoint' AND checkpoint.observed_at >= $1 AND checkpoint.observed_at < $2
+			   AND checkpoint.observed_at <= $3::timestamptz
+			   AND (checkpoint.attributes->>'completed_count')::bigint > 0
+			   AND (checkpoint.attributes->>'next_action_count')::bigint > 0
+			   AND (checkpoint.attributes->>'gate_count')::bigint > 0 AND %s),
 			(SELECT coalesce(sum(u.value_numeric), 0)
-			 FROM prompt_better.usage_observations u
+			 FROM prompt_better.observations u
 			 JOIN selected selected_scope ON selected_scope.trajectory_id=u.trajectory_id
-			 WHERE u.metric_kind='total_tokens' AND u.observed_at >= $1 AND u.observed_at < $2
+			 WHERE u.observation_kind='usage' AND u.metric_kind='total_tokens' AND u.observed_at >= $1 AND u.observed_at < $2
 			   AND u.observed_at <= $3::timestamptz),
 			(SELECT coalesce(sum(u.value_numeric), 0)
-			 FROM prompt_better.usage_observations u
+			 FROM prompt_better.observations u
 			 JOIN selected selected_scope ON selected_scope.trajectory_id=u.trajectory_id
-			 WHERE u.metric_kind='non_cached_input_tokens' AND u.observed_at >= $1 AND u.observed_at < $2
+			 WHERE u.observation_kind='usage' AND u.metric_kind='non_cached_input_tokens' AND u.observed_at >= $1 AND u.observed_at < $2
 			   AND u.observed_at <= $3::timestamptz),
 			(SELECT count(*) FROM selected_tools),
 			(SELECT count(*) FROM selected_tools WHERE tool_kind='passive_wait'),
@@ -1716,11 +1729,12 @@ func (source projectAuditSource) overhead(
 	args []any,
 ) (metrics.Input, error) {
 	query := fmt.Sprintf(`
-		SELECT coalesce(sum(go.native_value) FILTER (WHERE go.native_unit='tokens'), 0),
-			count(DISTINCT go.governance_overhead_id)
+		SELECT coalesce(sum(go.value_numeric) FILTER (WHERE go.native_unit='tokens'), 0),
+			count(DISTINCT go.observation_id)
 		FROM prompt_better.sessions s
 		LEFT JOIN prompt_better.trajectories tr ON tr.session_id=s.session_id
-		LEFT JOIN prompt_better.governance_overhead go ON go.trajectory_id=tr.trajectory_id
+		LEFT JOIN prompt_better.observations go ON go.trajectory_id=tr.trajectory_id
+			AND go.observation_kind='governance_overhead'
 			AND go.observed_at >= $1 AND go.observed_at < $2
 			AND go.observed_at <= $3::timestamptz
 		WHERE %s`, filter)

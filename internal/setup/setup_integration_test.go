@@ -18,7 +18,7 @@ func TestDoctor_PostgreSQLFixtureReady(t *testing.T) {
 	if dsn == "" {
 		t.Skip("TEST_DATABASE_URL not set")
 	}
-	t.Setenv(databaseEnv, dsn)
+	t.Setenv(databaseEnv, setupRoleDSN(t))
 	checks := doctorChecks(context.Background(), t.TempDir(), t.TempDir()+"/integration.json", &fakeRunner{})
 	for _, check := range checks {
 		if check.Name == "database" {
@@ -62,9 +62,18 @@ func TestDoctor_PostgreSQLConfiguredCollectorReady(t *testing.T) {
 	if err := os.WriteFile(configPath, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv(databaseEnv, dsn)
+	t.Setenv(databaseEnv, setupRoleDSN(t))
 	checks := doctorChecks(ctx, home, configPath, &fakeRunner{})
 	if stateFor(checks, "collectors") != "ready" {
 		t.Fatalf("collector checks=%#v", checks)
 	}
+}
+
+func setupRoleDSN(t *testing.T) string {
+	t.Helper()
+	dsn := os.Getenv("TEST_RUNTIME_DATABASE_URL")
+	if dsn == "" {
+		t.Fatal("TEST_RUNTIME_DATABASE_URL is not set")
+	}
+	return dsn
 }

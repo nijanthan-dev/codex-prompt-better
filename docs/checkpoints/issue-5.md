@@ -1,5 +1,8 @@
 # Issue 5 checkpoints
 
+> Superseded for persistence and schema topology by issue #57's schema-v2
+> baseline. Historical evidence below remains unchanged.
+
 ## Step 1: contracts and ownership
 
 - Base: `9e865569020e2e484c32ba694079520d3b61af55` (`origin/main`).

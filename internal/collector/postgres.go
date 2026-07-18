@@ -99,7 +99,8 @@ func (b *PostgresBackend) Commit(ctx context.Context, commit Commit) (bool, erro
 		items = append(items, postgres.Evidence{
 			ID: id, SourceID: source.SourceID, ProjectID: projectID,
 			SessionID: sessionID, ExternalAliasID: &alias,
-			SchemaVersion: evidence.SchemaVersion, ContentHash: hash, ContentLength: int64(len(record.Attributes)),
+			SchemaVersion: evidence.SchemaVersion, SourceVersion: record.SourceVersion,
+			ContentHash: hash, ContentLength: int64(len(record.Attributes)),
 			Classification: record.Classification, RedactionState: redactionState(record.RedactedFields),
 			CoverageState: string(record.Coverage), Provenance: "runtime_observed",
 			ProductSurface: record.ProductSurface, ObservedAt: record.ObservedAt,
@@ -159,7 +160,102 @@ func runtimeObservation(record evidence.Record) (postgres.RuntimeObservation, er
 	if runtime.CacheValue, err = parseOptionalFloat(attributes["cache_value"]); err != nil {
 		return postgres.RuntimeObservation{}, errors.New("invalid cache value")
 	}
+	if err := parseReplaySnapshots(record, &runtime); err != nil {
+		return postgres.RuntimeObservation{}, err
+	}
 	return runtime, nil
+}
+
+func parseReplaySnapshots(record evidence.Record, runtime *postgres.RuntimeObservation) error {
+	attributes := record.Attributes
+	if anyAttribute(attributes, "plan_hash", "plan_phase_scope", "approval_boundary_class") {
+		hash, err := parseDigest(attributes["plan_hash"])
+		if err != nil || attributes["plan_phase_scope"] == "" || attributes["approval_boundary_class"] == "" {
+			return errors.New("invalid plan snapshot")
+		}
+		runtime.Plan = &postgres.PlanSnapshot{Hash: hash, PhaseScope: attributes["plan_phase_scope"],
+			ApprovalBoundary: attributes["approval_boundary_class"]}
+	}
+	if anyAttribute(attributes, "budget_enforcement", "budget_max_tool_loops", "budget_max_retries",
+		"budget_max_retrieval_expansions", "budget_delegation_policy", "budget_max_agent_depth",
+		"budget_max_concurrency", "budget_context_mode", "budget_exhaustion_outcome") {
+		if runtime.Plan == nil || attributes["budget_enforcement"] == "" ||
+			attributes["budget_delegation_policy"] == "" || attributes["budget_exhaustion_outcome"] == "" {
+			return errors.New("invalid budget snapshot")
+		}
+		budget := &postgres.BudgetSnapshot{
+			Enforcement: attributes["budget_enforcement"], DelegationPolicy: attributes["budget_delegation_policy"],
+			ContextMode: attributes["budget_context_mode"], ExhaustionOutcome: attributes["budget_exhaustion_outcome"],
+		}
+		var err error
+		if budget.MaxToolLoops, err = parseOptionalInt(attributes["budget_max_tool_loops"]); err != nil {
+			return errors.New("invalid budget snapshot")
+		}
+		if budget.MaxRetries, err = parseOptionalInt(attributes["budget_max_retries"]); err != nil {
+			return errors.New("invalid budget snapshot")
+		}
+		if budget.MaxRetrievalExpansions, err = parseOptionalInt(attributes["budget_max_retrieval_expansions"]); err != nil {
+			return errors.New("invalid budget snapshot")
+		}
+		if budget.MaxAgentDepth, err = parseOptionalInt(attributes["budget_max_agent_depth"]); err != nil {
+			return errors.New("invalid budget snapshot")
+		}
+		if budget.MaxConcurrency, err = parseOptionalInt(attributes["budget_max_concurrency"]); err != nil ||
+			budget.MaxConcurrency != nil && *budget.MaxConcurrency < 1 {
+			return errors.New("invalid budget snapshot")
+		}
+		runtime.Budget = budget
+	}
+	if anyAttribute(attributes, "policy_schema_version", "policy_hash", "raw_prompt_retention", "telemetry") {
+		hash, err := parseDigest(attributes["policy_hash"])
+		rawRetention, rawErr := strconv.ParseBool(attributes["raw_prompt_retention"])
+		telemetry, telemetryErr := strconv.ParseBool(attributes["telemetry"])
+		if err != nil || rawErr != nil || telemetryErr != nil || attributes["policy_schema_version"] == "" {
+			return errors.New("invalid policy snapshot")
+		}
+		runtime.Policy = &postgres.PolicySnapshot{SchemaVersion: attributes["policy_schema_version"], Hash: hash,
+			RawRetentionEnabled: rawRetention, TelemetryEnabled: telemetry}
+	}
+	if anyAttribute(attributes, "host_kind", "host_version", "host_capability_name", "host_capability_state") {
+		if attributes["host_capability_name"] == "" || attributes["host_capability_state"] == "" {
+			return errors.New("invalid host capability snapshot")
+		}
+		runtime.HostCapability = &postgres.HostCapabilitySnapshot{HostKind: attributes["host_kind"],
+			HostVersion: attributes["host_version"], CapabilityName: attributes["host_capability_name"],
+			CapabilityState: attributes["host_capability_state"]}
+	}
+	if value := attributes["project_attribution_confidence"]; value != "" {
+		confidence, err := parseOptionalFloat(value)
+		if err != nil || confidence == nil || *confidence > 1 || runtime.TaskAttribution == "" {
+			return errors.New("invalid project attribution")
+		}
+		runtime.AttributionConfidence = confidence
+	}
+	if value := attributes["project_attribution_valid_to"]; value != "" {
+		validTo, err := time.Parse(time.RFC3339, value)
+		if err != nil || !validTo.After(record.ObservedAt) || runtime.TaskAttribution == "" {
+			return errors.New("invalid project attribution")
+		}
+		runtime.AttributionValidTo = &validTo
+	}
+	return nil
+}
+
+func parseDigest(value string) ([]byte, error) {
+	digest, err := hex.DecodeString(value)
+	if err != nil || len(digest) != sha256.Size {
+		return nil, errors.New("invalid digest")
+	}
+	return digest, nil
+}
+
+func anyAttribute(attributes map[string]string, names ...string) bool {
+	for _, name := range names {
+		if attributes[name] != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func parseOptionalInt(value string) (*int64, error) {
